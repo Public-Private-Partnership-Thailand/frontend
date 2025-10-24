@@ -79,13 +79,6 @@ function Navbar() {
               {t('nav.aboutPPP')}
             </Link>
             
-            {/* Create Project (only if authenticated) */}
-            {isAuthenticated && (
-              <Link href="/create" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium">
-                {t('nav.newProject')}
-              </Link>
-            )}
-            
             {/* Language Switcher */}
             <LanguageSwitcher />
             
@@ -166,17 +159,6 @@ function Navbar() {
               >
                 {t('nav.aboutPPP')}
               </Link>
-              
-              {/* Create Project (only if authenticated) */}
-              {isAuthenticated && (
-                <Link 
-                  href="/create" 
-                  className="block px-3 py-2 rounded-md text-base font-medium bg-indigo-600 text-white hover:bg-indigo-700"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {t('nav.newProject')}
-                </Link>
-              )}
               
               {/* Language Switcher */}
               <div className="px-3 py-2">
