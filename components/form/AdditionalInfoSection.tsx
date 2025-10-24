@@ -1,5 +1,6 @@
 import { UseFormRegister, Control, FieldErrors, useFieldArray } from 'react-hook-form'
 import { ProjectFormData } from '@/types/project'
+import { useLanguage } from '@/lib/LanguageContext'
 
 interface AdditionalInfoSectionProps {
   register: UseFormRegister<ProjectFormData>
@@ -8,56 +9,57 @@ interface AdditionalInfoSectionProps {
 }
 
 export default function AdditionalInfoSection({ register, control, errors }: AdditionalInfoSectionProps) {
+  const { t } = useLanguage()
   const { fields: identifierFields, append: appendIdentifier, remove: removeIdentifier } = useFieldArray({
     control,
-    name: 'identifiers'
+    name: 'identifiers' as any
   })
 
   const { fields: locationFields, append: appendLocation, remove: removeLocation } = useFieldArray({
     control,
-    name: 'locations'
+    name: 'locations' as any
   })
 
   const { fields: sectorFields, append: appendSector, remove: removeSector } = useFieldArray({
     control,
-    name: 'sector'
+    name: 'sector' as any
   })
 
   const { fields: classificationFields, append: appendClassification, remove: removeClassification } = useFieldArray({
     control,
-    name: 'additionalClassifications'
+    name: 'additionalClassifications' as any
   })
 
   const { fields: forecastFields, append: appendForecast, remove: removeForecast } = useFieldArray({
     control,
-    name: 'forecasts'
+    name: 'forecasts' as any
   })
 
   const { fields: metricFields, append: appendMetric, remove: removeMetric } = useFieldArray({
     control,
-    name: 'metrics'
+    name: 'metrics' as any
   })
 
   const { fields: milestoneFields, append: appendMilestone, remove: removeMilestone } = useFieldArray({
     control,
-    name: 'milestones'
+    name: 'milestones' as any
   })
 
   return (
     <div className="card">
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">Additional Information</h2>
+      <h2 className="text-xl font-semibold text-gray-900 mb-6">{t('form.additional.title')}</h2>
       
       <div className="space-y-8">
         {/* Identifiers */}
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Identifiers</h3>
+            <h3 className="text-lg font-medium text-gray-900">{t('form.additional.identifiers')}</h3>
             <button
               type="button"
               onClick={() => appendIdentifier('')}
               className="btn-secondary text-sm"
             >
-              Add Identifier
+              {t('form.additional.addIdentifier')}
             </button>
           </div>
           
@@ -66,14 +68,14 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
               <input
                 {...register(`identifiers.${index}`)}
                 className="form-input flex-1"
-                placeholder="Simple identifier"
+                placeholder={t('form.additional.enterIdentifier')}
               />
               <button
                 type="button"
                 onClick={() => removeIdentifier(index)}
                 className="text-red-600 hover:text-red-800 px-2"
               >
-                Remove
+                {t('common.remove')}
               </button>
             </div>
           ))}
@@ -82,13 +84,13 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
         {/* Locations */}
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Delivery Locations</h3>
+            <h3 className="text-lg font-medium text-gray-900">{t('form.additional.deliveryLocations')}</h3>
             <button
               type="button"
               onClick={() => appendLocation('')}
               className="btn-secondary text-sm"
             >
-              Add Location
+              {t('form.additional.addLocation')}
             </button>
           </div>
           
@@ -97,14 +99,14 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
               <input
                 {...register(`locations.${index}`)}
                 className="form-input flex-1"
-                placeholder="Delivery location"
+                placeholder={t('form.additional.enterLocation')}
               />
               <button
                 type="button"
                 onClick={() => removeLocation(index)}
                 className="text-red-600 hover:text-red-800 px-2"
               >
-                Remove
+                {t('common.remove')}
               </button>
             </div>
           ))}
@@ -113,13 +115,13 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
         {/* Sectors */}
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Sectors</h3>
+            <h3 className="text-lg font-medium text-gray-900">{t('form.additional.sectors')}</h3>
             <button
               type="button"
               onClick={() => appendSector('')}
               className="btn-secondary text-sm"
             >
-              Add Sector
+              {t('form.additional.addSector')}
             </button>
           </div>
           
@@ -128,14 +130,14 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
               <input
                 {...register(`sector.${index}`)}
                 className="form-input flex-1"
-                placeholder="Sector name"
+                placeholder={t('form.additional.enterSector')}
               />
               <button
                 type="button"
                 onClick={() => removeSector(index)}
                 className="text-red-600 hover:text-red-800 px-2"
               >
-                Remove
+                {t('common.remove')}
               </button>
             </div>
           ))}
@@ -144,13 +146,13 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
         {/* Additional Classifications */}
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Additional Classifications</h3>
+            <h3 className="text-lg font-medium text-gray-900">{t('form.additional.classifications')}</h3>
             <button
               type="button"
               onClick={() => appendClassification('')}
               className="btn-secondary text-sm"
             >
-              Add Classification
+              {t('form.additional.addClassification')}
             </button>
           </div>
           
@@ -159,14 +161,14 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
               <input
                 {...register(`additionalClassifications.${index}`)}
                 className="form-input flex-1"
-                placeholder="Classification"
+                placeholder={t('form.additional.enterClassification')}
               />
               <button
                 type="button"
                 onClick={() => removeClassification(index)}
                 className="text-red-600 hover:text-red-800 px-2"
               >
-                Remove
+                {t('common.remove')}
               </button>
             </div>
           ))}
@@ -175,13 +177,13 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
         {/* Forecasts */}
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Forecasts</h3>
+            <h3 className="text-lg font-medium text-gray-900">{t('form.additional.forecasts')}</h3>
             <button
               type="button"
               onClick={() => appendForecast('')}
               className="btn-secondary text-sm"
             >
-              Add Forecast
+              {t('form.additional.addForecast')}
             </button>
           </div>
           
@@ -190,14 +192,14 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
               <input
                 {...register(`forecasts.${index}`)}
                 className="form-input flex-1"
-                placeholder="Metric forecast"
+                placeholder={t('form.additional.enterForecast')}
               />
               <button
                 type="button"
                 onClick={() => removeForecast(index)}
                 className="text-red-600 hover:text-red-800 px-2"
               >
-                Remove
+                {t('common.remove')}
               </button>
             </div>
           ))}
@@ -206,13 +208,13 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
         {/* Metrics */}
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Metrics</h3>
+            <h3 className="text-lg font-medium text-gray-900">{t('form.additional.metrics')}</h3>
             <button
               type="button"
               onClick={() => appendMetric('')}
               className="btn-secondary text-sm"
             >
-              Add Metric
+              {t('form.additional.addMetric')}
             </button>
           </div>
           
@@ -221,14 +223,14 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
               <input
                 {...register(`metrics.${index}`)}
                 className="form-input flex-1"
-                placeholder="Metric"
+                placeholder={t('form.additional.enterMetric')}
               />
               <button
                 type="button"
                 onClick={() => removeMetric(index)}
                 className="text-red-600 hover:text-red-800 px-2"
               >
-                Remove
+                {t('common.remove')}
               </button>
             </div>
           ))}
@@ -237,13 +239,13 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
         {/* Milestones */}
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Milestones</h3>
+            <h3 className="text-lg font-medium text-gray-900">{t('form.additional.milestones')}</h3>
             <button
               type="button"
               onClick={() => appendMilestone('')}
               className="btn-secondary text-sm"
             >
-              Add Milestone
+              {t('form.additional.addMilestone')}
             </button>
           </div>
           
@@ -252,14 +254,14 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
               <input
                 {...register(`milestones.${index}`)}
                 className="form-input flex-1"
-                placeholder="Milestone"
+                placeholder={t('form.additional.enterMilestone')}
               />
               <button
                 type="button"
                 onClick={() => removeMilestone(index)}
                 className="text-red-600 hover:text-red-800 px-2"
               >
-                Remove
+                {t('common.remove')}
               </button>
             </div>
           ))}
@@ -267,10 +269,10 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
 
         {/* Completion Information */}
         <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Completion Information</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">{t('form.additional.completionInfo')}</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="form-label">End Date</label>
+              <label className="form-label">{t('form.additional.endDate')}</label>
               <input
                 {...register('completion.endDate')}
                 type="datetime-local"
@@ -278,11 +280,11 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
               />
             </div>
             <div>
-              <label className="form-label">Final Value</label>
+              <label className="form-label">{t('form.additional.finalValue')}</label>
               <input
                 {...register('completion.finalValue.value')}
                 className="form-input"
-                placeholder="Final value"
+                placeholder={t('form.additional.finalValuePlaceholder')}
               />
             </div>
           </div>

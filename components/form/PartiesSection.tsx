@@ -1,5 +1,6 @@
 import { UseFormRegister, Control, FieldErrors, useFieldArray } from 'react-hook-form'
 import { ProjectFormData } from '@/types/project'
+import { useLanguage } from '@/lib/LanguageContext'
 
 interface PartiesSectionProps {
   register: UseFormRegister<ProjectFormData>
@@ -8,15 +9,16 @@ interface PartiesSectionProps {
 }
 
 export default function PartiesSection({ register, control, errors }: PartiesSectionProps) {
+  const { t } = useLanguage()
   const { fields, append, remove } = useFieldArray({
     control,
-    name: 'parties'
+    name: 'parties' as any
   })
 
   return (
     <div className="card">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold text-gray-900">Parties & Stakeholders</h2>
+        <h2 className="text-xl font-semibold text-gray-900">{t('form.parties.title')}</h2>
         <button
           type="button"
           onClick={() => append({
@@ -27,7 +29,7 @@ export default function PartiesSection({ register, control, errors }: PartiesSec
           })}
           className="btn-secondary text-sm"
         >
-          Add Party
+          {t('form.parties.addParty')}
         </button>
       </div>
       
@@ -41,17 +43,17 @@ export default function PartiesSection({ register, control, errors }: PartiesSec
                 onClick={() => remove(index)}
                 className="text-red-600 hover:text-red-800 text-sm"
               >
-                Remove Party
+{t('form.parties.removeParty')}
               </button>
             </div>
             
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="form-label">Name *</label>
+                <label className="form-label">{t('form.parties.partyName')} *</label>
                 <input
-                  {...register(`parties.${index}.name`, { required: 'Party name is required' })}
+                  {...register(`parties.${index}.name`, { required: t('common.required') })}
                   className="form-input"
-                  placeholder="Enter party name"
+                  placeholder={t('form.parties.enterPartyName')}
                 />
                 {errors.parties?.[index]?.name && (
                   <p className="mt-1 text-sm text-red-600">{errors.parties[index]?.name?.message}</p>
@@ -59,11 +61,11 @@ export default function PartiesSection({ register, control, errors }: PartiesSec
               </div>
               
               <div>
-                <label className="form-label">ID</label>
+                <label className="form-label">{t('form.parties.partyId')}</label>
                 <input
                   {...register(`parties.${index}.id`)}
                   className="form-input"
-                  placeholder="Enter party ID"
+                  placeholder={t('form.parties.enterPartyId')}
                 />
               </div>
             </div>
@@ -90,11 +92,11 @@ export default function PartiesSection({ register, control, errors }: PartiesSec
                 </div>
                 
                 <div>
-                  <label className="form-label">Legal Name</label>
+                  <label className="form-label">{t('form.parties.legalName')}</label>
                   <input
                     {...register(`parties.${index}.identifier.LegalName`)}
                     className="form-input"
-                    placeholder="Legal name"
+                    placeholder={t('form.parties.enterLegalName')}
                   />
                 </div>
                 

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { ProjectFormData } from '@/types/project'
+import { useLanguage } from '@/lib/LanguageContext'
 import BasicInfoSection from '@/components/form/BasicInfoSection'
 import BudgetSection from '@/components/form/BudgetSection'
 import PeriodSection from '@/components/form/PeriodSection'
@@ -10,6 +11,7 @@ import PartiesSection from '@/components/form/PartiesSection'
 import AdditionalInfoSection from '@/components/form/AdditionalInfoSection'
 
 export default function CreateProjectPage() {
+  const { t } = useLanguage()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
 
@@ -61,23 +63,16 @@ export default function CreateProjectPage() {
     setSubmitStatus('idle')
 
     try {
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      })
-
-      if (response.ok) {
-        setSubmitStatus('success')
-        // Reset form or redirect
-        setTimeout(() => {
-          window.location.href = '/'
-        }, 2000)
-      } else {
-        setSubmitStatus('error')
-      }
+      // For static app, we'll just show success message
+      // In a real static app, you might want to save to localStorage or show a message
+      console.log('Project data:', data)
+      
+      setSubmitStatus('success')
+      
+      // Reset form or redirect after showing success
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 2000)
     } catch (error) {
       console.error('Error creating project:', error)
       setSubmitStatus('error')
@@ -89,9 +84,9 @@ export default function CreateProjectPage() {
   return (
     <div className="px-4 sm:px-0">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Create New Project</h1>
+        <h1 className="text-3xl font-bold text-gray-900">{t('pages.create.title')}</h1>
         <p className="mt-2 text-gray-600">
-          Fill in the project details below
+          {t('pages.create.subtitle')}
         </p>
       </div>
 
@@ -108,14 +103,14 @@ export default function CreateProjectPage() {
             onClick={() => window.history.back()}
             className="btn-secondary"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
             className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSubmitting ? 'Creating...' : 'Create Project'}
+            {isSubmitting ? t('common.creating') : t('common.create')}
           </button>
         </div>
 
@@ -129,7 +124,7 @@ export default function CreateProjectPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-green-800">
-                  Project created successfully! Redirecting...
+                  {t('pages.create.success')}
                 </p>
               </div>
             </div>
@@ -146,7 +141,7 @@ export default function CreateProjectPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-red-800">
-                  Error creating project. Please try again.
+                  {t('pages.create.error')}
                 </p>
               </div>
             </div>

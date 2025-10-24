@@ -77,6 +77,7 @@ export interface ProjectData {
   milestones: string[];
   completion: Completion;
   Documents: any[];
+  dataSource: string;
 }
 
 export interface ProjectFormData extends Omit<ProjectData, 'id' | 'updated'> {

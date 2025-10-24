@@ -1,112 +1,138 @@
-# Project Management Web Application
+# Thailand Public-Private Partnership Platform
 
-A modern, responsive web application built with Next.js 14, TypeScript, and Tailwind CSS for managing complex project data structures.
+A comprehensive web platform for managing and visualizing Thailand's Public-Private Partnership (PPP) projects.
 
 ## Features
 
-- **Modern UI/UX**: Clean, intuitive interface with responsive design
-- **Form Management**: Comprehensive forms with validation using React Hook Form
-- **CRUD Operations**: Full Create, Read, Update, Delete functionality
-- **Type Safety**: Full TypeScript support with proper type definitions
-- **Mock API**: Complete API routes for testing and development
-- **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
+### 🏠 Home Page
+- **Hero Banner**: Eye-catching banner with call-to-action buttons
+- **Interactive Thailand Map**: Leaflet-based map showing project locations with markers
+- **Top 10 Projects Table**: Displays the highest budget projects with quick access to details
+- **Additional Project Cards**: Grid view of remaining projects
 
-## Project Structure
+### 📊 Projects Dashboard
+- **Statistics Cards**: Total projects, investment, active/completed counts
+- **Interactive Charts**: 
+  - Bar chart showing projects by sector
+  - Doughnut chart showing projects by status
+  - Line chart showing investment trends over time
+- **Recent Projects Table**: Latest projects with key metrics
 
-The application handles complex project data including:
+### 📋 Projects Page
+- **Advanced Filtering**: Filter by sector, status, location, and search terms
+- **Pagination**: 20 projects per page with navigation controls
+- **CSV Export**: Export filtered data to CSV format
+- **Responsive Table**: Full project details with action buttons
+- **Authentication-based Actions**: Create/Edit buttons only visible when signed in
 
-- Basic project information (title, description, status, type)
-- Budget details with breakdowns and financing arrangements
-- Project periods (implementation, completion, maintenance, decommissioning)
-- Parties and stakeholders with identifier information
-- Additional metadata (locations, sectors, classifications, forecasts, metrics, milestones)
+### 🔐 Authentication System
+- **Mock Authentication**: Demo accounts for testing
+- **Sign In/Sign Out**: Full authentication flow
+- **Protected Routes**: Create project functionality requires authentication
+- **Demo Account**: `demo@ppp.go.th` / `demo123`
+
+### 🌐 Multi-language Support
+- **English & Thai**: Complete translations for all interface elements
+- **Language Switcher**: Easy switching between languages
+- **Context-aware**: Maintains language preference across pages
+
+### 🗺️ Interactive Map
+- **Thailand Focus**: Centered on Thailand with appropriate zoom level
+- **Project Markers**: Clickable markers showing project details
+- **Popup Information**: Project name, sector, status, and cost
+- **Responsive Design**: Works on all screen sizes
 
 ## Technology Stack
 
-- **Framework**: Next.js 14 with App Router
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Forms**: React Hook Form
-- **Icons**: Lucide React
-- **Date Handling**: React DatePicker
+- **Next.js 14**: React framework with App Router
+- **TypeScript**: Type-safe development
+- **Tailwind CSS**: Utility-first CSS framework
+- **Chart.js**: Interactive charts and visualizations
+- **React Leaflet**: Interactive maps
+- **Papa Parse**: CSV export functionality
+- **React Hook Form**: Form management
+- **Lucide React**: Icon library
+
+## Project Structure
+
+```
+app/
+├── layout.tsx          # Main layout with navigation and footer
+├── page.tsx           # Home page with banner, map, and top projects
+├── dashboard/         # Projects dashboard with charts
+├── projects/          # All projects page with filters and pagination
+├── about/            # About PPP information page
+├── signin/           # Authentication page
+├── create/           # Create new project (existing)
+├── edit/[id]/        # Edit project (existing)
+└── view/[id]/        # View project details (existing)
+
+components/
+├── ThailandMap.tsx    # Interactive Thailand map component
+├── ProjectCard.tsx    # Project card component (existing)
+├── LoadingSpinner.tsx # Loading component (existing)
+└── LanguageSwitcher.tsx # Language switcher (existing)
+
+lib/
+├── AuthContext.tsx    # Authentication context and provider
+├── LanguageContext.tsx # Language context (existing)
+├── translations.ts    # Translation strings (updated)
+└── projectService.ts # Project data service (existing)
+
+data/
+└── ppp-projects.ts    # Project data (existing)
+```
 
 ## Getting Started
 
-1. **Install dependencies**:
+1. **Install Dependencies**
    ```bash
    npm install
    ```
 
-2. **Run the development server**:
+2. **Run Development Server**
    ```bash
    npm run dev
    ```
 
-3. **Open your browser**:
-   Navigate to [http://localhost:3000](http://localhost:3000)
+3. **Open Browser**
+   Navigate to `http://localhost:3000`
 
-## Available Scripts
+## Demo Accounts
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
+- **Demo User**: `demo@ppp.go.th` / `demo123`
+- **Admin User**: `admin@ppp.go.th` / `demo123`
+- **Regular User**: `user@ppp.go.th` / `demo123`
 
-## API Endpoints
+## Key Features Implemented
 
-### Projects
-- `GET /api/projects` - Get all projects
-- `POST /api/projects` - Create a new project
-- `GET /api/projects/[id]` - Get a specific project
-- `PUT /api/projects/[id]` - Update a specific project
-- `DELETE /api/projects/[id]` - Delete a specific project
+✅ **Project Branding**: Updated to Thailand PPP Platform  
+✅ **Navigation Menu**: Home, Projects dropdown, About PPP, Sign In  
+✅ **Footer**: Thailand government links and information  
+✅ **Home Page**: Banner, Thailand map, top 10 projects table  
+✅ **Dashboard**: Chart.js visualizations with project statistics  
+✅ **Projects Page**: Table with pagination, filters, and CSV export  
+✅ **Authentication**: Mock authentication system with demo accounts  
+✅ **Multi-language**: English and Thai translations  
+✅ **Interactive Map**: Leaflet map with Thailand focus and project markers  
 
-## Form Sections
+## Data Source
 
-The application includes organized form sections:
-
-1. **Basic Information**: Title, description, status, type, purpose, public authority
-2. **Budget Information**: Budget details, amounts, breakdowns, financing arrangements
-3. **Project Periods**: Main period, implementation, completion, maintenance, decommissioning
-4. **Parties & Stakeholders**: Project parties with identifier information
-5. **Additional Information**: Identifiers, locations, sectors, classifications, forecasts, metrics, milestones, completion details
-
-## Design Features
-
-- **Card-based Layout**: Clean, organized information display
-- **Progressive Disclosure**: Complex forms broken into manageable sections
-- **Dynamic Arrays**: Add/remove items for lists (parties, locations, etc.)
-- **Status Indicators**: Visual status badges with color coding
-- **Responsive Grid**: Adapts to different screen sizes
-- **Loading States**: Smooth loading indicators
-- **Error Handling**: Comprehensive error messages and validation
-
-## Mock Data
-
-The application includes sample projects to demonstrate functionality:
-
-1. **Digital Infrastructure Development Project** - Active infrastructure project
-2. **Smart City Transportation System** - Planning phase smart city initiative
+The platform uses real Thailand PPP project data including:
+- Transportation projects (railways, airports, ports)
+- Infrastructure development
+- Public services
+- Project costs, timelines, and status information
 
 ## Future Enhancements
 
-- Database integration (PostgreSQL, MongoDB)
-- User authentication and authorization
-- File upload for documents
-- Advanced search and filtering
-- Export functionality (PDF, Excel)
-- Real-time updates
-- Project templates
-- Dashboard analytics
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+- Real authentication system integration
+- Advanced analytics and reporting
+- Project document management
+- Real-time project updates
+- Mobile application
+- API integration with government systems
 
 ## License
 
-This project is licensed under the MIT License.
+This project is for demonstration purposes and uses public domain data from Thailand's PPP projects.

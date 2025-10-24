@@ -1,11 +1,258 @@
+'use client'
+
 import '../styles/globals.css'
 import { Inter } from 'next/font/google'
+import { LanguageProvider } from '@/lib/LanguageContext'
+import { AuthProvider } from '@/lib/AuthContext'
+import LanguageSwitcher from '@/components/LanguageSwitcher'
+import { useLanguage } from '@/lib/LanguageContext'
+import { useAuth } from '@/lib/AuthContext'
+import Link from 'next/link'
+import { useState } from 'react'
 
 const inter = Inter({ subsets: ['latin'] })
 
-export const metadata = {
-  title: 'Project Management App',
-  description: 'A modern web application for managing project data',
+function Navbar() {
+  const { t, isHydrated } = useLanguage()
+  const { user, signOut, isAuthenticated } = useAuth()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  
+  // Don't render until hydrated to prevent flash
+  if (!isHydrated) {
+    return (
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center">
+              <div className="h-6 w-32 bg-gray-200 animate-pulse rounded"></div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>
+              <div className="h-8 w-24 bg-gray-200 animate-pulse rounded"></div>
+              <div className="h-8 w-20 bg-gray-200 animate-pulse rounded"></div>
+            </div>
+          </div>
+        </div>
+      </nav>
+    )
+  }
+  
+  return (
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex items-center">
+            <Link href="/" className="text-xl font-semibold text-gray-900 hover:text-indigo-600">
+              {t('nav.title')}
+            </Link>
+          </div>
+          
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-4">
+            {/* Home */}
+            <Link href="/" className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+              {t('nav.home')}
+            </Link>
+            
+            {/* Projects Dropdown */}
+            <div className="relative group">
+              <button className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium flex items-center">
+                {t('nav.projects')}
+                <svg className="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <div className="py-1">
+                  <Link href="/dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                    {t('nav.projectsDashboard')}
+                  </Link>
+                  <Link href="/projects" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                    {t('nav.allProjects')}
+                  </Link>
+                </div>
+              </div>
+            </div>
+            
+            {/* About PPP */}
+            <Link href="/about" className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+              {t('nav.aboutPPP')}
+            </Link>
+            
+            {/* Create Project (only if authenticated) */}
+            {isAuthenticated && (
+              <Link href="/create" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                {t('nav.newProject')}
+              </Link>
+            )}
+            
+            {/* Language Switcher */}
+            <LanguageSwitcher />
+            
+            {/* Auth Section */}
+            {isAuthenticated ? (
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">{user?.name}</span>
+                <button
+                  onClick={signOut}
+                  className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  {t('nav.signOut')}
+                </button>
+              </div>
+            ) : (
+              <Link href="/signin" className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium">
+                {t('nav.signIn')}
+              </Link>
+            )}
+          </div>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden flex items-center">
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="text-gray-700 hover:text-gray-900 p-2 rounded-md"
+            >
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {isMobileMenuOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Navigation Menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden">
+            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t">
+              {/* Home */}
+              <Link 
+                href="/" 
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {t('nav.home')}
+              </Link>
+              
+              {/* Projects */}
+              <div className="px-3 py-2">
+                <div className="text-base font-medium text-gray-700 mb-2">{t('nav.projects')}</div>
+                <div className="pl-4 space-y-1">
+                  <Link 
+                    href="/dashboard" 
+                    className="block px-3 py-2 rounded-md text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {t('nav.projectsDashboard')}
+                  </Link>
+                  <Link 
+                    href="/projects" 
+                    className="block px-3 py-2 rounded-md text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {t('nav.allProjects')}
+                  </Link>
+                </div>
+              </div>
+              
+              {/* About PPP */}
+              <Link 
+                href="/about" 
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {t('nav.aboutPPP')}
+              </Link>
+              
+              {/* Create Project (only if authenticated) */}
+              {isAuthenticated && (
+                <Link 
+                  href="/create" 
+                  className="block px-3 py-2 rounded-md text-base font-medium bg-indigo-600 text-white hover:bg-indigo-700"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {t('nav.newProject')}
+                </Link>
+              )}
+              
+              {/* Language Switcher */}
+              <div className="px-3 py-2">
+                <LanguageSwitcher />
+              </div>
+              
+              {/* Auth Section */}
+              {isAuthenticated ? (
+                <div className="px-3 py-2 border-t border-gray-200">
+                  <div className="text-sm text-gray-600 mb-2">{user?.name}</div>
+                  <button
+                    onClick={() => {
+                      signOut()
+                      setIsMobileMenuOpen(false)
+                    }}
+                    className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                  >
+                    {t('nav.signOut')}
+                  </button>
+                </div>
+              ) : (
+                <Link 
+                  href="/signin" 
+                  className="block px-3 py-2 rounded-md text-base font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {t('nav.signIn')}
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </nav>
+  )
+}
+
+function Footer() {
+  const { isHydrated } = useLanguage()
+  
+  return (
+    <footer className="bg-gray-800 text-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center">
+          <p className="text-gray-400">
+            © 2025 Thailand PPP Platform. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </footer>
+  )
+}
+
+function MainContent({ children }: { children: React.ReactNode }) {
+  const { isHydrated } = useLanguage()
+  
+  if (!isHydrated) {
+    return (
+      <main className="flex-1 max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 pt-24">
+        <div className="space-y-4">
+          <div className="h-8 w-48 bg-gray-200 animate-pulse rounded"></div>
+          <div className="h-4 w-96 bg-gray-200 animate-pulse rounded"></div>
+          <div className="grid gap-4 mt-8">
+            <div className="h-32 bg-gray-200 animate-pulse rounded"></div>
+            <div className="h-32 bg-gray-200 animate-pulse rounded"></div>
+          </div>
+        </div>
+      </main>
+    )
+  }
+  
+  return (
+    <main className="flex-1 max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 pt-24">
+      {children}
+    </main>
+  )
 }
 
 export default function RootLayout({
@@ -16,30 +263,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="min-h-screen bg-gray-50">
-          <nav className="bg-white shadow-sm border-b">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex justify-between h-16">
-                <div className="flex items-center">
-                  <h1 className="text-xl font-semibold text-gray-900">
-                    Project Management
-                  </h1>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <a href="/" className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
-                    Projects
-                  </a>
-                  <a href="/create" className="btn-primary">
-                    New Project
-                  </a>
-                </div>
-              </div>
+        <LanguageProvider>
+          <AuthProvider>
+            <div className="min-h-screen bg-gray-50 flex flex-col">
+              <Navbar />
+              <MainContent>{children}</MainContent>
+              <Footer />
             </div>
-          </nav>
-          <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-            {children}
-          </main>
-        </div>
+          </AuthProvider>
+        </LanguageProvider>
       </body>
     </html>
   )

@@ -1,10 +1,15 @@
+'use client'
+
 import { ProjectData } from '@/types/project'
+import { useLanguage } from '@/lib/LanguageContext'
 
 interface ProjectCardProps {
   project: ProjectData
 }
 
 export default function ProjectCard({ project }: ProjectCardProps) {
+  const { t } = useLanguage()
+  
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A'
     return new Date(dateString).toLocaleDateString()
@@ -76,12 +81,12 @@ export default function ProjectCard({ project }: ProjectCardProps) {
           Updated: {formatDate(project.updated)}
         </div>
         <div className="flex space-x-2">
-          <button className="text-primary-600 hover:text-primary-800 text-sm font-medium">
-            Edit
-          </button>
-          <button className="text-gray-600 hover:text-gray-800 text-sm font-medium">
-            View
-          </button>
+          <a href={`/edit/${project.id}`} className="text-primary-600 hover:text-primary-800 text-sm font-medium">
+            {t('common.edit')}
+          </a>
+          <a href={`/view/${project.id}`} className="text-gray-600 hover:text-gray-800 text-sm font-medium">
+            {t('common.view')}
+          </a>
         </div>
       </div>
     </div>
