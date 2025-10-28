@@ -1,7 +1,7 @@
 'use client'
 
 import '../styles/globals.css'
-import { Inter } from 'next/font/google'
+import { Prompt } from 'next/font/google'
 import { LanguageProvider } from '@/lib/LanguageContext'
 import { AuthProvider } from '@/lib/AuthContext'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
@@ -10,7 +10,11 @@ import { useAuth } from '@/lib/AuthContext'
 import Link from 'next/link'
 import { useState } from 'react'
 
-const inter = Inter({ subsets: ['latin'] })
+const prompt = Prompt({ 
+  subsets: ['latin', 'thai'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-prompt',
+})
 
 function Navbar() {
   const { t, isHydrated } = useLanguage()
@@ -38,19 +42,19 @@ function Navbar() {
   }
   
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-md border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <Link href="/" className="text-xl font-semibold text-gray-900 hover:text-indigo-600">
-              {t('nav.title')}
+            <Link href="/" className="text-xl font-bold text-gray-900 hover:text-chula-pink transition-colors duration-200 flex items-center gap-2">
+              <span>{t('nav.title')}</span>
             </Link>
           </div>
           
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-4">
             {/* Home */}
-            <Link href="/" className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+            <Link href="/" className="text-gray-700 hover:text-chula-pink hover:bg-chula-pink-lighter px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
               {t('nav.home')}
             </Link>
             
@@ -75,7 +79,7 @@ function Navbar() {
             </div>
             
             {/* About PPP */}
-            <Link href="/about" className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+            <Link href="/about" className="text-gray-700 hover:text-chula-pink hover:bg-chula-pink-lighter px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
               {t('nav.aboutPPP')}
             </Link>
             
@@ -94,7 +98,7 @@ function Navbar() {
                 </button>
               </div>
             ) : (
-              <Link href="/signin" className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium">
+              <Link href="/signin" className="bg-chula-pink hover:bg-chula-pink-dark text-white px-4 py-2 rounded-md text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200">
                 {t('nav.signIn')}
               </Link>
             )}
@@ -197,15 +201,52 @@ function Navbar() {
 }
 
 function Footer() {
-  const { isHydrated } = useLanguage()
+  const { t } = useLanguage()
   
   return (
-    <footer className="bg-gray-800 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center">
-          <p className="text-gray-400">
-            © 2025 Thailand PPP Platform. All rights reserved.
-          </p>
+    <footer className="bg-gray-800 text-white mt-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+          {/* Main Info */}
+          <div>
+            <h3 className="text-xl font-bold text-chula-pink mb-4">
+              {t('footer.platformName')}
+            </h3>
+            <p className="text-gray-300 text-sm leading-relaxed">
+              {t('footer.description')}
+            </p>
+          </div>
+          
+          {/* Links */}
+          <div>
+            <h4 className="text-lg font-semibold text-white mb-4">{t('footer.links')}</h4>
+            <div className="space-y-2">
+              <a href="/" className="block text-gray-300 hover:text-chula-pink transition-colors duration-200 text-sm">{t('footer.home')}</a>
+              <a href="/dashboard" className="block text-gray-300 hover:text-chula-pink transition-colors duration-200 text-sm">{t('footer.dashboard')}</a>
+              <a href="/projects" className="block text-gray-300 hover:text-chula-pink transition-colors duration-200 text-sm">{t('footer.allProjects')}</a>
+              <a href="/about" className="block text-gray-300 hover:text-chula-pink transition-colors duration-200 text-sm">{t('footer.aboutPPP')}</a>
+            </div>
+          </div>
+          
+          {/* Contact */}
+          <div>
+            <h4 className="text-lg font-semibold text-white mb-4">{t('footer.contact')}</h4>
+            <div className="space-y-2 text-sm text-gray-300">
+              <p>{t('footer.contactDesc')}</p>
+              <p className="text-chula-pink">{t('footer.email')}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="border-t border-gray-700 pt-8">
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <p className="text-gray-400 text-sm">
+              {t('footer.copyright')}
+            </p>
+            <p className="text-gray-500 text-xs mt-2 md:mt-0">
+              {t('footer.developer')}
+            </p>
+          </div>
         </div>
       </div>
     </footer>
@@ -244,7 +285,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={prompt.variable}>
         <LanguageProvider>
           <AuthProvider>
             <div className="min-h-screen bg-gray-50 flex flex-col">

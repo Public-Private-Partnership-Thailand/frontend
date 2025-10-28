@@ -1,24 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  * {
+    font-family: 'Prompt', sans-serif;
+  }
+  
   html {
-    font-family: system-ui, sans-serif;
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-chula-pink hover:bg-chula-pink-dark text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-chula-pink focus:ring-offset-2;
   }
   
   .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2;
   }
   
   .form-input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-chula-pink focus:border-transparent transition-all duration-200;
   }
   
   .form-label {
@@ -26,6 +35,52 @@
   }
   
   .card {
-    @apply bg-white rounded-lg shadow-md border border-gray-200 p-6;
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200;
+  }
+  
+  /* Focus states for accessibility */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    @apply outline-2 outline-chula-pink outline-offset-2;
   }
 }
+
+/* Chula Pink Theme Colors */
+:root {
+  --chula-pink-lighter: #f8e1ea;
+  --chula-pink-light: #ff86b4;
+  --chula-pink: #de5c8e;
+  --chula-pink-dark: #dd5b8e;
+  --chula-pink-darker: #db2777;
+  
+  --chula-gray-dark: #333;
+  --chula-gray: #58595b;
+  --chula-gray-light: #777;
+  --chula-gray-border: #e5e5e5;
+  --chula-gray-input: #ccc;
+}
+
+/* Utility classes for Chula Pink */
+.bg-chula-pink-lighter { background-color: var(--chula-pink-lighter); }
+.bg-chula-pink-light { background-color: var(--chula-pink-light); }
+.bg-chula-pink { background-color: var(--chula-pink); }
+.bg-chula-pink-dark { background-color: var(--chula-pink-dark); }
+.bg-chula-pink-darker { background-color: var(--chula-pink-darker); }
+
+.text-chula-pink-lighter { color: var(--chula-pink-lighter); }
+.text-chula-pink-light { color: var(--chula-pink-light); }
+.text-chula-pink { color: var(--chula-pink); }
+.text-chula-pink-dark { color: var(--chula-pink-dark); }
+.text-chula-pink-darker { color: var(--chula-pink-darker); }
+
+.border-chula-pink { border-color: var(--chula-pink); }
+.border-chula-pink-lighter { border-color: var(--chula-pink-lighter); }
+
+.ring-chula-pink { --tw-ring-color: var(--chula-pink); }
+
+.hover\:bg-chula-pink:hover { background-color: var(--chula-pink); }
+.hover\:text-chula-pink:hover { color: var(--chula-pink); }
+.hover\:border-chula-pink:hover { border-color: var(--chula-pink); }

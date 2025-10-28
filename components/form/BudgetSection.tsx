@@ -12,12 +12,12 @@ export default function BudgetSection({ register, control, errors }: BudgetSecti
   const { t } = useLanguage()
   const { fields: breakdownFields, append: appendBreakdown, remove: removeBreakdown } = useFieldArray({
     control,
-    name: 'budget.breakdown'
+    name: 'budget.budgetBreakdowns'
   })
 
   const { fields: financingFields, append: appendFinancing, remove: removeFinancing } = useFieldArray({
     control,
-    name: 'budget.financing' as any
+    name: 'budget.finance'
   })
 
   return (
@@ -26,41 +26,41 @@ export default function BudgetSection({ register, control, errors }: BudgetSecti
       
       <div className="space-y-6">
         <div>
-          <label className="form-label">{t('form.budget.description')}</label>
+          <label className="form-label">{t('form.budget.description')} *</label>
           <textarea
-            {...register('budget.description')}
+            {...register('budget.description', { required: t('common.required') })}
             rows={3}
             className="form-input"
             placeholder={t('form.budget.describeBudget')}
           />
+          {errors.budget?.description && (
+            <p className="mt-1 text-sm text-red-600">{errors.budget.description.message}</p>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="form-label">{t('form.budget.amountN')}</label>
+            <label className="form-label">{t('form.budget.amountN')} *</label>
             <input
-              {...register('budget.amount.n', { valueAsNumber: true })}
+              {...register('budget.amount.amount', { required: t('common.required'), valueAsNumber: true })}
               type="number"
               className="form-input"
               placeholder="0"
             />
+            {errors.budget?.amount?.amount && (
+              <p className="mt-1 text-sm text-red-600">{errors.budget.amount.amount.message}</p>
+            )}
           </div>
           <div>
-            <label className="form-label">{t('form.budget.amountR')}</label>
+            <label className="form-label">{t('form.budget.currency')} *</label>
             <input
-              {...register('budget.amount.r', { valueAsNumber: true })}
-              type="number"
+              {...register('budget.amount.currency', { required: t('common.required') })}
               className="form-input"
-              placeholder="0"
+              placeholder="THB"
             />
-          </div>
-          <div>
-            <label className="form-label">{t('form.budget.amountType')}</label>
-            <input
-              {...register('budget.amount.t')}
-              className="form-input"
-              placeholder={t('form.budget.currencyPlaceholder')}
-            />
+            {errors.budget?.amount?.currency && (
+              <p className="mt-1 text-sm text-red-600">{errors.budget.amount.currency.message}</p>
+            )}
           </div>
         </div>
 
@@ -68,16 +68,16 @@ export default function BudgetSection({ register, control, errors }: BudgetSecti
           <div>
             <label className="form-label">{t('form.budget.requestDate')}</label>
             <input
-              {...register('budget.amount.request')}
-              type="datetime-local"
+              {...register('budget.requestDate')}
+              type="date"
               className="form-input"
             />
           </div>
           <div>
             <label className="form-label">{t('form.budget.approvalDate')}</label>
             <input
-              {...register('budget.amount.approval')}
-              type="datetime-local"
+              {...register('budget.approvalDate')}
+              type="date"
               className="form-input"
             />
           </div>
@@ -88,7 +88,7 @@ export default function BudgetSection({ register, control, errors }: BudgetSecti
             <h3 className="text-lg font-medium text-gray-900">{t('form.budget.breakdown')}</h3>
             <button
               type="button"
-              onClick={() => appendBreakdown({ bt: '', br: [''] })}
+              onClick={() => appendBreakdown({ id: '', description: '', budgetBreakdown: [] })}
               className="btn-secondary text-sm"
             >
               {t('form.budget.addBreakdown')}
@@ -112,19 +112,9 @@ export default function BudgetSection({ register, control, errors }: BudgetSecti
                 <div>
                   <label className="form-label">{t('form.budget.breakdownType')}</label>
                   <input
-                    {...register(`budget.breakdown.${index}.bt`)}
+                    {...register(`budget.budgetBreakdowns.${index}.description`)}
                     className="form-input"
                     placeholder={t('form.budget.breakdownTypePlaceholder')}
-                  />
-                </div>
-                
-                <div>
-                  <label className="form-label">{t('form.budget.breakdownDetails')}</label>
-                  <textarea
-                    {...register(`budget.breakdown.${index}.br.0`)}
-                    rows={2}
-                    className="form-input"
-                    placeholder={t('form.budget.breakdownDetailsPlaceholder')}
                   />
                 </div>
               </div>
@@ -137,7 +127,16 @@ export default function BudgetSection({ register, control, errors }: BudgetSecti
             <h3 className="text-lg font-medium text-gray-900">{t('form.budget.financing')}</h3>
             <button
               type="button"
-              onClick={() => appendFinancing('')}
+              onClick={() => appendFinancing({ 
+                id: '', 
+                assetClass: [], 
+                type: '', 
+                concessional: false,
+                value: { amount: 0, currency: '' },
+                source: '',
+                financingParty: { id: '', name: '' },
+                period: { startDate: '', endDate: '' }
+              })}
               className="btn-secondary text-sm"
             >
               {t('form.budget.addFinancing')}
@@ -145,19 +144,24 @@ export default function BudgetSection({ register, control, errors }: BudgetSecti
           </div>
           
           {financingFields.map((field, index) => (
-            <div key={field.id} className="flex gap-2 mb-2">
-              <input
-                {...register(`budget.financing.${index}`)}
-                className="form-input flex-1"
-                placeholder={t('form.budget.financingPlaceholder')}
-              />
-              <button
-                type="button"
-                onClick={() => removeFinancing(index)}
-                className="text-red-600 hover:text-red-800 px-2"
-              >
-                {t('common.remove')}
-              </button>
+            <div key={field.id} className="border border-gray-200 rounded-lg p-4 mb-2">
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="font-medium text-gray-700">Financing {index + 1}</h4>
+                <button
+                  type="button"
+                  onClick={() => removeFinancing(index)}
+                  className="text-red-600 hover:text-red-800 px-2"
+                >
+                  {t('common.remove')}
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <input
+                  {...register(`budget.finance.${index}.source`)}
+                  className="form-input"
+                  placeholder="Financing source"
+                />
+              </div>
             </div>
           ))}
         </div>

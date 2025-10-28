@@ -24,8 +24,7 @@ export default function PartiesSection({ register, control, errors }: PartiesSec
           onClick={() => append({
             name: '',
             id: '',
-            identifier: { Scheme: '', id: '', LegalName: '', URI: '' },
-            additionalIdentifiers: ['']
+            roles: ['']
           })}
           className="btn-secondary text-sm"
         >
@@ -61,64 +60,28 @@ export default function PartiesSection({ register, control, errors }: PartiesSec
               </div>
               
               <div>
-                <label className="form-label">{t('form.parties.partyId')}</label>
+                <label className="form-label">{t('form.parties.partyId')} *</label>
                 <input
-                  {...register(`parties.${index}.id`)}
+                  {...register(`parties.${index}.id`, { required: t('common.required') })}
                   className="form-input"
                   placeholder={t('form.parties.enterPartyId')}
                 />
+                {errors.parties?.[index]?.id && (
+                  <p className="mt-1 text-sm text-red-600">{errors.parties[index]?.id?.message}</p>
+                )}
               </div>
             </div>
 
-            <div className="mt-6">
-              <h4 className="text-md font-medium text-gray-700 mb-3">Identifier Information</h4>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="form-label">Scheme</label>
-                  <input
-                    {...register(`parties.${index}.identifier.Scheme`)}
-                    className="form-input"
-                    placeholder="Identifier scheme"
-                  />
-                </div>
-                
-                <div>
-                  <label className="form-label">Identifier ID</label>
-                  <input
-                    {...register(`parties.${index}.identifier.id`)}
-                    className="form-input"
-                    placeholder="Identifier ID"
-                  />
-                </div>
-                
-                <div>
-                  <label className="form-label">{t('form.parties.legalName')}</label>
-                  <input
-                    {...register(`parties.${index}.identifier.LegalName`)}
-                    className="form-input"
-                    placeholder={t('form.parties.enterLegalName')}
-                  />
-                </div>
-                
-                <div>
-                  <label className="form-label">URI</label>
-                  <input
-                    {...register(`parties.${index}.identifier.URI`)}
-                    className="form-input"
-                    placeholder="URI"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <label className="form-label">Additional Identifiers</label>
-              <textarea
-                {...register(`parties.${index}.additionalIdentifiers.0`)}
-                rows={2}
+            <div className="mt-4">
+              <label className="form-label">Roles *</label>
+              <input
+                {...register(`parties.${index}.roles.0`, { required: t('common.required') })}
                 className="form-input"
-                placeholder="Additional identifier information"
+                placeholder="Enter party role"
               />
+              {errors.parties?.[index]?.roles && (
+                <p className="mt-1 text-sm text-red-600">{errors.parties[index]?.roles?.message}</p>
+              )}
             </div>
           </div>
         ))}

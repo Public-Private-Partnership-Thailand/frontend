@@ -629,9 +629,6 @@ export default function DashboardPage() {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     {t('dashboard.projectValue')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    {t('dashboard.status')}
-                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -662,21 +659,6 @@ export default function DashboardPage() {
                           : 'N/A'
                         }
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        project.status === 'active' 
-                          ? 'bg-green-100 text-green-800'
-                          : project.status === 'completed'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {project.status === 'active' ? t('dashboard.active') : 
-                         project.status === 'completed' ? t('dashboard.completed') : 
-                         project.status === 'planning' ? t('dashboard.planning') :
-                         project.status === 'cancelled' ? t('dashboard.cancelled') :
-                         project.status}
-                      </span>
                     </td>
                   </tr>
                 ))}

@@ -31,7 +31,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   }
 
   return (
-    <div className="card hover:shadow-lg transition-shadow duration-200">
+    <div className="card hover:shadow-lg transition-all duration-200 border-l-4 border-transparent hover:border-chula-pink">
       <div className="flex justify-between items-start mb-4">
         <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
           {project.title || 'Untitled Project'}
@@ -81,12 +81,12 @@ export default function ProjectCard({ project }: ProjectCardProps) {
           Updated: {formatDate(project.updated)}
         </div>
         <div className="flex space-x-2">
-          <a href={`/edit/${project.id}`} className="text-primary-600 hover:text-primary-800 text-sm font-medium">
-            {t('common.edit')}
-          </a>
-          <a href={`/view/${project.id}`} className="text-gray-600 hover:text-gray-800 text-sm font-medium">
-            {t('common.view')}
-          </a>
+        <a href={`/edit/${project.id}`} className="text-chula-pink hover:text-chula-pink-dark text-sm font-medium transition-colors duration-200">
+          {t('common.edit')}
+        </a>
+        <a href={`/view/${project.id}`} className="text-gray-600 hover:text-chula-pink text-sm font-medium transition-colors duration-200">
+          {t('common.view')}
+        </a>
         </div>
       </div>
     </div>

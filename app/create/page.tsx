@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, SubmitHandler } from 'react-hook-form'
 import { ProjectFormData } from '@/types/project'
 import { useLanguage } from '@/lib/LanguageContext'
 import BasicInfoSection from '@/components/form/BasicInfoSection'
@@ -17,62 +17,46 @@ export default function CreateProjectPage() {
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<ProjectFormData>({
     defaultValues: {
-      language: 'th',
-      identifiers: [''],
-      publicAuthority: { n: '', r: '' },
-      budget: {
-        description: '',
-        amount: { n: 0, r: 0, t: '', request: '', approval: '' },
-        breakdown: [{ bt: '', br: [''] }],
-        financing: ['']
-      },
+      title: '',
+      description: '',
+      status: '',
       period: {
         startDate: '',
-        endDate: '',
-        durationInMonths: 0
+        endDate: ''
       },
-      implementationPeriod: {},
-      completionPeriod: {},
-      maintenancePeriod: {},
-      decommissioningPeriod: {},
-      locations: [''],
-      sector: [''],
-      additionalClassifications: [''],
-      parties: [{
-        name: '',
-        id: '',
-        identifier: { Scheme: '', id: '', LegalName: '', URI: '' },
-        additionalIdentifiers: ['']
-      }],
-      assetLifetime: {},
-      forecasts: [''],
-      metrics: [''],
-      milestones: [''],
-      completion: {
-        endDate: '',
-        endDateDetails: {},
-        finalValue: {},
-        finalValueDetails: {}
+      type: '',
+      purpose: '',
+      businessGroup: '',
+      ministry: '',
+      sector: [],
+      locations: [],
+      publicAuthority: { name: '', id: '' },
+      budget: {
+        description: '',
+        amount: { amount: 0, currency: '' }
       },
-      Documents: []
+      parties: []
     }
   })
 
-  const onSubmit = async (data: ProjectFormData) => {
+  const onSubmit: SubmitHandler<ProjectFormData> = async (data) => {
     setIsSubmitting(true)
     setSubmitStatus('idle')
 
     try {
-      // For static app, we'll just show success message
-      // In a real static app, you might want to save to localStorage or show a message
-      console.log('Project data:', data)
+      // Display complete form data as JSON
+      console.log('====================')
+      console.log('PROJECT FORM DATA:')
+      console.log('====================')
+      console.log(JSON.stringify(data, null, 2))
+      console.log('====================')
       
       setSubmitStatus('success')
       
       // Reset form or redirect after showing success
-      setTimeout(() => {
-        window.location.href = '/'
-      }, 2000)
+      // setTimeout(() => {
+      //   window.location.href = '/'
+      // }, 2000)
     } catch (error) {
       console.error('Error creating project:', error)
       setSubmitStatus('error')

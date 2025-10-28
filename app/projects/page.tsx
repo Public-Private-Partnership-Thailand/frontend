@@ -17,7 +17,9 @@ export default function ProjectsPage() {
   const [filters, setFilters] = useState({
     sector: '',
     location: '',
-    search: ''
+    search: '',
+    ministry: '',
+    budget: ''
   })
   const { t } = useLanguage()
   const { isAuthenticated } = useAuth()
@@ -47,12 +49,38 @@ export default function ProjectsPage() {
     return projects.filter(project => {
       const matchesSector = !filters.sector || project.sector.some(s => s.toLowerCase().includes(filters.sector.toLowerCase()))
       const matchesLocation = !filters.location || project.locations.some(l => l.toLowerCase().includes(filters.location.toLowerCase()))
+      const matchesMinistry = !filters.ministry || project.publicAuthority.n.toLowerCase().includes(filters.ministry.toLowerCase())
       const matchesSearch = !filters.search || 
         project.title.toLowerCase().includes(filters.search.toLowerCase()) ||
         project.description.toLowerCase().includes(filters.search.toLowerCase()) ||
         project.publicAuthority.n.toLowerCase().includes(filters.search.toLowerCase())
+      
+      // Budget filter
+      let matchesBudget = true
+      if (filters.budget) {
+        const budget = project.budget.amount.n
+        switch (filters.budget) {
+          case 'under-100m':
+            matchesBudget = budget < 100000000
+            break
+          case '100m-500m':
+            matchesBudget = budget >= 100000000 && budget < 500000000
+            break
+          case '500m-1b':
+            matchesBudget = budget >= 500000000 && budget < 1000000000
+            break
+          case '1b-5b':
+            matchesBudget = budget >= 1000000000 && budget < 5000000000
+            break
+          case 'over-5b':
+            matchesBudget = budget >= 5000000000
+            break
+          default:
+            matchesBudget = true
+        }
+      }
 
-      return matchesSector && matchesLocation && matchesSearch
+      return matchesSector && matchesLocation && matchesMinistry && matchesSearch && matchesBudget
     })
   }, [projects, filters])
 
@@ -80,6 +108,16 @@ export default function ProjectsPage() {
     return Array.from(locationSet).sort()
   }, [projects])
 
+  const ministries = useMemo(() => {
+    const ministrySet = new Set<string>()
+    projects.forEach(project => {
+      if (project.publicAuthority.n) {
+        ministrySet.add(project.publicAuthority.n)
+      }
+    })
+    return Array.from(ministrySet).sort()
+  }, [projects])
+
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }))
     setCurrentPage(1) // Reset to first page when filtering
@@ -89,7 +127,9 @@ export default function ProjectsPage() {
     setFilters({
       sector: '',
       location: '',
-      search: ''
+      search: '',
+      ministry: '',
+      budget: ''
     })
     setCurrentPage(1)
   }
@@ -171,7 +211,7 @@ export default function ProjectsPage() {
 
       {/* Filters */}
       <div className="bg-white p-6 rounded-lg shadow mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           {/* Search */}
           <div className="lg:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -186,23 +226,39 @@ export default function ProjectsPage() {
             />
           </div>
 
-          {/* Sector Filter */}
+          {/* Business Group Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t('projects.sector')}
+              {t('dashboard.businessGroup')}
             </label>
             <select
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               value={filters.sector}
               onChange={(e) => handleFilterChange('sector', e.target.value)}
             >
-              <option value="">All Sectors</option>
+              <option value="">All Business Groups</option>
               {sectors.map(sector => (
                 <option key={sector} value={sector}>{sector}</option>
               ))}
             </select>
           </div>
 
+          {/* Ministry Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {t('dashboard.ministry')}
+            </label>
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={filters.ministry}
+              onChange={(e) => handleFilterChange('ministry', e.target.value)}
+            >
+              <option value="">All Ministries</option>
+              {ministries.map(ministry => (
+                <option key={ministry} value={ministry}>{ministry}</option>
+              ))}
+            </select>
+          </div>
 
           {/* Location Filter */}
           <div>
@@ -218,6 +274,25 @@ export default function ProjectsPage() {
               {locations.map(location => (
                 <option key={location} value={location}>{location}</option>
               ))}
+            </select>
+          </div>
+
+          {/* Budget Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Budget
+            </label>
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={filters.budget}
+              onChange={(e) => handleFilterChange('budget', e.target.value)}
+            >
+              <option value="">All Budgets</option>
+              <option value="under-100m">Under ฿100M</option>
+              <option value="100m-500m">฿100M - ฿500M</option>
+              <option value="500m-1b">฿500M - ฿1B</option>
+              <option value="1b-5b">฿1B - ฿5B</option>
+              <option value="over-5b">Over ฿5B</option>
             </select>
           </div>
         </div>

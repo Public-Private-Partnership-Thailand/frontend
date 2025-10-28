@@ -123,16 +123,16 @@ export default function ViewProjectClient() {
             <h2 className="text-lg font-medium text-gray-900 mb-4">{t('pages.view.basicInfo')}</h2>
             <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
               <div>
-                <dt className="text-sm font-medium text-gray-500">{t('pages.view.projectId')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{project.id}</dd>
-              </div>
-              <div>
                 <dt className="text-sm font-medium text-gray-500">{t('pages.view.type')}</dt>
                 <dd className="mt-1 text-sm text-gray-900">{project.type}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">{t('pages.view.sector')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{project.sector.join(', ')}</dd>
+                <dt className="text-sm font-medium text-gray-500">{t('dashboard.businessGroup')}</dt>
+                <dd className="mt-1 text-sm text-gray-900">{project.sector && project.sector.length > 0 ? project.sector.join(', ') : 'N/A'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">{t('dashboard.ministry')}</dt>
+                <dd className="mt-1 text-sm text-gray-900">{project.publicAuthority?.name || 'N/A'}</dd>
               </div>
               <div className="sm:col-span-2">
                 <dt className="text-sm font-medium text-gray-500">{t('pages.view.purpose')}</dt>
@@ -147,11 +147,11 @@ export default function ViewProjectClient() {
             <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
               <div>
                 <dt className="text-sm font-medium text-gray-500">{t('pages.view.totalBudget')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{formatCurrency(project.budget.amount.n)}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{formatCurrency(project.budget.amount.amount)}</dd>
               </div>
               <div>
                 <dt className="text-sm font-medium text-gray-500">{t('pages.view.currency')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{project.budget.amount.t}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{project.budget.amount.currency}</dd>
               </div>
               <div className="sm:col-span-2">
                 <dt className="text-sm font-medium text-gray-500">{t('pages.view.budgetDescription')}</dt>
@@ -174,7 +174,13 @@ export default function ViewProjectClient() {
               </div>
               <div>
                 <dt className="text-sm font-medium text-gray-500">{t('pages.view.duration')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{project.period.durationInMonths} {t('pages.view.months')}</dd>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {project.period.durationInMonths 
+                    ? `${project.period.durationInMonths} ${t('pages.view.months')}` 
+                    : project.period.durationInDays 
+                    ? `${Math.round(project.period.durationInDays / 30)} ${t('pages.view.months')}`
+                    : 'N/A'}
+                </dd>
               </div>
             </dl>
           </div>
@@ -186,14 +192,25 @@ export default function ViewProjectClient() {
               {project.parties.map((party, index) => (
                 <div key={index} className="border rounded-lg p-4">
                   <h3 className="text-sm font-medium text-gray-900">{party.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1">{party.identifier.LegalName}</p>
+                  {party.identifier?.legalName && (
+                    <p className="text-sm text-gray-500 mt-1">{party.identifier.legalName}</p>
+                  )}
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {party.additionalIdentifiers.map((identifier, idx) => (
+                    {party.roles?.map((role, idx) => (
                       <span key={idx} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {identifier}
+                        {role}
                       </span>
                     ))}
                   </div>
+                  {party.additionalIdentifiers && party.additionalIdentifiers.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {party.additionalIdentifiers.map((identifier, idx) => (
+                        <span key={idx} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          {identifier.legalName || identifier.id}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -211,50 +228,49 @@ export default function ViewProjectClient() {
                 <dd className="mt-1 text-sm text-gray-900">{formatDate(project.updated)}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">{t('pages.view.language')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{project.language}</dd>
-              </div>
-              <div>
                 <dt className="text-sm font-medium text-gray-500">{t('pages.view.locations')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{project.locations.join(', ')}</dd>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {project.locations?.map(loc => loc.description || loc.id).join(', ') || 'N/A'}
+                </dd>
               </div>
             </dl>
           </div>
 
           {/* Data Source */}
-          {project.dataSource && (
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">แหล่งข้อมูล</h2>
-              <div className="space-y-2">
-                {project.dataSource.startsWith('http') ? (
-                  <a
-                    href={project.dataSource}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                    {project.dataSource}
-                  </a>
-                ) : (
-                  <p className="text-sm text-gray-600">{project.dataSource}</p>
-                )}
-              </div>
+          {project.documents && project.documents.length > 0 && (
+          <div className="bg-white shadow rounded-lg p-6">
+            <h2 className="text-lg font-medium text-gray-900 mb-4">{t('pages.view.dataSource')}</h2>
+            <div className="space-y-2">
+              {project.documents.map((doc, index) => (
+                <a
+                  key={index}
+                  href={doc.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline block"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  {doc.title || doc.id}
+                </a>
+              ))}
             </div>
+          </div>
           )}
 
           {/* Milestones */}
           <div className="bg-white shadow rounded-lg p-6">
             <h2 className="text-lg font-medium text-gray-900 mb-4">{t('pages.view.milestones')}</h2>
             <ul className="space-y-2">
-              {project.milestones.map((milestone, index) => (
+              {project.milestones?.map((milestone, index) => (
                 <li key={index} className="flex items-center text-sm text-gray-600">
                   <span className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
-                  {milestone}
+                  {typeof milestone === 'string' ? milestone : milestone.title || milestone.id}
                 </li>
-              ))}
+              )) || (
+                <li className="text-sm text-gray-500">No milestones available</li>
+              )}
             </ul>
           </div>
         </div>

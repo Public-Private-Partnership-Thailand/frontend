@@ -52,11 +52,11 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
       <div className="space-y-8">
         {/* Identifiers */}
         <div>
-          <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-medium text-gray-900">{t('form.additional.identifiers')}</h3>
             <button
               type="button"
-              onClick={() => appendIdentifier('')}
+              onClick={() => appendIdentifier({ id: '', scheme: '' })}
               className="btn-secondary text-sm"
             >
               {t('form.additional.addIdentifier')}
@@ -64,19 +64,29 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
           </div>
           
           {identifierFields.map((field, index) => (
-            <div key={field.id} className="flex gap-2 mb-2">
-              <input
-                {...register(`identifiers.${index}`)}
-                className="form-input flex-1"
-                placeholder={t('form.additional.enterIdentifier')}
-              />
-              <button
-                type="button"
-                onClick={() => removeIdentifier(index)}
-                className="text-red-600 hover:text-red-800 px-2"
-              >
-                {t('common.remove')}
-              </button>
+            <div key={field.id} className="border border-gray-200 rounded-lg p-4 mb-2">
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-medium text-sm">Identifier {index + 1}</span>
+                <button
+                  type="button"
+                  onClick={() => removeIdentifier(index)}
+                  className="text-red-600 hover:text-red-800 px-2"
+                >
+                  {t('common.remove')}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  {...register(`identifiers.${index}.id`)}
+                  className="form-input"
+                  placeholder="Identifier ID"
+                />
+                <input
+                  {...register(`identifiers.${index}.scheme`)}
+                  className="form-input"
+                  placeholder="Scheme"
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -275,16 +285,8 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
               <label className="form-label">{t('form.additional.endDate')}</label>
               <input
                 {...register('completion.endDate')}
-                type="datetime-local"
+                type="date"
                 className="form-input"
-              />
-            </div>
-            <div>
-              <label className="form-label">{t('form.additional.finalValue')}</label>
-              <input
-                {...register('completion.finalValue.value')}
-                className="form-input"
-                placeholder={t('form.additional.finalValuePlaceholder')}
               />
             </div>
           </div>

@@ -17,12 +17,12 @@ export default function PeriodSection({ register, errors }: PeriodSectionProps) 
       <div className="space-y-6">
         <div>
           <h3 className='text-lg font-medium text-gray-900 mb-4'>{t('pages.view.mainPeriod')}</h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="form-label">{t('form.period.startDate')} *</label>
               <input
-                {...register('period.startDate', { required: t('form.period.startDateRequired') })}
-                type="datetime-local"
+                {...register('period.startDate', { required: t('common.required') })}
+                type="date"
                 className="form-input"
               />
               {errors.period?.startDate && (
@@ -32,22 +32,13 @@ export default function PeriodSection({ register, errors }: PeriodSectionProps) 
             <div>
               <label className="form-label">{t('form.period.endDate')} *</label>
               <input
-                {...register('period.endDate', { required: t('form.period.endDateRequired') })}
-                type="datetime-local"
+                {...register('period.endDate', { required: t('common.required') })}
+                type="date"
                 className="form-input"
               />
               {errors.period?.endDate && (
                 <p className="mt-1 text-sm text-red-600">{errors.period.endDate.message}</p>
               )}
-            </div>
-            <div>
-              <label className="form-label">{t('form.period.duration')}</label>
-              <input
-                {...register('period.durationInMonths', { valueAsNumber: true })}
-                type="number"
-                className="form-input"
-                placeholder="0"
-              />
             </div>
           </div>
         </div>
@@ -60,7 +51,7 @@ export default function PeriodSection({ register, errors }: PeriodSectionProps) 
                 <label className="form-label">{t('form.period.startDate')}</label>
                 <input
                   {...register('implementationPeriod.startDate')}
-                  type="datetime-local"
+                  type="date"
                   className="form-input"
                 />
               </div>
@@ -68,7 +59,7 @@ export default function PeriodSection({ register, errors }: PeriodSectionProps) 
                 <label className="form-label">{t('form.period.endDate')}</label>
                 <input
                   {...register('implementationPeriod.endDate')}
-                  type="datetime-local"
+                  type="date"
                   className="form-input"
                 />
               </div>
@@ -82,7 +73,7 @@ export default function PeriodSection({ register, errors }: PeriodSectionProps) 
                 <label className="form-label">{t('form.period.startDate')}</label>
                 <input
                   {...register('completionPeriod.startDate')}
-                  type="datetime-local"
+                  type="date"
                   className="form-input"
                 />
               </div>
@@ -90,7 +81,7 @@ export default function PeriodSection({ register, errors }: PeriodSectionProps) 
                 <label className="form-label">{t('form.period.endDate')}</label>
                 <input
                   {...register('completionPeriod.endDate')}
-                  type="datetime-local"
+                  type="date"
                   className="form-input"
                 />
               </div>
@@ -104,7 +95,7 @@ export default function PeriodSection({ register, errors }: PeriodSectionProps) 
                 <label className="form-label">{t('form.period.startDate')}</label>
                 <input
                   {...register('maintenancePeriod.startDate')}
-                  type="datetime-local"
+                  type="date"
                   className="form-input"
                 />
               </div>
@@ -112,7 +103,7 @@ export default function PeriodSection({ register, errors }: PeriodSectionProps) 
                 <label className="form-label">{t('form.period.endDate')}</label>
                 <input
                   {...register('maintenancePeriod.endDate')}
-                  type="datetime-local"
+                  type="date"
                   className="form-input"
                 />
               </div>
@@ -126,7 +117,7 @@ export default function PeriodSection({ register, errors }: PeriodSectionProps) 
                 <label className="form-label">{t('form.period.startDate')}</label>
                 <input
                   {...register('decommissioningPeriod.startDate')}
-                  type="datetime-local"
+                  type="date"
                   className="form-input"
                 />
               </div>
@@ -134,7 +125,7 @@ export default function PeriodSection({ register, errors }: PeriodSectionProps) 
                 <label className="form-label">{t('form.period.endDate')}</label>
                 <input
                   {...register('decommissioningPeriod.endDate')}
-                  type="datetime-local"
+                  type="date"
                   className="form-input"
                 />
               </div>
