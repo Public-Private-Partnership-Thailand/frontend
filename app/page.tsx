@@ -35,7 +35,7 @@ export default function HomePage() {
 
   // Get top 10 projects by budget
   const topProjects = projects
-    .sort((a, b) => b.budget.amount.n - a.budget.amount.n)
+    .sort((a, b) => b.budget.amount.amount - a.budget.amount.amount)
     .slice(0, 10)
 
   if (loading) {
