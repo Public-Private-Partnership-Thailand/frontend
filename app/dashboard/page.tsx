@@ -90,13 +90,13 @@ export default function DashboardPage() {
 
   // Calculate comprehensive statistics
   const totalProjects = projects.length
-  const totalInvestment = projects.reduce((sum, project) => sum + project.budget.amount.n, 0)
+  const totalInvestment = projects.reduce((sum, project) => sum + project.budget.amount.amount, 0)
   const activeProjects = projects.filter(p => p.status === 'active').length
   const completedProjects = projects.filter(p => p.status === 'completed').length
   
   // Calculate average project duration
   const avgDuration = projects.length > 0 
-    ? projects.reduce((sum, project) => sum + project.period.durationInMonths, 0) / projects.length
+    ? projects.reduce((sum, project) => sum + (project.period.durationInMonths || 0), 0) / projects.length
     : 0
 
   // Projects by sector
@@ -109,7 +109,7 @@ export default function DashboardPage() {
 
   // Projects by ministry
   const ministryCounts = projects.reduce((acc, project) => {
-    const ministry = project.publicAuthority.n
+    const ministry = project.publicAuthority.name
     if (ministry) {
       acc[ministry] = (acc[ministry] || 0) + 1
     }
@@ -120,7 +120,7 @@ export default function DashboardPage() {
   const investmentByYear = projects.reduce((acc, project) => {
     const year = new Date(project.period.startDate).getFullYear()
     if (year && year > 1990) {
-      acc[year] = (acc[year] || 0) + project.budget.amount.n
+      acc[year] = (acc[year] || 0) + project.budget.amount.amount
     }
     return acc
   }, {} as Record<number, number>)
@@ -131,8 +131,8 @@ export default function DashboardPage() {
   // Cost by year (budget used each year across all projects)
   const costByYear = projects.reduce((acc, project) => {
     const year = new Date(project.period.startDate).getFullYear()
-    if (year && year > 1990 && project.budget.amount.n > 0) {
-      acc[year] = (acc[year] || 0) + project.budget.amount.n
+    if (year && year > 1990 && project.budget.amount.amount > 0) {
+      acc[year] = (acc[year] || 0) + project.budget.amount.amount
     }
     return acc
   }, {} as Record<number, number>)
@@ -400,7 +400,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -433,7 +433,7 @@ export default function DashboardPage() {
             <div className="p-6">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-primary-600 rounded-xl flex items-center justify-center">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
@@ -460,7 +460,7 @@ export default function DashboardPage() {
             <div className="p-6">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                     </svg>
@@ -487,7 +487,7 @@ export default function DashboardPage() {
             <div className="p-6">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-yellow-600 rounded-xl flex items-center justify-center">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
@@ -514,7 +514,7 @@ export default function DashboardPage() {
             <div className="p-6">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -649,13 +649,13 @@ export default function DashboardPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">
-                        {project.publicAuthority.n}
+                        {project.publicAuthority.name}
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">
-                        {project.budget.amount.n > 0 
-                          ? `฿${(project.budget.amount.n / 1000000).toFixed(0)}M`
+                        {project.budget.amount.amount > 0 
+                          ? `฿${(project.budget.amount.amount / 1000000).toFixed(0)}M`
                           : 'N/A'
                         }
                       </div>

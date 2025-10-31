@@ -19,7 +19,8 @@ export default function ProjectsPage() {
     location: '',
     search: '',
     ministry: '',
-    budget: ''
+    budget: '',
+    businessGroup: ''
   })
   const { t } = useLanguage()
   const { isAuthenticated } = useAuth()
@@ -35,10 +36,12 @@ export default function ProjectsPage() {
       setLoading(true)
       setError(null)
       const data = await fetchProjectsFromAPI()
-      setProjects(data)
+      console.log('Fetched projects:', data.length, data)
+      setProjects(data || [])
     } catch (error) {
       console.error('Error fetching projects:', error)
       setError('ไม่สามารถโหลดข้อมูลโครงการได้')
+      setProjects([])
     } finally {
       setLoading(false)
     }
@@ -47,18 +50,21 @@ export default function ProjectsPage() {
   // Filter and search projects
   const filteredProjects = useMemo(() => {
     return projects.filter(project => {
-      const matchesSector = !filters.sector || project.sector.some(s => s.toLowerCase().includes(filters.sector.toLowerCase()))
-      const matchesLocation = !filters.location || project.locations.some(l => l.toLowerCase().includes(filters.location.toLowerCase()))
-      const matchesMinistry = !filters.ministry || project.publicAuthority.n.toLowerCase().includes(filters.ministry.toLowerCase())
+      if (!project) return false
+      
+      const matchesSector = !filters.sector || (project.sector && project.sector.some(s => s.toLowerCase().includes(filters.sector.toLowerCase())))
+      const matchesBusinessGroup = !filters.businessGroup || (project.businessGroup && project.businessGroup.toLowerCase().includes(filters.businessGroup.toLowerCase()))
+      const matchesLocation = !filters.location || (project.locations && project.locations.some(l => l?.description?.toLowerCase().includes(filters.location.toLowerCase())))
+      const matchesMinistry = !filters.ministry || (project.ministry && project.ministry.toLowerCase().includes(filters.ministry.toLowerCase()))
       const matchesSearch = !filters.search || 
-        project.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-        project.description.toLowerCase().includes(filters.search.toLowerCase()) ||
-        project.publicAuthority.n.toLowerCase().includes(filters.search.toLowerCase())
+        project.title?.toLowerCase().includes(filters.search.toLowerCase()) ||
+        project.description?.toLowerCase().includes(filters.search.toLowerCase()) ||
+        project.publicAuthority?.name?.toLowerCase().includes(filters.search.toLowerCase())
       
       // Budget filter
       let matchesBudget = true
       if (filters.budget) {
-        const budget = project.budget.amount.n
+        const budget = project.budget?.amount?.amount || 0
         switch (filters.budget) {
           case 'under-100m':
             matchesBudget = budget < 100000000
@@ -80,7 +86,7 @@ export default function ProjectsPage() {
         }
       }
 
-      return matchesSector && matchesLocation && matchesMinistry && matchesSearch && matchesBudget
+      return matchesSector && matchesBusinessGroup && matchesLocation && matchesMinistry && matchesSearch && matchesBudget
     })
   }, [projects, filters])
 
@@ -94,7 +100,11 @@ export default function ProjectsPage() {
   const sectors = useMemo(() => {
     const sectorSet = new Set<string>()
     projects.forEach(project => {
-      project.sector.forEach(sector => sectorSet.add(sector))
+      if (project?.sector) {
+        project.sector.forEach(sector => {
+          if (sector) sectorSet.add(sector)
+        })
+      }
     })
     return Array.from(sectorSet).sort()
   }, [projects])
@@ -103,7 +113,11 @@ export default function ProjectsPage() {
   const locations = useMemo(() => {
     const locationSet = new Set<string>()
     projects.forEach(project => {
-      project.locations.forEach(location => locationSet.add(location))
+      if (project?.locations) {
+        project.locations.forEach(location => {
+          if (location?.description) locationSet.add(location.description)
+        })
+      }
     })
     return Array.from(locationSet).sort()
   }, [projects])
@@ -111,11 +125,22 @@ export default function ProjectsPage() {
   const ministries = useMemo(() => {
     const ministrySet = new Set<string>()
     projects.forEach(project => {
-      if (project.publicAuthority.n) {
-        ministrySet.add(project.publicAuthority.n)
+      if (project?.ministry) {
+        ministrySet.add(project.ministry)
       }
     })
     return Array.from(ministrySet).sort()
+  }, [projects])
+
+  // Get unique values for business group filter options
+  const businessGroups = useMemo(() => {
+    const groupSet = new Set<string>()
+    projects.forEach(project => {
+      if (project?.businessGroup) {
+        groupSet.add(project.businessGroup)
+      }
+    })
+    return Array.from(groupSet).sort()
   }, [projects])
 
   const handleFilterChange = (key: string, value: string) => {
@@ -129,7 +154,8 @@ export default function ProjectsPage() {
       location: '',
       search: '',
       ministry: '',
-      budget: ''
+      budget: '',
+      businessGroup: ''
     })
     setCurrentPage(1)
   }
@@ -137,16 +163,16 @@ export default function ProjectsPage() {
   const exportToCSV = () => {
     const csvData = filteredProjects.map(project => ({
       'Project Name': project.title,
-      'Sponsoring Authority': project.publicAuthority.n,
-      'Location': project.locations.join(', '),
-      'Sector': project.sector.join(', '),
-      'Sub Sector': project.sector.join(', '), // Using sector as sub-sector for now
-      'Total Project Cost': `฿${(project.budget.amount.n / 1000000).toFixed(0)}M`,
-      'Start Date': new Date(project.period.startDate).toLocaleDateString(),
-      'End Date': new Date(project.period.endDate).toLocaleDateString(),
-      'Duration (Months)': project.period.durationInMonths,
-      'Description': project.description,
-      'Purpose': project.purpose
+      'Sponsoring Authority': project.publicAuthority?.name || '',
+      'Location': project.locations?.map(l => l.description).join(', ') || '',
+      'Sector': project.sector?.join(', ') || '',
+      'Sub Sector': project.sector?.join(', ') || '', // Using sector as sub-sector for now
+      'Total Project Cost': `฿${((project.budget?.amount?.amount || 0) / 1000000).toFixed(0)}M`,
+      'Start Date': project.period?.startDate ? new Date(project.period.startDate).toLocaleDateString() : '',
+      'End Date': project.period?.endDate ? new Date(project.period.endDate).toLocaleDateString() : '',
+      'Duration (Months)': project.period?.durationInMonths || '',
+      'Description': project.description || '',
+      'Purpose': project.purpose || ''
     }))
 
     const csv = Papa.unparse(csvData)
@@ -233,12 +259,12 @@ export default function ProjectsPage() {
             </label>
             <select
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={filters.sector}
-              onChange={(e) => handleFilterChange('sector', e.target.value)}
+              value={filters.businessGroup}
+              onChange={(e) => handleFilterChange('businessGroup', e.target.value)}
             >
               <option value="">All Business Groups</option>
-              {sectors.map(sector => (
-                <option key={sector} value={sector}>{sector}</option>
+              {businessGroups.map(group => (
+                <option key={group} value={group}>{group}</option>
               ))}
             </select>
           </div>
@@ -352,32 +378,32 @@ export default function ProjectsPage() {
                 <tr key={project.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
-                      {project.title}
+                      {project.title || 'N/A'}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {project.description.substring(0, 100)}...
+                      {project.description ? project.description.substring(0, 100) + '...' : 'No description'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {project.publicAuthority.n}
+                      {project.publicAuthority?.name || 'N/A'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {project.locations.join(', ')}
+                      {project.locations?.map(l => l?.description).filter(Boolean).join(', ') || 'N/A'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {project.sector.join(', ')}
+                      {project.sector?.join(', ') || 'N/A'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ฿{(project.budget.amount.n / 1000000).toFixed(0)}M
+                    ฿{((project.budget?.amount?.amount || 0) / 1000000).toFixed(0)}M
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(project.period.startDate).toLocaleDateString()}
+                    {project.period?.startDate ? new Date(project.period.startDate).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <Link

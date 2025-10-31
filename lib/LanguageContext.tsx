@@ -13,8 +13,8 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  // Always start with 'en' to ensure server-client consistency
-  const [locale, setLocale] = useState<Locale>('en')
+  // Always start with 'th' to ensure server-client consistency
+  const [locale, setLocale] = useState<Locale>('th')
   const [isHydrated, setIsHydrated] = useState(false)
 
   useEffect(() => {

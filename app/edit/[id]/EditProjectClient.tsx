@@ -39,7 +39,6 @@ export default function EditProjectClient() {
         setProject(foundProject)
         // Reset form with fetched data
         reset({
-          language: foundProject.language,
           identifiers: foundProject.identifiers,
           publicAuthority: foundProject.publicAuthority,
           title: foundProject.title,
@@ -62,7 +61,7 @@ export default function EditProjectClient() {
           metrics: foundProject.metrics,
           milestones: foundProject.milestones,
           completion: foundProject.completion,
-          Documents: foundProject.Documents
+          documents: foundProject.documents
         })
       } else {
         router.push('/')

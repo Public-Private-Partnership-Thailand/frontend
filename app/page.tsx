@@ -8,12 +8,14 @@ import ThailandMap from '@/components/ThailandMap'
 import { useLanguage } from '@/lib/LanguageContext'
 import { fetchProjectsFromAPI } from '@/lib/projectService'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 export default function HomePage() {
   const [projects, setProjects] = useState<ProjectData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { t } = useLanguage()
+  const router = useRouter()
 
   useEffect(() => {
     fetchProjects()
@@ -24,19 +26,26 @@ export default function HomePage() {
       setLoading(true)
       setError(null)
       const data = await fetchProjectsFromAPI()
-      setProjects(data)
+      console.log('Fetched projects:', data.length, data)
+      setProjects(data || [])
     } catch (error) {
       console.error('Error fetching projects:', error)
       setError('ไม่สามารถโหลดข้อมูลโครงการได้')
+      setProjects([])
     } finally {
       setLoading(false)
     }
   }
 
-  // Get top 10 projects by budget
-  const topProjects = projects
-    .sort((a, b) => b.budget.amount.amount - a.budget.amount.amount)
-    .slice(0, 10)
+  // Get latest 5 projects by start date (fallback to updated)
+  const latestProjects = projects
+    .slice()
+    .sort((a, b) => {
+      const aDate = new Date(a.period?.startDate || a.updated || '1970-01-01').getTime()
+      const bDate = new Date(b.period?.startDate || b.updated || '1970-01-01').getTime()
+      return bDate - aDate
+    })
+    .slice(0, 5)
 
   if (loading) {
     return <LoadingSpinner />
@@ -52,7 +61,7 @@ export default function HomePage() {
               {/* Left Content */}
               <div>
                 <div className="flex items-center mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-chula-pink to-chula-pink-dark rounded-lg flex items-center justify-center mr-4 shadow-md">
+                  <div className="w-12 h-12 bg-chula-pink rounded-lg flex items-center justify-center mr-4 shadow-md">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
@@ -77,7 +86,7 @@ export default function HomePage() {
                     </svg>
                     {t('nav.allProjects')}
                   </Link>
-                  <Link
+                  {/* <Link
                     href="/dashboard"
                     className="inline-flex items-center justify-center px-6 py-3 border-2 border-chula-pink text-chula-pink font-medium rounded-md hover:bg-chula-pink-lighter transition-all duration-200"
                   >
@@ -85,7 +94,7 @@ export default function HomePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                     {t('nav.projectsDashboard')}
-                  </Link>
+                  </Link> */}
                 </div>
               </div>
               
@@ -94,12 +103,12 @@ export default function HomePage() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('home.projectStats')}</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-chula-pink">{projects.length}</div>
+                    <div className="text-2xl font-bold text-chula-pink">{projects.length || 0}</div>
                     <div className="text-sm text-gray-600">{t('home.totalProjects')}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-green-600">
-                      {projects.filter(p => p.status === 'active').length}
+                      {projects.filter(p => p?.status === 'active').length || 0}
                     </div>
                     <div className="text-sm text-gray-600">{t('home.activeProjects')}</div>
                   </div>
@@ -148,7 +157,7 @@ export default function HomePage() {
                 </button>
               </div>
             </div>
-          ) : topProjects.length === 0 ? (
+          ) : latestProjects.length === 0 ? (
             <div className="text-center py-12">
               <div className="mx-auto h-12 w-12 text-gray-400">
                 <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -170,22 +179,26 @@ export default function HomePage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {topProjects.map((project) => (
-                      <tr 
-                        key={project.id}
-                        className="hover:bg-gray-50 cursor-pointer transition-colors duration-150"
-                        onClick={() => window.location.href = `/view/${project.id}`}
-                      >
-                        <td className="px-6 py-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {project.title}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {project.sector.join(', ')}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {latestProjects
+                      .filter((p) => !!p?.id)
+                      .map((project) => (
+                        <tr
+                          key={project.id}
+                          className="hover:bg-gray-50 cursor-pointer transition-colors duration-150"
+                          onClick={() => project.id && router.push(`/view/${project.id}`)}
+                        >
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              <Link href={`/view/${project.id}`} className="hover:text-chula-pink">
+                                {project.title || 'N/A'}
+                              </Link>
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {project.sector?.join(', ') || 'N/A'}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
@@ -209,7 +222,7 @@ export default function HomePage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.slice(10, 19).map((project) => (
+            {projects && projects.length > 0 && projects.slice(10, 19).map((project) => (
               <ProjectCard key={project.id} project={project} />
             ))}
           </div>

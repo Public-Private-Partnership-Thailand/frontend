@@ -238,7 +238,7 @@ export const translations = {
       contactDesc: 'For inquiries and support',
       email: 'info@ppp-platform.th',
       copyright: '© 2025 Thailand PPP Platform. All rights reserved.',
-      developer: 'Developed by Faculty of Engineering',
+      developer: 'Developed by Center of Digital Asset Management (CDAM)',
     },
     form: {
       basicInfo: {
@@ -580,7 +580,7 @@ export const translations = {
       contactDesc: 'สำหรับข้อสอบถามและการสนับสนุน',
       email: 'info@ppp-platform.th',
       copyright: '© 2025 แพลตฟอร์มข้อมูลโครงการร่วมลงทุนระหว่างรัฐและเอกชน สงวนลิขสิทธิ์',
-      developer: 'พัฒนาโดยคณะวิศวกรรมศาสตร์',
+      developer: 'พัฒนาโดย ศูนย์การจัดการทรัพย์สินเชิงดิจิทัลเพื่อการพัฒนาที่ยั่งยืน',
     },
     form: {
       basicInfo: {

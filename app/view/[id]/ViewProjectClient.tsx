@@ -128,11 +128,11 @@ export default function ViewProjectClient() {
               </div>
               <div>
                 <dt className="text-sm font-medium text-gray-500">{t('dashboard.businessGroup')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{project.sector && project.sector.length > 0 ? project.sector.join(', ') : 'N/A'}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{project.businessGroup || 'N/A'}</dd>
               </div>
               <div>
                 <dt className="text-sm font-medium text-gray-500">{t('dashboard.ministry')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{project.publicAuthority?.name || 'N/A'}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{project.ministry || project.publicAuthority?.name || 'N/A'}</dd>
               </div>
               <div className="sm:col-span-2">
                 <dt className="text-sm font-medium text-gray-500">{t('pages.view.purpose')}</dt>
@@ -236,6 +236,31 @@ export default function ViewProjectClient() {
             </dl>
           </div>
 
+          {/* Data Source from Identifiers (sourceURL) */}
+          {project.identifiers && project.identifiers.some((ident) => ident?.scheme === 'sourceURL' && ident?.id) && (
+          <div className="bg-white shadow rounded-lg p-6">
+            <h2 className="text-lg font-medium text-gray-900 mb-4">{t('pages.view.dataSource')}</h2>
+            <div className="space-y-2">
+              {project.identifiers
+                .filter((ident) => ident?.scheme === 'sourceURL' && ident?.id)
+                .map((ident, index) => (
+                  <a
+                    key={index}
+                    href={ident.id}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline block"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    {ident.id}
+                  </a>
+                ))}
+            </div>
+          </div>
+          )}
+
           {/* Data Source */}
           {project.documents && project.documents.length > 0 && (
           <div className="bg-white shadow rounded-lg p-6">
@@ -259,20 +284,7 @@ export default function ViewProjectClient() {
           </div>
           )}
 
-          {/* Milestones */}
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">{t('pages.view.milestones')}</h2>
-            <ul className="space-y-2">
-              {project.milestones?.map((milestone, index) => (
-                <li key={index} className="flex items-center text-sm text-gray-600">
-                  <span className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
-                  {typeof milestone === 'string' ? milestone : milestone.title || milestone.id}
-                </li>
-              )) || (
-                <li className="text-sm text-gray-500">No milestones available</li>
-              )}
-            </ul>
-          </div>
+        
         </div>
       </div>
     </div>

@@ -47,11 +47,6 @@ export default function ProjectCard({ project }: ProjectCardProps) {
 
       <div className="space-y-2 text-sm text-gray-500">
         <div className="flex justify-between">
-          <span>Language:</span>
-          <span className="font-medium">{project.language || 'N/A'}</span>
-        </div>
-        
-        <div className="flex justify-between">
           <span>Type:</span>
           <span className="font-medium">{project.type || 'N/A'}</span>
         </div>
@@ -66,11 +61,11 @@ export default function ProjectCard({ project }: ProjectCardProps) {
           <span className="font-medium">{formatDate(project.period?.endDate)}</span>
         </div>
         
-        {project.budget?.amount?.n && (
+        {project.budget?.amount?.amount && (
           <div className="flex justify-between">
             <span>Budget:</span>
             <span className="font-medium">
-              {project.budget.amount.n.toLocaleString()} {project.budget.amount.t || ''}
+              {project.budget.amount.amount.toLocaleString()} {project.budget.amount.currency || ''}
             </span>
           </div>
         )}

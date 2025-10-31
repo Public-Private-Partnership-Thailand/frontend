@@ -200,7 +200,7 @@ export default function AboutPage() {
 
         {/* Win-Win Benefits Section */}
         <div className="mb-16">
-          <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-xl shadow-lg p-8 text-white">
+          <div className="bg-primary-600 rounded-xl shadow-lg p-8 text-white">
             <h2 className="text-3xl font-bold mb-6">
               {t('about.winWinBenefits')}
             </h2>
@@ -210,94 +210,7 @@ export default function AboutPage() {
           </div>
         </div>
 
-        {/* Summary Section */}
-        <div className="mb-16">
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-6">
-              {t('about.summary')}
-            </h2>
-            <p className="text-lg text-gray-700 leading-relaxed mb-8">
-              {t('about.summaryDesc')}
-            </p>
-            
-            {/* Thailand PPP */}
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                {t('about.thailandPPP')}
-              </h3>
-              <p className="text-gray-700">
-                {t('about.thailandPPPDesc')}
-              </p>
-            </div>
-          </div>
-        </div>
 
-        {/* Important Considerations */}
-        <div className="mb-16">
-          <div className="bg-white rounded-xl shadow-lg p-8 border-l-4 border-orange-500">
-            <h2 className="text-3xl font-bold text-gray-900 mb-6">
-              {t('about.considerations')}
-            </h2>
-            <div className="bg-orange-50 p-6 rounded-lg">
-              <p className="text-lg text-orange-800 leading-relaxed">
-                {t('about.considerationsDesc')}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Key Statistics */}
-        <div className="mb-16">
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg p-8 text-white">
-            <h2 className="text-3xl font-bold mb-8 text-center">
-              Thailand PPP at a Glance
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="text-center">
-                <div className="text-4xl font-bold mb-2">50+</div>
-                <div className="text-blue-100">Active Projects</div>
-              </div>
-              <div className="text-center">
-                <div className="text-4xl font-bold mb-2">฿1.2T</div>
-                <div className="text-blue-100">Total Investment</div>
-              </div>
-              <div className="text-center">
-                <div className="text-4xl font-bold mb-2">30+</div>
-                <div className="text-blue-100">Years Experience</div>
-              </div>
-              <div className="text-center">
-                <div className="text-4xl font-bold mb-2">15+</div>
-                <div className="text-blue-100">Sectors Covered</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Call to Action */}
-        <div className="text-center">
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Ready to Explore PPP Projects?
-            </h2>
-            <p className="text-xl text-gray-600 mb-8">
-              Discover Thailand's innovative infrastructure projects and learn how PPP is shaping the nation's future.
-            </p>
-            <div className="space-x-4">
-              <a
-                href="/projects"
-                className="inline-flex items-center px-8 py-4 border border-transparent text-lg font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition-colors duration-200"
-              >
-                View All Projects
-              </a>
-              <a
-                href="/dashboard"
-                className="inline-flex items-center px-8 py-4 border border-gray-300 text-lg font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
-              >
-                View Dashboard
-              </a>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )
