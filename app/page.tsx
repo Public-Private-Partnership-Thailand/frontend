@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { ProjectData } from '@/types/project'
 import ProjectCard from '@/components/ProjectCard'
 import LoadingSpinner from '@/components/LoadingSpinner'
@@ -9,11 +9,40 @@ import { useLanguage } from '@/lib/LanguageContext'
 import { fetchProjectsFromAPI } from '@/lib/projectService'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+} from 'chart.js'
+import { Doughnut, Bar } from 'react-chartjs-2'
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+)
 
 export default function HomePage() {
   const [projects, setProjects] = useState<ProjectData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [filters, setFilters] = useState({
+    sector: '',
+    location: '',
+    search: '',
+    ministry: '',
+    budget: '',
+    businessGroup: ''
+  })
   const { t } = useLanguage()
   const router = useRouter()
 
@@ -37,8 +66,100 @@ export default function HomePage() {
     }
   }
 
-  // Get latest 5 projects by start date (fallback to updated)
-  const latestProjects = projects
+  // Filter projects
+  const filteredProjects = useMemo(() => {
+    return projects.filter(project => {
+      if (!project) return false
+      
+      const matchesSector = !filters.sector || (project.sector && project.sector.some(s => s.toLowerCase().includes(filters.sector.toLowerCase())))
+      const matchesBusinessGroup = !filters.businessGroup || (project.businessGroup && project.businessGroup.toLowerCase().includes(filters.businessGroup.toLowerCase()))
+      const matchesLocation = !filters.location || (project.locations && project.locations.some(l => l?.description?.toLowerCase().includes(filters.location.toLowerCase())))
+      const matchesMinistry = !filters.ministry || (project.ministry && project.ministry.toLowerCase().includes(filters.ministry.toLowerCase()))
+      const matchesSearch = !filters.search || 
+        project.title?.toLowerCase().includes(filters.search.toLowerCase()) ||
+        project.description?.toLowerCase().includes(filters.search.toLowerCase()) ||
+        project.publicAuthority?.name?.toLowerCase().includes(filters.search.toLowerCase())
+      
+      // Budget filter
+      let matchesBudget = true
+      if (filters.budget) {
+        const budget = project.budget?.amount?.amount || 0
+        switch (filters.budget) {
+          case 'under-100m':
+            matchesBudget = budget < 100000000
+            break
+          case '100m-500m':
+            matchesBudget = budget >= 100000000 && budget < 500000000
+            break
+          case '500m-1b':
+            matchesBudget = budget >= 500000000 && budget < 1000000000
+            break
+          case '1b-5b':
+            matchesBudget = budget >= 1000000000 && budget < 5000000000
+            break
+          case 'over-5b':
+            matchesBudget = budget >= 5000000000
+            break
+          default:
+            matchesBudget = true
+        }
+      }
+
+      return matchesSector && matchesBusinessGroup && matchesLocation && matchesMinistry && matchesSearch && matchesBudget
+    })
+  }, [projects, filters])
+
+  // Get unique values for filter options
+  const locations = useMemo(() => {
+    const locationSet = new Set<string>()
+    projects.forEach(project => {
+      if (project?.locations) {
+        project.locations.forEach(location => {
+          if (location?.description) locationSet.add(location.description)
+        })
+      }
+    })
+    return Array.from(locationSet).sort()
+  }, [projects])
+
+  const ministries = useMemo(() => {
+    const ministrySet = new Set<string>()
+    projects.forEach(project => {
+      if (project?.ministry) {
+        ministrySet.add(project.ministry)
+      }
+    })
+    return Array.from(ministrySet).sort()
+  }, [projects])
+
+  // Get unique values for business group filter options
+  const businessGroups = useMemo(() => {
+    const groupSet = new Set<string>()
+    projects.forEach(project => {
+      if (project?.businessGroup) {
+        groupSet.add(project.businessGroup)
+      }
+    })
+    return Array.from(groupSet).sort()
+  }, [projects])
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+  }
+
+  const clearFilters = () => {
+    setFilters({
+      sector: '',
+      location: '',
+      search: '',
+      ministry: '',
+      budget: '',
+      businessGroup: ''
+    })
+  }
+
+  // Get latest 5 projects by start date (fallback to updated) from filtered projects
+  const latestProjects = filteredProjects
     .slice()
     .sort((a, b) => {
       const aDate = new Date(a.period?.startDate || a.updated || '1970-01-01').getTime()
@@ -47,76 +168,302 @@ export default function HomePage() {
     })
     .slice(0, 5)
 
+  // Calculate ministry counts for pie chart
+  const ministryCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    projects.forEach(project => {
+      if (project?.ministry) {
+        counts[project.ministry] = (counts[project.ministry] || 0) + 1
+      }
+    })
+    return counts
+  }, [projects])
+
+  // Prepare pie chart data for ministry distribution
+  const ministryChartData = useMemo(() => {
+    const labels = Object.keys(ministryCounts)
+    const data = Object.values(ministryCounts)
+    const colors = [
+      '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+      '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#6366F1',
+      '#14B8A6', '#FBBF24'
+    ]
+    
+    return {
+      labels,
+      datasets: [{
+        label: t('home.projectsByMinistry'),
+        data,
+        backgroundColor: labels.map((_, i) => colors[i % colors.length]),
+        borderColor: labels.map((_, i) => colors[i % colors.length]),
+        borderWidth: 2,
+      }]
+    }
+  }, [ministryCounts, t])
+
+  // Calculate budget distribution by ranges
+  const budgetRanges = useMemo(() => {
+    const ranges = {
+      under100M: 0,
+      range100Mto500M: 0,
+      range500Mto1B: 0,
+      range1Bto5B: 0,
+      over5B: 0
+    }
+
+    projects.forEach(project => {
+      const budget = project?.budget?.amount?.amount || 0
+      if (budget > 0) {
+        if (budget < 100000000) {
+          ranges.under100M++
+        } else if (budget >= 100000000 && budget < 500000000) {
+          ranges.range100Mto500M++
+        } else if (budget >= 500000000 && budget < 1000000000) {
+          ranges.range500Mto1B++
+        } else if (budget >= 1000000000 && budget < 5000000000) {
+          ranges.range1Bto5B++
+        } else {
+          ranges.over5B++
+        }
+      }
+    })
+
+    return ranges
+  }, [projects])
+
+  // Prepare bar chart data for budget distribution
+  const budgetChartData = useMemo(() => {
+    const labels = [
+      t('home.budgetUnder100M'),
+      t('home.budget100Mto500M'),
+      t('home.budget500Mto1B'),
+      t('home.budget1Bto5B'),
+      t('home.budgetOver5B')
+    ]
+    const data = [
+      budgetRanges.under100M,
+      budgetRanges.range100Mto500M,
+      budgetRanges.range500Mto1B,
+      budgetRanges.range1Bto5B,
+      budgetRanges.over5B
+    ]
+    
+    return {
+      labels,
+      datasets: [{
+        label: t('home.numberOfProjects'),
+        data,
+        backgroundColor: '#EC4899',
+        borderColor: '#BE185D',
+        borderWidth: 2,
+        borderRadius: 8,
+      }]
+    }
+  }, [budgetRanges, t])
+
+  // Chart options
+  const pieChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom' as const,
+        labels: {
+          usePointStyle: true,
+          padding: 15,
+          font: {
+            size: 11,
+          },
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context: any) {
+            const label = context.label || ''
+            const value = context.parsed || 0
+            const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
+            const percentage = ((value / total) * 100).toFixed(1)
+            return `${label}: ${value} (${percentage}%)`
+          }
+        }
+      }
+    }
+  }
+
+  const barChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context: any) {
+            return `Projects: ${context.parsed.y}`
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1,
+        }
+      }
+    }
+  }
+
   if (loading) {
     return <LoadingSpinner />
   }
 
   return (
     <div className="px-4 sm:px-0">
-      {/* Hero Banner */}
-      <div className="bg-white border-l-4 border-chula-pink shadow-lg mb-8">
-        <div className="px-8 py-12">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-              {/* Left Content */}
-              <div>
-                <div className="flex items-center mb-4">
-                  <div className="w-12 h-12 bg-chula-pink rounded-lg flex items-center justify-center mr-4 shadow-md">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-bold text-gray-900 leading-tight">
-                      {t('home.banner')}
-                    </h1>
-                    <div className="w-16 h-1 bg-chula-pink mt-2"></div>
-                  </div>
+      {/* Filters */}
+      <div className="bg-white p-6 rounded-lg shadow mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+          {/* Search */}
+          <div className="lg:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {t('home.search')}
+            </label>
+            <input
+              type="text"
+              placeholder={t('home.searchProjects')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={filters.search}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
+            />
+          </div>
+
+          {/* Business Group Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {t('dashboard.businessGroup')}
+            </label>
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={filters.businessGroup}
+              onChange={(e) => handleFilterChange('businessGroup', e.target.value)}
+            >
+              <option value="">{t('home.allBusinessGroups')}</option>
+              {businessGroups.map(group => (
+                <option key={group} value={group}>{group}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Ministry Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {t('dashboard.ministry')}
+            </label>
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={filters.ministry}
+              onChange={(e) => handleFilterChange('ministry', e.target.value)}
+            >
+              <option value="">{t('home.allMinistries')}</option>
+              {ministries.map(ministry => (
+                <option key={ministry} value={ministry}>{ministry}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Location Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {t('projects.location')}
+            </label>
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={filters.location}
+              onChange={(e) => handleFilterChange('location', e.target.value)}
+            >
+              <option value="">{t('home.allLocations')}</option>
+              {locations.map(location => (
+                <option key={location} value={location}>{location}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Budget Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {t('home.budget')}
+            </label>
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={filters.budget}
+              onChange={(e) => handleFilterChange('budget', e.target.value)}
+            >
+              <option value="">{t('home.allBudgets')}</option>
+              <option value="under-100m">{t('home.budgetUnder100M')}</option>
+              <option value="100m-500m">{t('home.budget100Mto500M')}</option>
+              <option value="500m-1b">{t('home.budget500Mto1B')}</option>
+              <option value="1b-5b">{t('home.budget1Bto5B')}</option>
+              <option value="over-5b">{t('home.budgetOver5B')}</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center mt-4">
+          <div className="text-sm text-gray-500">
+            {t('home.showingProjects')
+              .replace('{filtered}', filteredProjects.length.toString())
+              .replace('{total}', projects.length.toString())}
+          </div>
+          <div className="space-x-2">
+            <button
+              onClick={clearFilters}
+              className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+            >
+              {t('projects.clearFilters')}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Dashboard */}
+      <div className="mb-8">
+        <div>
+          <div className="mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+              {/* Left Dashboard - Projects by Ministry Pie Chart */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="mb-4">
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {t('home.projectsByMinistry')}
+                  </h2>
                 </div>
-                <p className="text-lg text-gray-700 mb-6 leading-relaxed">
-                  {t('home.bannerSubtitle')}
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Link
-                    href="/projects"
-                    className="inline-flex items-center justify-center px-6 py-3 bg-chula-pink text-white font-medium rounded-md hover:bg-chula-pink-dark transition-all duration-200 shadow-sm hover:shadow-md"
-                  >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    {t('nav.allProjects')}
-                  </Link>
-                  {/* <Link
-                    href="/dashboard"
-                    className="inline-flex items-center justify-center px-6 py-3 border-2 border-chula-pink text-chula-pink font-medium rounded-md hover:bg-chula-pink-lighter transition-all duration-200"
-                  >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    {t('nav.projectsDashboard')}
-                  </Link> */}
+                <div className="h-80">
+                  {Object.keys(ministryCounts).length > 0 ? (
+                    <Doughnut data={ministryChartData} options={pieChartOptions} />
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-500">
+                      {t('home.noDataAvailable')}
+                    </div>
+                  )}
                 </div>
               </div>
               
-              {/* Right Content - Stats or Visual */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('home.projectStats')}</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-chula-pink">{projects.length || 0}</div>
-                    <div className="text-sm text-gray-600">{t('home.totalProjects')}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">
-                      {projects.filter(p => p?.status === 'active').length || 0}
-                    </div>
-                    <div className="text-sm text-gray-600">{t('home.activeProjects')}</div>
-                  </div>
+              {/* Right Dashboard - Budget Distribution Bar Chart */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="mb-4">
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {t('home.budgetDistribution')}
+                  </h2>
                 </div>
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="text-sm text-gray-600 text-center">
-                    {t('home.lastUpdated')}: {new Date().toLocaleDateString(t('common.locale') || 'en-US')}
-                  </div>
+                <div className="h-80">
+                  {projects.length > 0 ? (
+                    <Bar data={budgetChartData} options={barChartOptions} />
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-500">
+                      {t('home.noDataAvailable')}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -208,7 +555,7 @@ export default function HomePage() {
       </div>
 
       {/* Additional Projects Grid */}
-      {projects.length > 10 && (
+      {filteredProjects.length > 10 && (
         <div className="mb-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-900">
@@ -222,7 +569,7 @@ export default function HomePage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {projects && projects.length > 0 && projects.slice(10, 19).map((project) => (
+            {filteredProjects && filteredProjects.length > 0 && filteredProjects.slice(10, 19).map((project) => (
               <ProjectCard key={project.id} project={project} />
             ))}
           </div>
