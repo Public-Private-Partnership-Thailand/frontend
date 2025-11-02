@@ -198,18 +198,6 @@ export default function AboutPage() {
           </div>
         </div>
 
-        {/* Win-Win Benefits Section */}
-        <div className="mb-16">
-          <div className="bg-primary-600 rounded-xl shadow-lg p-8 text-white">
-            <h2 className="text-3xl font-bold mb-6">
-              {t('about.winWinBenefits')}
-            </h2>
-            <p className="text-xl leading-relaxed">
-              {t('about.winWinBenefitsDesc')}
-            </p>
-          </div>
-        </div>
-
 
       </div>
     </div>
