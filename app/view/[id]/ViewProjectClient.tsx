@@ -6,7 +6,7 @@ import { ProjectData } from '@/types/project'
 import { useLanguage } from '@/lib/LanguageContext'
 import { useAuth } from '@/lib/AuthContext'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import { fetchProjectsFromAPI } from '@/lib/projectService'
+import { fetchProjectById } from '@/lib/projectService'
 
 export default function ViewProjectClient() {
   const { t } = useLanguage()
@@ -24,8 +24,7 @@ export default function ViewProjectClient() {
 
   const fetchProject = async () => {
     try {
-      const projects = await fetchProjectsFromAPI()
-      const foundProject = projects.find(p => p.id === projectId)
+      const foundProject = await fetchProjectById(projectId)
       
       if (foundProject) {
         setProject(foundProject)
@@ -147,15 +146,21 @@ export default function ViewProjectClient() {
             <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
               <div>
                 <dt className="text-sm font-medium text-gray-500">{t('pages.view.totalBudget')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{formatCurrency(project.budget.amount.amount)}</dd>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {formatCurrency(project.budget?.amount?.amount ?? 0)}
+                </dd>
               </div>
               <div>
                 <dt className="text-sm font-medium text-gray-500">{t('pages.view.currency')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{project.budget.amount.currency}</dd>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {project.budget?.amount?.currency ?? 'THB'}
+                </dd>
               </div>
               <div className="sm:col-span-2">
                 <dt className="text-sm font-medium text-gray-500">{t('pages.view.budgetDescription')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{project.budget.description}</dd>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {project.budget?.description ?? ''}
+                </dd>
               </div>
             </dl>
           </div>

@@ -1,18 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Static export configuration
-  output: 'export',
+  // Use dynamic rendering to support backend API
+  // output: 'export', // Commented out to allow dynamic routes
   
-  // Disable image optimization for static export
+  // Disable image optimization for static export (keep for compatibility)
   images: {
     unoptimized: true
   },
   
   // Disable trailing slash for better compatibility
   trailingSlash: false,
-  
-  // Disable server-side features for static export
-  distDir: 'out',
   
   // Removed i18n config to avoid conflicts with custom language implementation
 }

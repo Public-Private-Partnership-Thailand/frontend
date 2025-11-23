@@ -11,7 +11,7 @@ import PeriodSection from '@/components/form/PeriodSection'
 import PartiesSection from '@/components/form/PartiesSection'
 import AdditionalInfoSection from '@/components/form/AdditionalInfoSection'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import { fetchProjectsFromAPI } from '@/lib/projectService'
+import { fetchProjectById, updateProject } from '@/lib/projectService'
 
 export default function EditProjectClient() {
   const { t } = useLanguage()
@@ -32,8 +32,7 @@ export default function EditProjectClient() {
 
   const fetchProject = async () => {
     try {
-      const projects = await fetchProjectsFromAPI()
-      const foundProject = projects.find(p => p.id === projectId)
+      const foundProject = await fetchProjectById(projectId)
       
       if (foundProject) {
         setProject(foundProject)
@@ -79,16 +78,24 @@ export default function EditProjectClient() {
     setSubmitStatus('idle')
 
     try {
-      // For static app, we'll just show success message
-      // In a real static app, you might want to save to localStorage or show a message
-      console.log('Updated project data:', data)
+      // Update project via backend API
+      const updatedProject = await updateProject(projectId, {
+        ...data,
+        id: projectId,
+        updated: new Date().toISOString(),
+      })
       
-      setSubmitStatus('success')
-      
-      // Redirect to project list after successful update
-      setTimeout(() => {
-        router.push('/')
-      }, 2000)
+      if (updatedProject) {
+        setSubmitStatus('success')
+        setProject(updatedProject)
+        
+        // Redirect to project view after successful update
+        setTimeout(() => {
+          router.push(`/view/${projectId}`)
+        }, 2000)
+      } else {
+        setSubmitStatus('error')
+      }
     } catch (error) {
       console.error('Error updating project:', error)
       setSubmitStatus('error')

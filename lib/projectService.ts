@@ -1,7 +1,11 @@
 import { ProjectData } from '@/types/project'
 
-// External JSON API URL
-const API_URL = 'https://publicdigitaltwin.s3.ap-southeast-1.amazonaws.com/project-ppp.json'
+// Backend API URL - can be overridden with environment variable
+const BACKEND_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const DATASETS_ENDPOINT = `${BACKEND_API_URL}/api/datasets`
+
+// Fallback to external JSON API URL if backend is not available
+const EXTERNAL_API_URL = 'https://publicdigitaltwin.s3.ap-southeast-1.amazonaws.com/project-ppp.json'
 
 // Helper function to convert amount string to number
 function parseAmount(amount: string | number): number {
@@ -110,26 +114,148 @@ function convertExternalDataToProject(externalData: ProjectData, index: number):
   }
 }
 
-// Function to fetch projects from external API
+// Function to fetch projects from backend API
 export async function fetchProjectsFromAPI(): Promise<ProjectData[]> {
   try {
-    const response = await fetch(API_URL)
+    // Try backend API first
+    const response = await fetch(DATASETS_ENDPOINT, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     
-    const externalData: ProjectData[] = await response.json()
+    const data: ProjectData[] = await response.json()
     
-    // Convert external data to ProjectData format
-    return externalData.map((project, index) => 
-      convertExternalDataToProject(project, index)
-    )
+    // Backend already returns data in the correct format
+    return data
   } catch (error) {
-    console.error('Error fetching projects from API:', error)
-    // Return empty array if API fails
-    return []
+    console.error('Error fetching projects from backend API:', error)
+    
+    // Fallback to external API if backend fails
+    try {
+      console.log('Falling back to external API...')
+      const response = await fetch(EXTERNAL_API_URL)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const externalData: ProjectData[] = await response.json()
+      
+      // Convert external data to ProjectData format
+      return externalData.map((project, index) => 
+        convertExternalDataToProject(project, index)
+      )
+    } catch (fallbackError) {
+      console.error('Error fetching projects from external API:', fallbackError)
+      // Return empty array if both APIs fail
+      return []
+    }
   }
 }
 
-// Export the API URL for reference
-export { API_URL }
+// Function to fetch a single project by ID
+export async function fetchProjectById(id: string): Promise<ProjectData | null> {
+  try {
+    const response = await fetch(`${DATASETS_ENDPOINT}/${id}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null
+      }
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    const data: ProjectData = await response.json()
+    return data
+  } catch (error) {
+    console.error(`Error fetching project ${id} from API:`, error)
+    return null
+  }
+}
+
+// Function to create a new project
+export async function createProject(project: ProjectData): Promise<ProjectData | null> {
+  try {
+    console.log('Sending project to backend:', project)
+    const response = await fetch(DATASETS_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(project),
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Backend error response:', errorText)
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+    }
+    
+    const result = await response.json()
+    console.log('Backend response:', result)
+    return result.project
+  } catch (error) {
+    console.error('Error creating project:', error)
+    if (error instanceof Error) {
+      console.error('Error message:', error.message)
+    }
+    return null
+  }
+}
+
+// Function to update a project
+export async function updateProject(id: string, project: Partial<ProjectData>): Promise<ProjectData | null> {
+  try {
+    const response = await fetch(`${DATASETS_ENDPOINT}/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(project),
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    const result = await response.json()
+    return result.project
+  } catch (error) {
+    console.error(`Error updating project ${id}:`, error)
+    return null
+  }
+}
+
+// Function to delete a project
+export async function deleteProject(id: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${DATASETS_ENDPOINT}/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    return true
+  } catch (error) {
+    console.error(`Error deleting project ${id}:`, error)
+    return false
+  }
+}
+
+// Export the API URLs for reference
+export { DATASETS_ENDPOINT, EXTERNAL_API_URL }

@@ -90,13 +90,13 @@ export default function DashboardPage() {
 
   // Calculate comprehensive statistics
   const totalProjects = projects.length
-  const totalInvestment = projects.reduce((sum, project) => sum + project.budget.amount.amount, 0)
+  const totalInvestment = projects.reduce((sum, project) => sum + (project.budget?.amount?.amount ?? 0), 0)
   const activeProjects = projects.filter(p => p.status === 'active').length
   const completedProjects = projects.filter(p => p.status === 'completed').length
   
   // Calculate average project duration
   const avgDuration = projects.length > 0 
-    ? projects.reduce((sum, project) => sum + (project.period.durationInMonths || 0), 0) / projects.length
+    ? projects.reduce((sum, project) => sum + (project.period?.durationInMonths || 0), 0) / projects.length
     : 0
 
   // Projects by sector
@@ -118,9 +118,11 @@ export default function DashboardPage() {
 
   // Investment trends by year
   const investmentByYear = projects.reduce((acc, project) => {
-    const year = new Date(project.period.startDate).getFullYear()
-    if (year && year > 1990) {
-      acc[year] = (acc[year] || 0) + project.budget.amount.amount
+    if (project.period?.startDate) {
+      const year = new Date(project.period.startDate).getFullYear()
+      if (year && year > 1990 && !isNaN(year)) {
+        acc[year] = (acc[year] || 0) + (project.budget?.amount?.amount ?? 0)
+      }
     }
     return acc
   }, {} as Record<number, number>)
@@ -130,9 +132,12 @@ export default function DashboardPage() {
 
   // Cost by year (budget used each year across all projects)
   const costByYear = projects.reduce((acc, project) => {
-    const year = new Date(project.period.startDate).getFullYear()
-    if (year && year > 1990 && project.budget.amount.amount > 0) {
-      acc[year] = (acc[year] || 0) + project.budget.amount.amount
+    if (project.period?.startDate) {
+      const year = new Date(project.period.startDate).getFullYear()
+      const budgetAmount = project.budget?.amount?.amount ?? 0
+      if (year && year > 1990 && !isNaN(year) && budgetAmount > 0) {
+        acc[year] = (acc[year] || 0) + budgetAmount
+      }
     }
     return acc
   }, {} as Record<number, number>)
@@ -654,8 +659,8 @@ export default function DashboardPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">
-                        {project.budget.amount.amount > 0 
-                          ? `฿${(project.budget.amount.amount / 1000000).toFixed(0)}M`
+                        {(project.budget?.amount?.amount ?? 0) > 0 
+                          ? `฿${((project.budget?.amount?.amount ?? 0) / 1000000).toFixed(0)}M`
                           : 'N/A'
                         }
                       </div>

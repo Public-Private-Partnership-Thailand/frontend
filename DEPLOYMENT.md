@@ -1,100 +1,121 @@
-# Static Web App Deployment Guide
+# Deployment Guide
 
 ## Overview
-This PPP project is now configured as a **static web application** that fetches data from an external JSON API. It can be deployed to any static hosting service.
+This PPP project is now configured as a **dynamic Next.js application** that connects to a backend API. It requires a Node.js server to run.
 
-## Data Source
-- **API URL**: `https://publicdigitaltwin.s3.ap-southeast-1.amazonaws.com/project-ppp.json`
-- **Data Format**: Thai PPP project data with fields like โครงการ, กลุ่มกิจการ, etc.
-- **Real-time**: Data is fetched from the external API on each page load
+## Architecture
+- **Frontend**: Next.js application with dynamic routing
+- **Backend API**: FastAPI server (see `backend/` directory)
+- **Database**: PostgreSQL (configured via `DATABASE_URL`)
+- **Data Source**: Backend API at `http://localhost:8000/api/datasets` (configurable via `NEXT_PUBLIC_API_URL`)
+
+## Prerequisites
+1. Node.js 18+ installed
+2. Python 3.12+ installed (for backend)
+3. PostgreSQL database (for backend)
+4. Backend API running (see `backend/README.md`)
 
 ## Deployment Options
 
-### Option 1: AWS S3 + CloudFront (Recommended)
-1. **Build the project**:
-   ```bash
-   npm run build
-   ```
-
-2. **Upload to S3**:
-   - Upload the contents of the `out/` folder to an S3 bucket
-   - Enable static website hosting
-   - Set index.html as the index document
-
-3. **Configure CloudFront** (optional):
-   - Create a CloudFront distribution
-   - Point to your S3 bucket
-   - Enable HTTPS and custom domain
-
-### Option 2: Vercel (Easiest)
+### Option 1: Vercel (Recommended for Frontend)
 1. **Connect your repository** to Vercel
-2. **Deploy automatically** - Vercel will detect Next.js and build it
-3. **Custom domain** (optional)
+2. **Set environment variables**:
+   - `NEXT_PUBLIC_API_URL`: Your backend API URL (e.g., `https://api.example.com`)
+3. **Deploy automatically** - Vercel will detect Next.js and build it
+4. **Custom domain** (optional)
 
-### Option 3: Netlify
-1. **Build command**: `npm run build`
-2. **Publish directory**: `out`
-3. **Deploy** from Git or drag & drop
+### Option 2: Railway / Render (Full Stack)
+1. **Deploy Backend**:
+   - Connect backend directory
+   - Set `DATABASE_URL` environment variable
+   - Deploy Python application
 
-### Option 4: GitHub Pages
-1. **Build the project**:
+2. **Deploy Frontend**:
+   - Connect frontend directory
+   - Set `NEXT_PUBLIC_API_URL` to backend URL
+   - Deploy Node.js application
+
+### Option 3: Docker Compose (Self-hosted)
+1. **Build and run**:
    ```bash
-   npm run build
+   docker-compose up -d
    ```
 
-2. **Upload to GitHub Pages**:
-   - Upload the contents of the `out/` folder to your repository
-   - Enable GitHub Pages in repository settings
+2. **Access**:
+   - Frontend: `http://localhost:3000`
+   - Backend API: `http://localhost:8000`
 
 ## Build Process
+
+### Frontend
 ```bash
 # Install dependencies
 npm install
 
-# Build for static export
+# Build for production
 npm run build
 
-# The built files will be in the 'out' directory
+# Start production server
+npm start
 ```
 
-## Project Structure After Build
+### Backend
+```bash
+cd backend
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set environment variable
+export DATABASE_URL="postgresql://user:password@localhost/database"
+
+# Run development server
+fastapi dev oc4ids_datastore_api/main.py
 ```
-out/
-├── index.html
-├── _next/
-│   ├── static/
-│   └── ...
-├── view/
-│   └── [id]/
-├── edit/
-│   └── [id]/
-├── create/
-└── ...
+
+## Development
+
+### Start Frontend (Development)
+```bash
+npm run dev
+# Frontend will run on http://localhost:3000
 ```
+
+### Start Backend (Development)
+```bash
+cd backend
+export DATABASE_URL="postgresql://user:password@localhost/database"
+fastapi dev oc4ids_datastore_api/main.py
+# Backend will run on http://localhost:8000
+```
+
+## Environment Variables
+
+### Frontend
+- `NEXT_PUBLIC_API_URL`: Backend API URL (default: `http://localhost:8000`)
+
+### Backend
+- `DATABASE_URL`: PostgreSQL connection string
 
 ## Key Features
-- **Static Export**: No server required
-- **External API**: Fetches data from S3 JSON file
+- **Dynamic Routing**: Supports real-time project creation and editing
+- **Backend API**: Full CRUD operations via REST API
+- **Database Integration**: PostgreSQL with JSONB fields
 - **Client-side Routing**: Uses Next.js router
 - **Responsive Design**: Works on all devices
 - **Thai Language Support**: Full Thai language interface
-
-## Environment Variables
-No environment variables needed for static deployment.
-
-## Performance
-- **Fast Loading**: Static files served from CDN
-- **SEO Friendly**: Pre-rendered HTML pages
-- **Offline Capable**: Can work offline (with cached data)
 
 ## Troubleshooting
 
 ### Common Issues:
 1. **Build Failures**: Check that all dependencies are installed
-2. **API Errors**: Verify the external JSON API is accessible
-3. **Routing Issues**: Ensure your hosting service supports client-side routing
+2. **API Connection Errors**: Verify backend is running and `NEXT_PUBLIC_API_URL` is correct
+3. **Database Connection**: Verify `DATABASE_URL` is set correctly
+4. **CORS Errors**: Ensure backend CORS middleware is configured correctly
 
-### API Endpoint:
-- **URL**: `https://publicdigitaltwin.s3.ap-southeast-1.amazonaws.com/project-ppp.json`
-- **Format**: Array of Thai PPP project objects
-- **CORS**: Must be enabled for browser access
+### API Endpoints:
+- `GET /api/datasets`: Get all projects
+- `GET /api/datasets/{id}`: Get single project
+- `POST /api/datasets`: Create new project
+- `PUT /api/datasets/{id}`: Update project
+- `DELETE /api/datasets/{id}`: Delete project

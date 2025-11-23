@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import { useForm, SubmitHandler } from 'react-hook-form'
-import { ProjectFormData } from '@/types/project'
+import { useRouter } from 'next/navigation'
+import { ProjectFormData, ProjectData } from '@/types/project'
 import { useLanguage } from '@/lib/LanguageContext'
+import { createProject } from '@/lib/projectService'
 import BasicInfoSection from '@/components/form/BasicInfoSection'
 import BudgetSection from '@/components/form/BudgetSection'
 import PeriodSection from '@/components/form/PeriodSection'
@@ -12,6 +14,7 @@ import AdditionalInfoSection from '@/components/form/AdditionalInfoSection'
 
 export default function CreateProjectPage() {
   const { t } = useLanguage()
+  const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
 
@@ -44,19 +47,81 @@ export default function CreateProjectPage() {
     setSubmitStatus('idle')
 
     try {
-      // Display complete form data as JSON
-      console.log('====================')
-      console.log('PROJECT FORM DATA:')
-      console.log('====================')
-      console.log(JSON.stringify(data, null, 2))
-      console.log('====================')
+      // Generate a unique ID for the new project
+      const projectId = `project-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       
-      setSubmitStatus('success')
+      // Prepare project data with required fields
+      const projectData: ProjectData = {
+        id: projectId,
+        updated: new Date().toISOString(),
+        title: data.title || '',
+        description: data.description || '',
+        status: data.status || 'active',
+        type: data.type || '',
+        purpose: data.purpose || '',
+        language: 'th',
+        period: data.period || {
+          startDate: '',
+          endDate: ''
+        },
+        sector: data.sector || [],
+        locations: data.locations || [],
+        budget: data.budget || {
+          description: '',
+          amount: {
+            amount: 0,
+            currency: 'THB'
+          }
+        },
+        parties: data.parties || [],
+        publicAuthority: data.publicAuthority || {
+          name: '',
+          id: ''
+        },
+        identifiers: data.identifiers || [],
+        additionalClassifications: data.additionalClassifications || [],
+        identificationPeriod: data.identificationPeriod,
+        preparationPeriod: data.preparationPeriod,
+        implementationPeriod: data.implementationPeriod,
+        completionPeriod: data.completionPeriod,
+        maintenancePeriod: data.maintenancePeriod,
+        decommissioningPeriod: data.decommissioningPeriod,
+        relatedProjects: data.relatedProjects,
+        assetLifetime: data.assetLifetime,
+        documents: data.documents,
+        forecasts: data.forecasts,
+        metrics: data.metrics,
+        costMeasurements: data.costMeasurements,
+        contractingProcesses: data.contractingProcesses,
+        milestones: data.milestones,
+        transactions: data.transactions,
+        completion: data.completion,
+        lobbyingMeetings: data.lobbyingMeetings,
+        social: data.social,
+        environment: data.environment,
+        policyAlignment: data.policyAlignment,
+        benefits: data.benefits,
+        businessGroup: data.businessGroup,
+        ministry: data.ministry,
+      }
       
-      // Reset form or redirect after showing success
-      // setTimeout(() => {
-      //   window.location.href = '/'
-      // }, 2000)
+      console.log('Creating project with data:', projectData)
+      
+      // Create project via backend API
+      const createdProject = await createProject(projectData)
+      
+      if (createdProject) {
+        console.log('Project created successfully:', createdProject)
+        setSubmitStatus('success')
+        
+        // Redirect to project view after successful creation
+        setTimeout(() => {
+          router.push(`/view/${createdProject.id}`)
+        }, 2000)
+      } else {
+        console.error('Failed to create project')
+        setSubmitStatus('error')
+      }
     } catch (error) {
       console.error('Error creating project:', error)
       setSubmitStatus('error')
