@@ -17,6 +17,7 @@ export default function ViewProjectClient() {
   
   const [isLoading, setIsLoading] = useState(true)
   const [project, setProject] = useState<ProjectData | null>(null)
+  const [showAdditionalInfo, setShowAdditionalInfo] = useState(false)
 
   useEffect(() => {
     fetchProject()
@@ -85,13 +86,15 @@ export default function ViewProjectClient() {
     )
   }
 
+  const ministryName = project.additionalClassifications?.find(c => c.scheme === 'TH-MINISTRY')?.description || 'N/A'
+  const privateContractors = project.parties?.filter(party => party.roles && party.roles.includes('contractor')).map(party => party.name).join(', ') || 'N/A'
+
   return (
     <div className="px-4 sm:px-0">
       <div className="mb-8">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex-1">
             <h1 className="text-3xl font-bold text-gray-900">{project.title}</h1>
-            <p className="mt-2 text-gray-600">{project.description}</p>
           </div>
           <div className="flex space-x-3">
             {isAuthenticated && (
@@ -114,71 +117,23 @@ export default function ViewProjectClient() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 items-start">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-8">
-          {/* Basic Information */}
+          {/* Main Information Card */}
           <div className="bg-white shadow rounded-lg p-6">
             <h2 className="text-lg font-medium text-gray-900 mb-4">{t('pages.view.basicInfo')}</h2>
             <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
-              <div>
-                <dt className="text-sm font-medium text-gray-500">{t('pages.view.type')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{project.type}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">{t('dashboard.businessGroup')}</dt>
+              <div className="sm:col-span-2">
+                <dt className="text-sm font-medium text-gray-500">{t('pages.view.businessGroup')}</dt>
                 <dd className="mt-1 text-sm text-gray-900">{project.businessGroup || 'N/A'}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">{t('dashboard.ministry')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{project.ministry || project.publicAuthority?.name || 'N/A'}</dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-sm font-medium text-gray-500">{t('pages.view.purpose')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{project.purpose}</dd>
-              </div>
-            </dl>
-          </div>
-
-          {/* Budget Information */}
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">{t('pages.view.budget')}</h2>
-            <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
-              <div>
-                <dt className="text-sm font-medium text-gray-500">{t('pages.view.totalBudget')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">
-                  {formatCurrency(project.budget?.amount?.amount ?? 0)}
-                </dd>
+                <dt className="text-sm font-medium text-gray-500">{t('pages.view.ministry')}</dt>
+                <dd className="mt-1 text-sm text-gray-900">{ministryName}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">{t('pages.view.currency')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">
-                  {project.budget?.amount?.currency ?? 'THB'}
-                </dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-sm font-medium text-gray-500">{t('pages.view.budgetDescription')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">
-                  {project.budget?.description ?? ''}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          {/* Timeline */}
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">{t('pages.view.timeline')}</h2>
-            <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
-              <div>
-                <dt className="text-sm font-medium text-gray-500">{t('pages.view.startDate')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{formatDate(project.period.startDate)}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">{t('pages.view.endDate')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{formatDate(project.period.endDate)}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">{t('pages.view.duration')}</dt>
+                <dt className="text-sm font-medium text-gray-500">{t('pages.view.projectDuration')}</dt>
                 <dd className="mt-1 text-sm text-gray-900">
                   {project.period.durationInMonths 
                     ? `${project.period.durationInMonths} ${t('pages.view.months')}` 
@@ -187,10 +142,18 @@ export default function ViewProjectClient() {
                     : 'N/A'}
                 </dd>
               </div>
+              <div className="sm:col-span-2">
+                <dt className="text-sm font-medium text-gray-500">{t('pages.view.publicAuthority')}</dt>
+                <dd className="mt-1 text-sm text-gray-900">{project.publicAuthority?.name || 'N/A'}</dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-sm font-medium text-gray-500">{t('pages.view.privateContractor')}</dt>
+                <dd className="mt-1 text-sm text-gray-900">{privateContractors}</dd>
+              </div>
             </dl>
           </div>
 
-          {/* Parties */}
+          {/* Parties Section */}
           <div className="bg-white shadow rounded-lg p-6">
             <h2 className="text-lg font-medium text-gray-900 mb-4">{t('pages.view.parties')}</h2>
             <div className="space-y-4">
@@ -220,10 +183,79 @@ export default function ViewProjectClient() {
               ))}
             </div>
           </div>
+
+          {/* Additional Information Toggle */}
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <button
+              onClick={() => setShowAdditionalInfo(!showAdditionalInfo)}
+              className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+            >
+              <h2 className="text-lg font-medium text-gray-900">
+                {t('pages.view.additionalInfo')}
+              </h2>
+              <svg
+                className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${showAdditionalInfo ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            <div className={`transition-all duration-300 ease-in-out ${showAdditionalInfo ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+              <div className="px-6 pb-6 border-t border-gray-200">
+                <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 mt-6">
+                  <div className="sm:col-span-2">
+                    <dt className="text-sm font-medium text-gray-500">{t('pages.view.projectType')}</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{project.type || 'N/A'}</dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-sm font-medium text-gray-500">{t('pages.view.projectDescription')}</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{project.description || 'N/A'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">{t('pages.view.contractSigningDate')}</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{formatDate(project.period?.startDate)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">{t('pages.view.constructionStartDate')}</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{formatDate(project.implementationPeriod?.startDate || '')}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">{t('pages.view.concessionStartDate')}</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{formatDate(project.period?.startDate)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">{t('pages.view.concessionEndDate')}</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{formatDate(project.period?.endDate)}</dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-sm font-medium text-gray-500">{t('pages.view.totalProjectValue')}</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {formatCurrency(project.budget?.amount?.amount ?? 0)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">{t('pages.view.contractType')}</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{project.contractType || 'N/A'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">{t('pages.view.concessionForm')}</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{project.budget?.description || 'N/A'}</dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-sm font-medium text-gray-500">{t('pages.view.purpose')}</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{project.purpose || 'N/A'}</dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-8">
+        <div className="space-y-8 lg:sticky lg:top-8">
           {/* Project Details */}
           <div className="bg-white shadow rounded-lg p-6">
             <h2 className="text-lg font-medium text-gray-900 mb-4">{t('pages.view.projectDetails')}</h2>

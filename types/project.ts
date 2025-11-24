@@ -249,6 +249,7 @@ export interface ProjectData {
   purpose: string;
   businessGroup?: string;
   ministry?: string;
+  contractType?: string; // รูปแบบการจัดสรรกรรมสิทธิ์ (e.g., BTO, BOT)
   relatedProjects?: RelatedProject[];
   assetLifetime?: {
     startDate: string;

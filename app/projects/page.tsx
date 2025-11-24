@@ -16,11 +16,10 @@ export default function ProjectsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [filters, setFilters] = useState({
     sector: '',
-    location: '',
     search: '',
     ministry: '',
-    budget: '',
-    businessGroup: ''
+    businessGroup: '',
+    contractType: ''
   })
   const { t } = useLanguage()
   const { isAuthenticated } = useAuth()
@@ -54,39 +53,15 @@ export default function ProjectsPage() {
       
       const matchesSector = !filters.sector || (project.sector && project.sector.some(s => s.toLowerCase().includes(filters.sector.toLowerCase())))
       const matchesBusinessGroup = !filters.businessGroup || (project.businessGroup && project.businessGroup.toLowerCase().includes(filters.businessGroup.toLowerCase()))
-      const matchesLocation = !filters.location || (project.locations && project.locations.some(l => l?.description?.toLowerCase().includes(filters.location.toLowerCase())))
-      const matchesMinistry = !filters.ministry || (project.ministry && project.ministry.toLowerCase().includes(filters.ministry.toLowerCase()))
+      const ministryClassification = project.additionalClassifications?.find(c => c.scheme === 'TH-MINISTRY')
+      const matchesMinistry = !filters.ministry || (ministryClassification?.description && ministryClassification.description.toLowerCase().includes(filters.ministry.toLowerCase()))
+      const matchesContractType = !filters.contractType || (project.contractType && project.contractType.toLowerCase().includes(filters.contractType.toLowerCase()))
       const matchesSearch = !filters.search || 
         project.title?.toLowerCase().includes(filters.search.toLowerCase()) ||
         project.description?.toLowerCase().includes(filters.search.toLowerCase()) ||
         project.publicAuthority?.name?.toLowerCase().includes(filters.search.toLowerCase())
-      
-      // Budget filter
-      let matchesBudget = true
-      if (filters.budget) {
-        const budget = project.budget?.amount?.amount || 0
-        switch (filters.budget) {
-          case 'under-100m':
-            matchesBudget = budget < 100000000
-            break
-          case '100m-500m':
-            matchesBudget = budget >= 100000000 && budget < 500000000
-            break
-          case '500m-1b':
-            matchesBudget = budget >= 500000000 && budget < 1000000000
-            break
-          case '1b-5b':
-            matchesBudget = budget >= 1000000000 && budget < 5000000000
-            break
-          case 'over-5b':
-            matchesBudget = budget >= 5000000000
-            break
-          default:
-            matchesBudget = true
-        }
-      }
 
-      return matchesSector && matchesBusinessGroup && matchesLocation && matchesMinistry && matchesSearch && matchesBudget
+      return matchesSector && matchesBusinessGroup && matchesMinistry && matchesContractType && matchesSearch
     })
   }, [projects, filters])
 
@@ -109,27 +84,25 @@ export default function ProjectsPage() {
     return Array.from(sectorSet).sort()
   }, [projects])
 
-
-  const locations = useMemo(() => {
-    const locationSet = new Set<string>()
-    projects.forEach(project => {
-      if (project?.locations) {
-        project.locations.forEach(location => {
-          if (location?.description) locationSet.add(location.description)
-        })
-      }
-    })
-    return Array.from(locationSet).sort()
-  }, [projects])
-
   const ministries = useMemo(() => {
     const ministrySet = new Set<string>()
     projects.forEach(project => {
-      if (project?.ministry) {
-        ministrySet.add(project.ministry)
+      const ministryClassification = project?.additionalClassifications?.find(c => c.scheme === 'TH-MINISTRY')
+      if (ministryClassification?.description) {
+        ministrySet.add(ministryClassification.description)
       }
     })
     return Array.from(ministrySet).sort()
+  }, [projects])
+
+  const contractTypes = useMemo(() => {
+    const contractTypeSet = new Set<string>()
+    projects.forEach(project => {
+      if (project?.contractType) {
+        contractTypeSet.add(project.contractType)
+      }
+    })
+    return Array.from(contractTypeSet).sort()
   }, [projects])
 
   // Get unique values for business group filter options
@@ -151,11 +124,10 @@ export default function ProjectsPage() {
   const clearFilters = () => {
     setFilters({
       sector: '',
-      location: '',
       search: '',
       ministry: '',
-      budget: '',
-      businessGroup: ''
+      businessGroup: '',
+      contractType: ''
     })
     setCurrentPage(1)
   }
@@ -237,7 +209,7 @@ export default function ProjectsPage() {
 
       {/* Filters */}
       <div className="bg-white p-6 rounded-lg shadow mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Search */}
           <div className="lg:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -286,39 +258,20 @@ export default function ProjectsPage() {
             </select>
           </div>
 
-          {/* Location Filter */}
+          {/* Contract Type Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t('projects.location')}
+              {t('home.contractType')}
             </label>
             <select
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={filters.location}
-              onChange={(e) => handleFilterChange('location', e.target.value)}
+              value={filters.contractType}
+              onChange={(e) => handleFilterChange('contractType', e.target.value)}
             >
-              <option value="">All Locations</option>
-              {locations.map(location => (
-                <option key={location} value={location}>{location}</option>
+              <option value="">{t('home.allContractTypes')}</option>
+              {contractTypes.map(contractType => (
+                <option key={contractType} value={contractType}>{contractType}</option>
               ))}
-            </select>
-          </div>
-
-          {/* Budget Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Budget
-            </label>
-            <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={filters.budget}
-              onChange={(e) => handleFilterChange('budget', e.target.value)}
-            >
-              <option value="">All Budgets</option>
-              <option value="under-100m">Under ฿100M</option>
-              <option value="100m-500m">฿100M - ฿500M</option>
-              <option value="500m-1b">฿500M - ฿1B</option>
-              <option value="1b-5b">฿1B - ฿5B</option>
-              <option value="over-5b">Over ฿5B</option>
             </select>
           </div>
         </div>
@@ -354,19 +307,13 @@ export default function ProjectsPage() {
                   {t('projects.projectName')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('projects.sponsoringAuthority')}
+                  {t('projects.ministry')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('projects.location')}
+                  {t('projects.publicAuthority')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('projects.sector')}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('projects.totalCost')}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('projects.date')}
+                  {t('projects.privateContractor')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   {t('projects.actions')}
@@ -376,34 +323,30 @@ export default function ProjectsPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {currentProjects.map((project) => (
                 <tr key={project.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4">
                     <div className="text-sm font-medium text-gray-900">
                       {project.title || 'N/A'}
                     </div>
-                    <div className="text-sm text-gray-500">
-                      {project.description ? project.description.substring(0, 100) + '...' : 'No description'}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-900">
+                      {project.additionalClassifications
+                        ?.find(classification => classification.scheme === 'TH-MINISTRY')
+                        ?.description || 'N/A'}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4">
                     <div className="text-sm text-gray-900">
                       {project.publicAuthority?.name || 'N/A'}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4">
                     <div className="text-sm text-gray-900">
-                      {project.locations?.map(l => l?.description).filter(Boolean).join(', ') || 'N/A'}
+                      {project.parties
+                        ?.filter(party => party.roles && party.roles.includes('contractor'))
+                        .map(party => party.name)
+                        .join(', ') || 'N/A'}
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {project.sector?.join(', ') || 'N/A'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ฿{((project.budget?.amount?.amount || 0) / 1000000).toFixed(0)}M
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {project.period?.startDate ? new Date(project.period.startDate).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <Link
