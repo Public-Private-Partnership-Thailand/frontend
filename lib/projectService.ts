@@ -1,4 +1,5 @@
 import { ProjectData } from '@/types/project'
+import { BackendProjectData } from '@/lib/projectDataTransformer'
 
 // Backend API URL - can be overridden with environment variable
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -184,7 +185,7 @@ export async function fetchProjectById(id: string): Promise<ProjectData | null> 
 }
 
 // Function to create a new project
-export async function createProject(project: ProjectData): Promise<ProjectData | null> {
+export async function createProject(project: BackendProjectData): Promise<any | null> {
   try {
     console.log('Sending project to backend:', project)
     const response = await fetch(DATASETS_ENDPOINT, {
@@ -203,7 +204,7 @@ export async function createProject(project: ProjectData): Promise<ProjectData |
     
     const result = await response.json()
     console.log('Backend response:', result)
-    return result.project
+    return result.project || result
   } catch (error) {
     console.error('Error creating project:', error)
     if (error instanceof Error) {

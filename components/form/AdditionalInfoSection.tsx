@@ -252,7 +252,7 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
             <h3 className="text-lg font-medium text-gray-900">{t('form.additional.milestones')}</h3>
             <button
               type="button"
-              onClick={() => appendMilestone('')}
+              onClick={() => appendMilestone({ title: '', type: '', code: '', dateMet: '', dueDate: '' })}
               className="btn-secondary text-sm"
             >
               {t('form.additional.addMilestone')}
@@ -260,19 +260,56 @@ export default function AdditionalInfoSection({ register, control, errors }: Add
           </div>
           
           {milestoneFields.map((field, index) => (
-            <div key={field.id} className="flex gap-2 mb-2">
-              <input
-                {...register(`milestones.${index}`)}
-                className="form-input flex-1"
-                placeholder={t('form.additional.enterMilestone')}
-              />
-              <button
-                type="button"
-                onClick={() => removeMilestone(index)}
-                className="text-red-600 hover:text-red-800 px-2"
-              >
-                {t('common.remove')}
-              </button>
+            <div key={field.id} className="border border-gray-200 rounded-lg p-4 mb-2">
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-medium text-sm">{t('form.additional.enterMilestone')} {index + 1}</span>
+                <button
+                  type="button"
+                  onClick={() => removeMilestone(index)}
+                  className="text-red-600 hover:text-red-800 px-2"
+                >
+                  {t('common.remove')}
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="form-label">{t('form.additional.milestoneTitle')}</label>
+                  <input
+                    {...register(`milestones.${index}.title` as any)}
+                    className="form-input"
+                    placeholder={t('form.additional.milestoneTitle')}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">{t('form.additional.milestoneType')}</label>
+                  <select
+                    {...register(`milestones.${index}.code` as any)}
+                    className="form-input"
+                  >
+                    <option value="">{t('common.select')}</option>
+                    <option value="contractAmendment">{t('form.additional.milestoneTypeContractAmendment')}</option>
+                    <option value="completion">{t('form.additional.milestoneTypeCompletion')}</option>
+                    <option value="approval">{t('form.additional.milestoneTypeApproval')}</option>
+                    <option value="other">{t('form.additional.milestoneTypeOther')}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">{t('form.additional.milestoneDueDate')}</label>
+                  <input
+                    {...register(`milestones.${index}.dueDate` as any)}
+                    type="date"
+                    className="form-input"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">{t('form.additional.milestoneDateMet')}</label>
+                  <input
+                    {...register(`milestones.${index}.dateMet` as any)}
+                    type="date"
+                    className="form-input"
+                  />
+                </div>
+              </div>
             </div>
           ))}
         </div>

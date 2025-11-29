@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import { useForm, SubmitHandler } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
-import { ProjectFormData, ProjectData } from '@/types/project'
+import { ProjectFormData } from '@/types/project'
 import { useLanguage } from '@/lib/LanguageContext'
 import { createProject } from '@/lib/projectService'
+import { transformToBackendFormat } from '@/lib/projectDataTransformer'
 import BasicInfoSection from '@/components/form/BasicInfoSection'
 import BudgetSection from '@/components/form/BudgetSection'
 import PeriodSection from '@/components/form/PeriodSection'
@@ -47,65 +48,7 @@ export default function CreateProjectPage() {
     setSubmitStatus('idle')
 
     try {
-      // Generate a unique ID for the new project
-      const projectId = `project-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      
-      // Prepare project data with required fields
-      const projectData: ProjectData = {
-        id: projectId,
-        updated: new Date().toISOString(),
-        title: data.title || '',
-        description: data.description || '',
-        status: data.status || 'active',
-        type: data.type || '',
-        purpose: data.purpose || '',
-        language: 'th',
-        period: data.period || {
-          startDate: '',
-          endDate: ''
-        },
-        sector: data.sector || [],
-        locations: data.locations || [],
-        budget: data.budget || {
-          description: '',
-          amount: {
-            amount: 0,
-            currency: 'THB'
-          }
-        },
-        parties: data.parties || [],
-        publicAuthority: data.publicAuthority || {
-          name: '',
-          id: ''
-        },
-        identifiers: data.identifiers || [],
-        additionalClassifications: data.additionalClassifications || [],
-        identificationPeriod: data.identificationPeriod,
-        preparationPeriod: data.preparationPeriod,
-        implementationPeriod: data.implementationPeriod,
-        completionPeriod: data.completionPeriod,
-        maintenancePeriod: data.maintenancePeriod,
-        decommissioningPeriod: data.decommissioningPeriod,
-        relatedProjects: data.relatedProjects,
-        assetLifetime: data.assetLifetime,
-        documents: data.documents,
-        forecasts: data.forecasts,
-        metrics: data.metrics,
-        costMeasurements: data.costMeasurements,
-        contractingProcesses: data.contractingProcesses,
-        milestones: data.milestones,
-        transactions: data.transactions,
-        completion: data.completion,
-        lobbyingMeetings: data.lobbyingMeetings,
-        social: data.social,
-        environment: data.environment,
-        policyAlignment: data.policyAlignment,
-        benefits: data.benefits,
-        businessGroup: data.businessGroup,
-        ministry: data.ministry,
-      }
-      
-      console.log('Creating project with data:', projectData)
+      const projectData = transformToBackendFormat(data)
       
       // Create project via backend API
       const createdProject = await createProject(projectData)
@@ -116,7 +59,7 @@ export default function CreateProjectPage() {
         
         // Redirect to project view after successful creation
         setTimeout(() => {
-          router.push(`/view/${createdProject.id}`)
+          router.push(`/view/${createdProject.id || createdProject._id}`)
         }, 2000)
       } else {
         console.error('Failed to create project')
