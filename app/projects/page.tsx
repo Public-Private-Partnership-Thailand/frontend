@@ -213,11 +213,11 @@ export default function ProjectsPage() {
           {/* Search */}
           <div className="lg:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Search
+              {t('home.search')}
             </label>
             <input
               type="text"
-              placeholder="Search projects..."
+              placeholder={t('home.searchProjects')}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
@@ -234,7 +234,7 @@ export default function ProjectsPage() {
               value={filters.businessGroup}
               onChange={(e) => handleFilterChange('businessGroup', e.target.value)}
             >
-              <option value="">All Business Groups</option>
+              <option value="">{t('home.allBusinessGroups')}</option>
               {businessGroups.map(group => (
                 <option key={group} value={group}>{group}</option>
               ))}
@@ -251,7 +251,7 @@ export default function ProjectsPage() {
               value={filters.ministry}
               onChange={(e) => handleFilterChange('ministry', e.target.value)}
             >
-              <option value="">All Ministries</option>
+              <option value="">{t('home.allMinistries')}</option>
               {ministries.map(ministry => (
                 <option key={ministry} value={ministry}>{ministry}</option>
               ))}
@@ -278,7 +278,7 @@ export default function ProjectsPage() {
 
         <div className="flex justify-between items-center mt-4">
           <div className="text-sm text-gray-500">
-            Showing {filteredProjects.length} of {projects.length} projects
+            {t('home.showingProjects', { filtered: filteredProjects.length, total: projects.length })}
           </div>
           <div className="space-x-2">
             <button
