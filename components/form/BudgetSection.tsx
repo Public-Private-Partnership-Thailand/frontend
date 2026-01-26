@@ -53,14 +53,14 @@ export default function BudgetSection({ register, control, errors }: BudgetSecti
           </div>
           <div>
             <label className="form-label">{t('form.budget.currency')} *</label>
+            <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+              THB
+            </div>
             <input
+              type="hidden"
               {...register('budget.amount.currency', { required: t('common.required') })}
-              className="form-input"
-              placeholder="THB"
+              value="THB"
             />
-            {errors.budget?.amount?.currency && (
-              <p className="mt-1 text-sm text-red-600">{errors.budget.amount.currency.message}</p>
-            )}
           </div>
         </div>
 

@@ -3,13 +3,33 @@
 import { useLanguage } from '@/lib/LanguageContext'
 import { useAuth } from '@/lib/AuthContext'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import HomePageSkeleton from '@/components/HomePageSkeleton'
+import ProjectsPageSkeleton from '@/components/ProjectsPageSkeleton'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 
 function Navbar() {
   const { t, isHydrated } = useLanguage()
   const { user, signOut, isAuthenticated } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
+  const profileDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
+        setIsProfileDropdownOpen(false)
+      }
+    }
+    if (isProfileDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isProfileDropdownOpen])
   
   // Don't render until hydrated to prevent flash
   if (!isHydrated) {
@@ -36,7 +56,7 @@ function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <Link href="/" className="text-xl font-bold text-gray-900 hover:text-chula-pink transition-colors duration-200 flex items-center gap-2">
+            <Link href="/" className="text-xl font-bold text-gray-900 hover:text-theme-primary transition-colors duration-200 flex items-center gap-2">
               <span>{t('nav.title')}</span>
             </Link>
           </div>
@@ -44,51 +64,61 @@ function Navbar() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-4">
             {/* Home */}
-            <Link href="/" className="text-gray-700 hover:text-chula-pink hover:bg-chula-pink-lighter px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
+            <Link href="/" className="text-gray-700 hover:text-theme-primary hover:bg-theme-primary-light px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
               {t('nav.home')}
             </Link>
             
-            {/* Projects Dropdown */}
-            <div className="relative group">
-              <button className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium flex items-center">
-                {t('nav.projects')}
-                <svg className="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                <div className="py-1">
-                  {/* <Link href="/dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    {t('nav.projectsDashboard')}
-                  </Link> */}
-                  <Link href="/projects" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    {t('nav.allProjects')}
-                  </Link>
-                </div>
-              </div>
-            </div>
+            {/* Projects */}
+            <Link href="/projects" className="text-gray-700 hover:text-theme-primary hover:bg-theme-primary-light px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
+              {t('nav.projects')}
+            </Link>
             
             {/* About PPP */}
-            <Link href="/about" className="text-gray-700 hover:text-chula-pink hover:bg-chula-pink-lighter px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
+            <Link href="/about" className="text-gray-700 hover:text-theme-primary hover:bg-theme-primary-light px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
               {t('nav.aboutPPP')}
             </Link>
             
-            {/* Language Switcher */}
-            <LanguageSwitcher />
-            
-            {/* Auth Section */}
+            {/* Profile Icon (when authenticated) */}
             {isAuthenticated ? (
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">{user?.name}</span>
+              <div className="relative" ref={profileDropdownRef}>
                 <button
-                  onClick={signOut}
-                  className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-theme-primary text-white hover:bg-theme-primary-dark transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2"
                 >
-                  {t('nav.signOut')}
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
                 </button>
+                
+                {/* Profile Dropdown */}
+                {isProfileDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                    {/* User Info */}
+                    <div className="px-4 py-3 border-b border-gray-200">
+                      <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                      <p className="text-sm text-gray-500 truncate">{user?.email}</p>
+                    </div>
+                    
+                    {/* Language Switcher */}
+                    <div className="px-4 py-2 border-b border-gray-200">
+                      <LanguageSwitcher />
+                    </div>
+                    
+                    {/* Sign Out */}
+                    <button
+                      onClick={() => {
+                        signOut()
+                        setIsProfileDropdownOpen(false)
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200"
+                    >
+                      {t('nav.signOut')}
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
-              <Link href="/signin" className="bg-chula-pink hover:bg-chula-pink-dark text-white px-4 py-2 rounded-md text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200">
+              <Link href="/signin" className="bg-theme-primary hover:bg-theme-primary-dark text-white px-4 py-2 rounded-md text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200">
                 {t('nav.signIn')}
               </Link>
             )}
@@ -125,25 +155,13 @@ function Navbar() {
               </Link>
               
               {/* Projects */}
-              <div className="px-3 py-2">
-                <div className="text-base font-medium text-gray-700 mb-2">{t('nav.projects')}</div>
-                <div className="pl-4 space-y-1">
-                  <Link 
-                    href="/dashboard" 
-                    className="block px-3 py-2 rounded-md text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    {t('nav.projectsDashboard')}
-                  </Link>
-                  <Link 
-                    href="/projects" 
-                    className="block px-3 py-2 rounded-md text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    {t('nav.allProjects')}
-                  </Link>
-                </div>
-              </div>
+              <Link 
+                href="/projects" 
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {t('nav.projects')}
+              </Link>
               
               {/* About PPP */}
               <Link 
@@ -154,15 +172,21 @@ function Navbar() {
                 {t('nav.aboutPPP')}
               </Link>
               
-              {/* Language Switcher */}
-              <div className="px-3 py-2">
-                <LanguageSwitcher />
-              </div>
-              
               {/* Auth Section */}
               {isAuthenticated ? (
-                <div className="px-3 py-2 border-t border-gray-200">
-                  <div className="text-sm text-gray-600 mb-2">{user?.name}</div>
+                <div className="px-3 py-2 border-t border-gray-200 space-y-2">
+                  {/* User Info */}
+                  <div className="py-2">
+                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                    <p className="text-sm text-gray-500">{user?.email}</p>
+                  </div>
+                  
+                  {/* Language Switcher */}
+                  <div className="py-2">
+                    <LanguageSwitcher />
+                  </div>
+                  
+                  {/* Sign Out */}
                   <button
                     onClick={() => {
                       signOut()
@@ -199,7 +223,7 @@ function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           {/* Main Info */}
           <div>
-            <h3 className="text-xl font-bold text-chula-pink mb-4">
+            <h3 className="text-xl font-bold text-white mb-4">
               {t('footer.platformName')}
             </h3>
             <p className="text-gray-300 text-sm leading-relaxed">
@@ -211,10 +235,10 @@ function Footer() {
           <div>
             <h4 className="text-lg font-semibold text-white mb-4">{t('footer.links')}</h4>
             <div className="space-y-2">
-              <a href="/" className="block text-gray-300 hover:text-chula-pink transition-colors duration-200 text-sm">{t('footer.home')}</a>
-              <a href="/dashboard" className="block text-gray-300 hover:text-chula-pink transition-colors duration-200 text-sm">{t('footer.dashboard')}</a>
-              <a href="/projects" className="block text-gray-300 hover:text-chula-pink transition-colors duration-200 text-sm">{t('footer.allProjects')}</a>
-              <a href="/about" className="block text-gray-300 hover:text-chula-pink transition-colors duration-200 text-sm">{t('footer.aboutPPP')}</a>
+              <a href="/" className="block text-gray-300 hover:text-theme-primary transition-colors duration-200 text-sm">{t('footer.home')}</a>
+              <a href="/dashboard" className="block text-gray-300 hover:text-theme-primary transition-colors duration-200 text-sm">{t('footer.dashboard')}</a>
+              <a href="/projects" className="block text-gray-300 hover:text-theme-primary transition-colors duration-200 text-sm">{t('footer.allProjects')}</a>
+              <a href="/about" className="block text-gray-300 hover:text-theme-primary transition-colors duration-200 text-sm">{t('footer.aboutPPP')}</a>
             </div>
           </div>
           
@@ -223,7 +247,7 @@ function Footer() {
             <h4 className="text-lg font-semibold text-white mb-4">{t('footer.contact')}</h4>
             <div className="space-y-2 text-sm text-gray-300">
               <p>{t('footer.contactDesc')}</p>
-              <p className="text-chula-pink">{t('footer.email')}</p>
+              <p className="text-white">{t('footer.email')}</p>
             </div>
           </div>
         </div>
@@ -245,8 +269,27 @@ function Footer() {
 
 function MainContent({ children }: { children: React.ReactNode }) {
   const { isHydrated } = useLanguage()
+  const pathname = usePathname()
   
   if (!isHydrated) {
+    // Show page-specific skeleton based on route
+    if (pathname === '/') {
+      return (
+        <main className="flex-1 max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 pt-24">
+          <HomePageSkeleton />
+        </main>
+      )
+    }
+    
+    if (pathname === '/projects') {
+      return (
+        <main className="flex-1 max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 pt-24">
+          <ProjectsPageSkeleton />
+        </main>
+      )
+    }
+    
+    // Generic skeleton for other pages
     return (
       <main className="flex-1 max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 pt-24">
         <div className="space-y-4">

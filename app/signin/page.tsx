@@ -55,19 +55,16 @@ export default function SignInPage() {
             <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  Secure Access Portal
+                  {t('auth.signIn')}
                 </h2>
-                <p className="text-sm text-gray-600">
-                  Thailand Public-Private Partnership Platform
-                </p>
-                <div className="mt-3 flex items-center justify-center">
+                {/* <div className="mt-3 flex items-center justify-center">
                   <div className="flex items-center text-xs text-gray-500">
                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                     </svg>
                     Secure Connection
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
 
@@ -77,7 +74,7 @@ export default function SignInPage() {
                 {/* Email Field */}
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                    Official Email Address
+                    {t('auth.emailAddress')}
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -91,8 +88,8 @@ export default function SignInPage() {
                       type="email"
                       autoComplete="email"
                       required
-                      className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-500"
-                      placeholder="Enter your official email"
+                      className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary text-gray-900 placeholder-gray-500"
+                      placeholder={t('auth.emailPlaceholder')}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
@@ -102,7 +99,7 @@ export default function SignInPage() {
                 {/* Password Field */}
                 <div>
                   <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                    Password
+                    {t('auth.password')}
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -116,8 +113,8 @@ export default function SignInPage() {
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="current-password"
                       required
-                      className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-500"
-                      placeholder="Enter your password"
+                      className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary text-gray-900 placeholder-gray-500"
+                      placeholder={t('auth.passwordPlaceholder')}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
@@ -150,7 +147,7 @@ export default function SignInPage() {
                         </svg>
                       </div>
                       <div className="ml-3">
-                        <h3 className="text-sm font-medium text-red-800">Authentication Failed</h3>
+                        <h3 className="text-sm font-medium text-red-800">{t('auth.authenticationFailed')}</h3>
                         <p className="text-sm text-red-700 mt-1">{error}</p>
                       </div>
                     </div>
@@ -165,10 +162,10 @@ export default function SignInPage() {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-theme-primary focus:ring-theme-primary border-gray-300 rounded"
                   />
                   <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
-                    Remember this device for 30 days
+                    {t('auth.rememberMe')}
                   </label>
                 </div>
 
@@ -177,7 +174,7 @@ export default function SignInPage() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-theme-primary hover:bg-theme-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-theme-primary disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
                       <>
@@ -185,14 +182,11 @@ export default function SignInPage() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        Authenticating...
-                      </>
+                        {t('auth.authenticating')}
+                      </> 
                     ) : (
                       <>
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Sign In to Portal
+                        {t('auth.signIn')}
                       </>
                     )}
                   </button>
@@ -201,16 +195,12 @@ export default function SignInPage() {
                 {/* Demo Account */}
                 <div className="border-t border-gray-200 pt-6">
                   <div className="text-center">
-                    <p className="text-sm text-gray-600 mb-4">Demo Access</p>
                     <button
                       type="button"
                       onClick={handleDemoLogin}
-                      className="w-full flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      className="w-full flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-theme-primary"
                     >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      Use Demo Account
+                      {t('auth.useDemoAccount')}
                     </button>
                   </div>
                 </div>
@@ -221,14 +211,14 @@ export default function SignInPage() {
             <div className="bg-gray-50 border-t border-gray-200 px-6 py-4">
               <div className="text-center">
                 <p className="text-xs text-gray-500 mb-2">
-                  Need access? Contact your system administrator
+                  {t('auth.needAccess')}
                 </p>
                 <div className="flex justify-center space-x-4 text-xs text-gray-500">
-                  <a href="#" className="hover:text-gray-700">Privacy Policy</a>
+                  <a href="#" className="hover:text-gray-700">{t('auth.privacyPolicy')}</a>
                   <span>•</span>
-                  <a href="#" className="hover:text-gray-700">Terms of Service</a>
+                  <a href="#" className="hover:text-gray-700">{t('auth.termsOfService')}</a>
                   <span>•</span>
-                  <a href="#" className="hover:text-gray-700">Security Guidelines</a>
+                  <a href="#" className="hover:text-gray-700">{t('auth.securityGuidelines')}</a>
                 </div>
               </div>
             </div>

@@ -86,49 +86,26 @@ export default function BasicInfoSection({ register, errors }: BasicInfoSectionP
           </div>
         </div>
 
-        {/* Grid for Business Group and Ministry */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <div>
-            <label className="form-label">กลุ่มธุรกิจ / Business Group *</label>
-            <select 
-              {...register('businessGroup', { required: t('common.required') })} 
-              className="form-input"
-            >
-              <option value="">กรุณาเลือก / Please Select</option>
-              <option value="transport">การขนส่งและโลจิสติกส์ / Transport & Logistics</option>
-              <option value="energy">พลังงาน / Energy</option>
-              <option value="water">น้ำและสุขาภิบาล / Water & Sanitation</option>
-              <option value="telecom">โทรคมนาคม / Telecommunications</option>
-              <option value="healthcare">สาธารณสุข / Healthcare</option>
-              <option value="education">การศึกษา / Education</option>
-              <option value="government">บริการภาครัฐ / Government Services</option>
-              <option value="other">อื่นๆ / Other</option>
-            </select>
-            {errors.businessGroup && (
-              <p className="mt-1 text-sm text-red-600">{errors.businessGroup.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="form-label">กระทรวง / Ministry *</label>
-            <select 
-              {...register('ministry', { required: t('common.required') })} 
-              className="form-input"
-            >
-              <option value="">กรุณาเลือก / Please Select</option>
-              <option value="transport">กระทรวงคมนาคม / Ministry of Transport</option>
-              <option value="energy">กระทรวงพลังงาน / Ministry of Energy</option>
-              <option value="interior">กระทรวงมหาดไทย / Ministry of Interior</option>
-              <option value="education">กระทรวงศึกษาธิการ / Ministry of Education</option>
-              <option value="health">กระทรวงสาธารณสุข / Ministry of Public Health</option>
-              <option value="finance">กระทรวงการคลัง / Ministry of Finance</option>
-              <option value="digital">กระทรวงดิจิทัลเพื่อเศรษฐกิจและสังคม / Ministry of Digital Economy and Society</option>
-              <option value="other">กระทรวงอื่นๆ / Other Ministry</option>
-            </select>
-            {errors.ministry && (
-              <p className="mt-1 text-sm text-red-600">{errors.ministry.message}</p>
-            )}
-          </div>
+        {/* Ministry */}
+        <div>
+          <label className="form-label">{t('dashboard.ministry')} *</label>
+          <select 
+            {...register('ministry', { required: t('common.required') })} 
+            className="form-input"
+          >
+            <option value="">{t('common.select')}</option>
+            <option value="transport">{t('dashboard.ministry')} - Transport</option>
+            <option value="energy">{t('dashboard.ministry')} - Energy</option>
+            <option value="interior">{t('dashboard.ministry')} - Interior</option>
+            <option value="education">{t('dashboard.ministry')} - Education</option>
+            <option value="health">{t('dashboard.ministry')} - Health</option>
+            <option value="finance">{t('dashboard.ministry')} - Finance</option>
+            <option value="digital">{t('dashboard.ministry')} - Digital</option>
+            <option value="other">{t('dashboard.ministry')} - Other</option>
+          </select>
+          {errors.ministry && (
+            <p className="mt-1 text-sm text-red-600">{errors.ministry.message}</p>
+          )}
         </div>
       </div>
 

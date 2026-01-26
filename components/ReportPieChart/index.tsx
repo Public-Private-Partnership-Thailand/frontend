@@ -1,0 +1,105 @@
+import Chart from "@/components/Base/Chart";
+import { ChartData, ChartOptions } from "chart.js/auto";
+import { getColor } from "@/lib/utils/colors";
+import { selectColorScheme } from "@/lib/stores/colorSchemeSlice";
+import { selectDarkMode } from "@/lib/stores/darkModeSlice";
+import { useAppSelector } from "@/lib/stores/hooks";
+import { useMemo } from "react";
+
+interface MainProps extends React.ComponentPropsWithoutRef<"canvas"> {
+  width?: number | "auto";
+  height?: number | "auto";
+  data?: number[];
+  labels?: string[];
+  colors?: string[];
+  options?: ChartOptions;
+  type?: "pie" | "doughnut";
+}
+
+function Main({ 
+  width = "auto", 
+  height = "auto", 
+  className = "",
+  data: propData,
+  labels: propLabels,
+  colors: propColors,
+  options: propOptions,
+  type = "pie"
+}: MainProps) {
+  const props = {
+    width: width,
+    height: height,
+    className: className,
+  };
+  const colorScheme = useAppSelector(selectColorScheme);
+  const darkMode = useAppSelector(selectDarkMode);
+
+  const chartData = propData || [15, 10, 65];
+  const chartColors = () => {
+    if (propColors && propColors.length > 0) {
+      return propColors.map(color => getColor(color, 0.9));
+    }
+    // Primary color first so largest value (at index 0 when sorted descending) gets blue
+    return [
+      getColor("primary", 0.9),
+      getColor("pending", 0.9),
+      getColor("warning", 0.9),
+      getColor("success", 0.9),
+      getColor("danger", 0.9),
+      getColor("info", 0.9),
+    ];
+  };
+  
+  const data: ChartData = useMemo(() => {
+    return {
+      labels: propLabels || ["Yellow", "Dark"],
+      datasets: [
+        {
+          data: chartData,
+          backgroundColor: chartColors(),
+          hoverBackgroundColor: chartColors(),
+          borderWidth: 5,
+          borderColor: darkMode ? getColor("darkmode.700") : getColor("white"),
+        },
+      ],
+    };
+  }, [colorScheme, darkMode, chartData, propLabels]);
+
+  const options: ChartOptions = useMemo(() => {
+    const defaultOptions: ChartOptions = {
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false,
+        },
+      },
+    };
+    
+    // Merge with provided options if any
+    if (propOptions) {
+      return {
+        ...defaultOptions,
+        ...propOptions,
+        plugins: {
+          ...defaultOptions.plugins,
+          ...propOptions.plugins,
+        },
+      };
+    }
+    
+    return defaultOptions;
+  }, [colorScheme, darkMode, propOptions]);
+
+  return (
+    <Chart
+      type={type}
+      width={props.width}
+      height={props.height}
+      data={data}
+      options={options}
+      className={props.className}
+    />
+  );
+}
+
+export default Main;

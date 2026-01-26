@@ -1,11 +1,13 @@
-@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@100;200;300;400;500;600;700&display=swap');
+@import './vendors/tippy.css';
+@import './vendors/litepicker.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   * {
-    font-family: 'Prompt', sans-serif;
+    font-family: 'IBM Plex Sans Thai', sans-serif;
   }
   
   html {
@@ -17,25 +19,47 @@
   }
 }
 
+/* Filter panel animation */
+@keyframes slideInFromLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-300px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.filter-panel-enter {
+  animation: slideInFromLeft 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  will-change: transform, opacity;
+}
+
+/* Smooth content resize when filter panel appears */
+.content-resize-transition {
+  transition: flex-basis 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94), width 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
 @layer components {
   .btn-primary {
-    @apply bg-chula-pink hover:bg-chula-pink-dark text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-chula-pink focus:ring-offset-2;
+    @apply bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
   }
   
   .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2;
+    @apply bg-secondary hover:bg-secondary/80 text-slate-500 font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2;
   }
   
   .form-input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-chula-pink focus:border-transparent transition-all duration-200;
+    @apply w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200;
   }
   
   .form-label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply block text-sm font-medium text-slate-700 mb-1;
   }
   
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200;
+    @apply bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow duration-200;
   }
   
   /* Focus states for accessibility */
@@ -44,26 +68,29 @@
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible {
-    @apply outline-2 outline-chula-pink outline-offset-2;
+    @apply outline-2 outline-primary outline-offset-2;
   }
 }
 
-/* Chula Pink Theme Colors */
+/* Theme Colors - Set dynamically by ThemeProvider */
+/* These CSS variables are set in lib/ThemeContext.tsx */
+
+/* Legacy support - map to theme variables for backward compatibility */
 :root {
-  --chula-pink-lighter: #f8e1ea;
-  --chula-pink-light: #ff86b4;
-  --chula-pink: #de5c8e;
-  --chula-pink-dark: #dd5b8e;
-  --chula-pink-darker: #db2777;
+  --chula-pink-lighter: var(--theme-primary-lighter, #f8e1ea);
+  --chula-pink-light: var(--theme-primary-light, #ff86b4);
+  --chula-pink: var(--theme-primary, #de5c8e);
+  --chula-pink-dark: var(--theme-primary-dark, #dd5b8e);
+  --chula-pink-darker: var(--theme-primary-darker, #db2777);
   
-  --chula-gray-dark: #333;
-  --chula-gray: #58595b;
-  --chula-gray-light: #777;
-  --chula-gray-border: #e5e5e5;
-  --chula-gray-input: #ccc;
+  --chula-gray-dark: var(--theme-neutral-dark, #333);
+  --chula-gray: var(--theme-neutral, #58595b);
+  --chula-gray-light: var(--theme-neutral-light, #777);
+  --chula-gray-border: var(--theme-neutral-border, #e5e5e5);
+  --chula-gray-input: var(--theme-neutral-input, #ccc);
 }
 
-/* Utility classes for Chula Pink */
+/* Utility classes for Chula Pink (backward compatibility) */
 .bg-chula-pink-lighter { background-color: var(--chula-pink-lighter); }
 .bg-chula-pink-light { background-color: var(--chula-pink-light); }
 .bg-chula-pink { background-color: var(--chula-pink); }

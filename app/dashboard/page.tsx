@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { ProjectData } from '@/types/project'
 import { useLanguage } from '@/lib/LanguageContext'
 import { fetchProjectsFromAPI } from '@/lib/projectService'
+import { getChartColorArray } from '@/lib/themeUtils'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import {
   Chart as ChartJS,
@@ -102,7 +103,8 @@ export default function DashboardPage() {
   // Projects by sector
   const sectorCounts = projects.reduce((acc, project) => {
     project.sector.forEach(sector => {
-      acc[sector] = (acc[sector] || 0) + 1
+      const sectorKey = sector.id || sector.description || 'unknown'
+      acc[sectorKey] = (acc[sectorKey] || 0) + 1
     })
     return acc
   }, {} as Record<string, number>)
@@ -145,6 +147,17 @@ export default function DashboardPage() {
   const sortedCostYears = Object.keys(costByYear).sort()
   const costData = sortedCostYears.map(year => costByYear[parseInt(year)])
 
+  // Get theme colors for charts
+  const chartColors = getChartColorArray()
+  const chartBorderColors = chartColors.map(color => {
+    // Darken color for border (simple approach - you can enhance this)
+    const hex = color.replace('#', '')
+    const r = Math.max(0, parseInt(hex.substr(0, 2), 16) - 20)
+    const g = Math.max(0, parseInt(hex.substr(2, 2), 16) - 20)
+    const b = Math.max(0, parseInt(hex.substr(4, 2), 16) - 20)
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+  })
+
   // Chart configurations with enhanced styling
   const sectorChartData = {
     labels: Object.keys(sectorCounts),
@@ -152,26 +165,8 @@ export default function DashboardPage() {
       {
         label: t('dashboard.projectsCount'),
         data: Object.values(sectorCounts),
-        backgroundColor: [
-          '#3B82F6',
-          '#10B981',
-          '#F59E0B',
-          '#EF4444',
-          '#8B5CF6',
-          '#06B6D4',
-          '#84CC16',
-          '#F97316',
-        ],
-        borderColor: [
-          '#2563EB',
-          '#059669',
-          '#D97706',
-          '#DC2626',
-          '#7C3AED',
-          '#0891B2',
-          '#65A30D',
-          '#EA580C',
-        ],
+        backgroundColor: chartColors,
+        borderColor: chartBorderColors,
         borderWidth: 2,
         borderRadius: 8,
         borderSkipped: false,
@@ -185,26 +180,8 @@ export default function DashboardPage() {
       {
         label: t('dashboard.projectsCount'),
         data: Object.values(ministryCounts),
-        backgroundColor: [
-          '#3B82F6',
-          '#10B981',
-          '#F59E0B',
-          '#EF4444',
-          '#8B5CF6',
-          '#06B6D4',
-          '#84CC16',
-          '#F97316',
-        ],
-        borderColor: [
-          '#2563EB',
-          '#059669',
-          '#D97706',
-          '#DC2626',
-          '#7C3AED',
-          '#0891B2',
-          '#65A30D',
-          '#EA580C',
-        ],
+        backgroundColor: chartColors,
+        borderColor: chartBorderColors,
         borderWidth: 2,
         borderRadius: 8,
         borderSkipped: false,
@@ -218,11 +195,11 @@ export default function DashboardPage() {
       {
         label: t('dashboard.millionBaht'),
         data: investmentData.map(value => value / 1000000),
-        borderColor: '#3B82F6',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderColor: chartColors[0],
+        backgroundColor: chartColors[0] + '1A', // Add opacity
         tension: 0.4,
         fill: true,
-        pointBackgroundColor: '#3B82F6',
+        pointBackgroundColor: chartColors[0],
         pointBorderColor: '#ffffff',
         pointBorderWidth: 2,
         pointRadius: 6,
@@ -237,26 +214,8 @@ export default function DashboardPage() {
       {
         label: t('dashboard.millionBaht'),
         data: costData.map(value => value / 1000000),
-        backgroundColor: [
-          '#10B981',
-          '#3B82F6',
-          '#F59E0B',
-          '#EF4444',
-          '#8B5CF6',
-          '#06B6D4',
-          '#84CC16',
-          '#F97316',
-        ],
-        borderColor: [
-          '#059669',
-          '#2563EB',
-          '#D97706',
-          '#DC2626',
-          '#7C3AED',
-          '#0891B2',
-          '#65A30D',
-          '#EA580C',
-        ],
+        backgroundColor: chartColors,
+        borderColor: chartBorderColors,
         borderWidth: 2,
         borderRadius: 8,
         borderSkipped: false,

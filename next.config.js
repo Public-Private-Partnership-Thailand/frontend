@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Use dynamic rendering to support backend API
-  // output: 'export', // Commented out to allow dynamic routes
+  // Static export configuration
+  // output: 'export',
   
   // Disable image optimization for static export (keep for compatibility)
   images: {

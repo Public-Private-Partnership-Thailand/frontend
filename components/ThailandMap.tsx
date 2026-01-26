@@ -14,11 +14,15 @@ const MapComponent = dynamic(() => import('./MapComponent'), {
 })
 
 
-export default function ThailandMap() {
+interface ThailandMapProps {
+  className?: string
+}
+
+export default function ThailandMap({ className }: ThailandMapProps) {
   const { t } = useLanguage()
 
   return (
-    <div className="h-96 rounded-lg overflow-hidden border">
+    <div className={className || "h-96 rounded-lg overflow-hidden border"}>
       <MapComponent />
     </div>
   )

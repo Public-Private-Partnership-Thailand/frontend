@@ -12,6 +12,7 @@ import PartiesSection from '@/components/form/PartiesSection'
 import AdditionalInfoSection from '@/components/form/AdditionalInfoSection'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { fetchProjectById, updateProject } from '@/lib/projectService'
+import { convertToISO8601 } from '@/lib/utils/helper'
 
 export default function EditProjectClient() {
   const { t } = useLanguage()
@@ -78,6 +79,39 @@ export default function EditProjectClient() {
     setSubmitStatus('idle')
 
     try {
+      // Convert all date fields to ISO 8601 format with timezone
+      // Period dates
+      if (data.period?.startDate) {
+        data.period.startDate = convertToISO8601(data.period.startDate)
+      }
+      if (data.period?.endDate) {
+        data.period.endDate = convertToISO8601(data.period.endDate)
+      }
+
+      // Implementation period dates
+      if (data.implementationPeriod?.startDate) {
+        data.implementationPeriod.startDate = convertToISO8601(data.implementationPeriod.startDate)
+      }
+      if (data.implementationPeriod?.endDate) {
+        data.implementationPeriod.endDate = convertToISO8601(data.implementationPeriod.endDate)
+      }
+
+      // Maintenance period dates
+      if (data.maintenancePeriod?.startDate) {
+        data.maintenancePeriod.startDate = convertToISO8601(data.maintenancePeriod.startDate)
+      }
+      if (data.maintenancePeriod?.endDate) {
+        data.maintenancePeriod.endDate = convertToISO8601(data.maintenancePeriod.endDate)
+      }
+
+      // Budget dates
+      if (data.budget?.requestDate) {
+        data.budget.requestDate = convertToISO8601(data.budget.requestDate)
+      }
+      if (data.budget?.approvalDate) {
+        data.budget.approvalDate = convertToISO8601(data.budget.approvalDate)
+      }
+
       // Update project via backend API
       const updatedProject = await updateProject(projectId, {
         ...data,

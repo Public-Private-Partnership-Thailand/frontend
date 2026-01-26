@@ -243,13 +243,10 @@ export interface ProjectData {
   completionPeriod?: Period;
   maintenancePeriod?: Period;
   decommissioningPeriod?: Period;
-  sector: string[];
+  sector: Classification[];
   additionalClassifications?: Classification[];
   type: string;
   purpose: string;
-  businessGroup?: string;
-  ministry?: string;
-  contractType?: string; // รูปแบบการจัดสรรกรรมสิทธิ์ (e.g., BTO, BOT)
   relatedProjects?: RelatedProject[];
   assetLifetime?: {
     startDate: string;
@@ -276,5 +273,5 @@ export interface ProjectData {
 }
 
 export interface ProjectFormData extends Omit<ProjectData, 'id' | 'updated'> {
-  // Form-specific fields can be added here
+  // Form-specific fields can be added here if needed
 }

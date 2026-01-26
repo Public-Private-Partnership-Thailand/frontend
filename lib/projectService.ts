@@ -1,5 +1,4 @@
 import { ProjectData } from '@/types/project'
-import { BackendProjectData } from '@/lib/projectDataTransformer'
 
 // Backend API URL - can be overridden with environment variable
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -20,99 +19,6 @@ function parseAmount(amount: string | number): number {
   }
   
   return 0
-}
-
-// Function to convert external JSON data to ProjectData
-function convertExternalDataToProject(externalData: ProjectData, index: number): ProjectData {
-  // Generate unique ID
-  const id = (index + 1).toString()
-  
-  // Safely parse budget amount with fallback
-  const budgetAmount = externalData.budget?.amount 
-    ? parseAmount(externalData.budget.amount.amount)
-    : 0
-  const budgetCurrency = externalData.budget?.amount?.currency || 'THB'
-  
-  // Map parties to correct structure (ensure they have IDs)
-  const parties = (externalData.parties || []).map((party, i) => ({
-    name: party.name,
-    id: party.id || `PARTY-${index}-${i}`,
-    roles: party.roles || []
-  }))
-  
-  return {
-    id,
-    updated: new Date().toISOString(),
-    title: externalData.title,
-    description: externalData.description || `${externalData.title} - ${externalData.businessGroup}`,
-    status: externalData.status,
-    period: {
-      startDate: externalData.period?.startDate || new Date().toISOString().split('T')[0],
-      endDate: externalData.period?.endDate || ''
-    },
-    type: externalData.type,
-    purpose: externalData.purpose || '',
-    businessGroup: externalData.businessGroup,
-    ministry: externalData.ministry,
-    sector: externalData.sector || [externalData.businessGroup || ''],
-    locations: externalData.locations || [],
-    publicAuthority: {
-      name: externalData.publicAuthority?.name || '',
-      id: externalData.publicAuthority?.id || ''
-    },
-    budget: {
-      description: externalData.budget?.description || '',
-      amount: {
-        amount: budgetAmount,
-        currency: budgetCurrency
-      },
-      requestDate: externalData.budget?.requestDate,
-      approvalDate: externalData.budget?.approvalDate,
-      budgetBreakdowns: externalData.budget?.budgetBreakdowns || [],
-      finance: externalData.budget?.finance || []
-    },
-    parties,
-    identificationPeriod: externalData.period?.endDate ? {
-      startDate: externalData.period.startDate,
-      endDate: externalData.period.endDate
-    } : undefined,
-    preparationPeriod: undefined,
-    implementationPeriod: externalData.implementationPeriod?.startDate ? {
-      startDate: externalData.implementationPeriod.startDate,
-      endDate: externalData.implementationPeriod.endDate || ''
-    } : undefined,
-    completionPeriod: externalData.completionPeriod?.startDate ? {
-      startDate: externalData.completionPeriod.startDate,
-      endDate: externalData.completionPeriod.endDate || ''
-    } : undefined,
-    maintenancePeriod: externalData.maintenancePeriod?.startDate ? {
-      startDate: externalData.maintenancePeriod.startDate,
-      endDate: externalData.maintenancePeriod.endDate || ''
-    } : undefined,
-    decommissioningPeriod: externalData.decommissioningPeriod?.startDate ? {
-      startDate: externalData.decommissioningPeriod.startDate,
-      endDate: externalData.decommissioningPeriod.endDate || ''
-    } : undefined,
-    identifiers: externalData.identifiers || [],
-    additionalClassifications: externalData.additionalClassifications || [],
-    relatedProjects: undefined,
-    assetLifetime: undefined,
-    forecasts: externalData.forecasts || [],
-    metrics: externalData.metrics || [],
-    costMeasurements: undefined,
-    contractingProcesses: undefined,
-    milestones: externalData.milestones || [],
-    transactions: undefined,
-    completion: externalData.completion?.endDate ? {
-      endDate: externalData.completion.endDate
-    } : undefined,
-    lobbyingMeetings: undefined,
-    social: undefined,
-    environment: undefined,
-    policyAlignment: undefined,
-    benefits: undefined,
-    documents: undefined
-  }
 }
 
 // Function to fetch projects from backend API
@@ -148,9 +54,7 @@ export async function fetchProjectsFromAPI(): Promise<ProjectData[]> {
       const externalData: ProjectData[] = await response.json()
       
       // Convert external data to ProjectData format
-      return externalData.map((project, index) => 
-        convertExternalDataToProject(project, index)
-      )
+      return externalData
     } catch (fallbackError) {
       console.error('Error fetching projects from external API:', fallbackError)
       // Return empty array if both APIs fail
@@ -185,7 +89,7 @@ export async function fetchProjectById(id: string): Promise<ProjectData | null> 
 }
 
 // Function to create a new project
-export async function createProject(project: BackendProjectData): Promise<any | null> {
+export async function createProject(project: ProjectData): Promise<any | null> {
   try {
     console.log('Sending project to backend:', project)
     const response = await fetch(DATASETS_ENDPOINT, {
