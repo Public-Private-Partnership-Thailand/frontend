@@ -127,7 +127,7 @@ const MultiSelectDropdown = ({
           <span className="truncate text-xs">
             {selectedValues.length === 0 
               ? placeholder 
-              : `เลือก ${selectedValues.length} รายการ`}
+              : `เลือกไว้ ${selectedValues.length} รายการ`}
           </span>
           <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1370,6 +1370,26 @@ export default function HomePage() {
                         }
                         return `(${t('dashboard.millionBaht')})`
                       })()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ongoing / Completing Projects Card (mock number) */}
+              <div className="col-span-12 sm:col-span-6 xl:col-span-3 intro-y">
+                <div className="relative zoom-in h-full">
+                  <div className="p-5 box h-full">
+                    <div className="flex">
+                      <Lucide
+                        icon="Activity"
+                        className="w-[28px] h-[28px] text-primary"
+                      />
+                    </div>
+                    <div className="mt-6 text-3xl font-medium leading-8">
+                      {24}
+                    </div>
+                    <div className="mt-1 text-base text-slate-500">
+                      โครงการกำลังดำเนินการ/ใกล้แล้วเสร็จ
                     </div>
                   </div>
                 </div>

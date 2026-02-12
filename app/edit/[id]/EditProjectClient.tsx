@@ -45,6 +45,8 @@ export default function EditProjectClient() {
           description: foundProject.description,
           budget: foundProject.budget,
           period: foundProject.period,
+          identificationPeriod: foundProject.identificationPeriod,
+          preparationPeriod: foundProject.preparationPeriod,
           implementationPeriod: foundProject.implementationPeriod,
           completionPeriod: foundProject.completionPeriod,
           maintenancePeriod: foundProject.maintenancePeriod,
@@ -88,6 +90,22 @@ export default function EditProjectClient() {
         data.period.endDate = convertToISO8601(data.period.endDate)
       }
 
+      // Identification period dates
+      if (data.identificationPeriod?.startDate) {
+        data.identificationPeriod.startDate = convertToISO8601(data.identificationPeriod.startDate)
+      }
+      if (data.identificationPeriod?.endDate) {
+        data.identificationPeriod.endDate = convertToISO8601(data.identificationPeriod.endDate)
+      }
+
+      // Preparation period dates
+      if (data.preparationPeriod?.startDate) {
+        data.preparationPeriod.startDate = convertToISO8601(data.preparationPeriod.startDate)
+      }
+      if (data.preparationPeriod?.endDate) {
+        data.preparationPeriod.endDate = convertToISO8601(data.preparationPeriod.endDate)
+      }
+
       // Implementation period dates
       if (data.implementationPeriod?.startDate) {
         data.implementationPeriod.startDate = convertToISO8601(data.implementationPeriod.startDate)
@@ -96,12 +114,28 @@ export default function EditProjectClient() {
         data.implementationPeriod.endDate = convertToISO8601(data.implementationPeriod.endDate)
       }
 
+      // Completion period dates
+      if (data.completionPeriod?.startDate) {
+        data.completionPeriod.startDate = convertToISO8601(data.completionPeriod.startDate)
+      }
+      if (data.completionPeriod?.endDate) {
+        data.completionPeriod.endDate = convertToISO8601(data.completionPeriod.endDate)
+      }
+
       // Maintenance period dates
       if (data.maintenancePeriod?.startDate) {
         data.maintenancePeriod.startDate = convertToISO8601(data.maintenancePeriod.startDate)
       }
       if (data.maintenancePeriod?.endDate) {
         data.maintenancePeriod.endDate = convertToISO8601(data.maintenancePeriod.endDate)
+      }
+
+      // Decommissioning period dates
+      if (data.decommissioningPeriod?.startDate) {
+        data.decommissioningPeriod.startDate = convertToISO8601(data.decommissioningPeriod.startDate)
+      }
+      if (data.decommissioningPeriod?.endDate) {
+        data.decommissioningPeriod.endDate = convertToISO8601(data.decommissioningPeriod.endDate)
       }
 
       // Budget dates

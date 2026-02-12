@@ -31,11 +31,27 @@ export default function CreateProjectPage() {
         startDate: '',
         endDate: ''
       },
+      identificationPeriod: {
+        startDate: '',
+        endDate: ''
+      },
+      preparationPeriod: {
+        startDate: '',
+        endDate: ''
+      },
       implementationPeriod: {
         startDate: '',
         endDate: ''
       },
+      completionPeriod: {
+        startDate: '',
+        endDate: ''
+      },
       maintenancePeriod: {
+        startDate: '',
+        endDate: ''
+      },
+      decommissioningPeriod: {
         startDate: '',
         endDate: ''
       },

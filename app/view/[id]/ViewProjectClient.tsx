@@ -9,6 +9,7 @@ import LoadingSpinner from '@/components/LoadingSpinner'
 import { fetchProjectById } from '@/lib/projectService'
 import { BUSINESS_GROUP_CODE_TO_DISPLAY_NAME, BUSINESS_GROUP_CODES } from '@/types/businessGroup'
 import { formatDateForDisplay } from '@/lib/utils/dateUtils'
+import { MOCK_RISKS, getRisksForProject } from '@/lib/mockRisks'
 
 export default function ViewProjectClient() {
   const { t } = useLanguage()
@@ -80,6 +81,36 @@ export default function ViewProjectClient() {
 
   const formatDate = (dateString: string | undefined) => {
     return formatDateForDisplay(dateString)
+  }
+
+  // Timeline phases in order; current phase is where today falls within [start, end]
+  const PHASES = [
+    { key: 'identification', label: 'ระบุโครงการ', getStart: (p: ProjectData) => p.identificationPeriod?.startDate, getEnd: (p: ProjectData) => p.identificationPeriod?.endDate },
+    { key: 'preparation', label: 'เตรียมการ', getStart: (p: ProjectData) => p.preparationPeriod?.startDate, getEnd: (p: ProjectData) => p.preparationPeriod?.endDate },
+    { key: 'implementation', label: 'ก่อสร้าง', getStart: (p: ProjectData) => p.implementationPeriod?.startDate, getEnd: (p: ProjectData) => p.implementationPeriod?.endDate },
+    { key: 'completion', label: 'ส่งมอบ', getStart: (p: ProjectData) => p.completionPeriod?.startDate, getEnd: (p: ProjectData) => p.completionPeriod?.endDate },
+    { key: 'maintenance', label: 'บำรุงรักษา', getStart: (p: ProjectData) => p.maintenancePeriod?.startDate, getEnd: (p: ProjectData) => p.maintenancePeriod?.endDate },
+    { key: 'decommissioning', label: 'เลิกดำเนินการ', getStart: (p: ProjectData) => p.decommissioningPeriod?.startDate, getEnd: (p: ProjectData) => p.decommissioningPeriod?.endDate },
+  ] as const
+
+  const getCurrentPhaseIndex = (proj: ProjectData | null): number => {
+    if (!proj) return 1
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    for (let i = 0; i < PHASES.length; i++) {
+      const startStr = PHASES[i].getStart(proj)
+      const endStr = PHASES[i].getEnd(proj)
+      const start = startStr ? new Date(startStr) : null
+      const end = endStr ? new Date(endStr) : null
+      if (start) start.setHours(0, 0, 0, 0)
+      if (end) end.setHours(0, 0, 0, 0)
+      const afterStart = !start || today >= start
+      const beforeEnd = !end || today <= end
+      if (afterStart && beforeEnd) return i + 1 // 1-based current step
+      if (end && today > end) continue // past this phase
+      if (start && today < start) return i + 1 // not yet started any period; show first as current, or could return 1
+    }
+    return PHASES.length // past all phases
   }
 
   const formatDuration = (days: number | undefined, months: number | undefined): string => {
@@ -260,6 +291,8 @@ export default function ViewProjectClient() {
   const projectImages = getProjectImages()
   const hasMultipleImages = projectImages.length > 1
 
+  const projectRisks = getRisksForProject(MOCK_RISKS, project.id, project.title)
+
   const handleImageClick = (index: number) => {
     setSelectedImageIndex(index)
   }
@@ -307,6 +340,41 @@ export default function ViewProjectClient() {
                   </button>
                 </>
               )}
+            </div>
+          </div>
+
+          {/* Timeline Phase (like create page step indicator) */}
+          <div className="mt-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Timeline Phase</h3>
+            <div className="flex items-center justify-between w-full overflow-x-auto pb-2">
+              {PHASES.map((phase, index) => {
+                const step = index + 1
+                const currentPhase = getCurrentPhaseIndex(project)
+                const isActive = currentPhase >= step
+                const isCurrent = currentPhase === step
+                return (
+                  <div key={phase.key} className="flex items-center flex-1 min-w-0">
+                    <div className="flex flex-col items-center flex-1 min-w-0">
+                      <div
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${
+                          isCurrent ? 'bg-theme-primary text-white ring-2 ring-theme-primary ring-offset-2' : isActive ? 'bg-theme-primary text-white' : 'bg-gray-200 text-gray-600'
+                        }`}
+                      >
+                        {step}
+                      </div>
+                      <span
+                        className={`mt-1.5 text-xs text-center px-0.5 truncate max-w-full ${isCurrent ? 'text-theme-primary font-semibold' : isActive ? 'text-theme-primary font-medium' : 'text-gray-500'}`}
+                        title={phase.label}
+                      >
+                        {phase.label}
+                      </span>
+                    </div>
+                    {index < PHASES.length - 1 && (
+                      <div className={`flex-1 h-0.5 mx-0.5 min-w-[8px] ${currentPhase > step ? 'bg-theme-primary' : 'bg-gray-300'}`} />
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>
@@ -472,6 +540,59 @@ export default function ViewProjectClient() {
               </div>
             </div>
           </div>
+
+          {/* Risks / Issues */}
+          {projectRisks.length > 0 && (
+            <div className="bg-white shadow rounded-lg p-4 sm:p-6 w-full">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">ความเสี่ยง / ประเด็นปัญหา (Risks / Issues)</h2>
+              <div className="space-y-4">
+                {projectRisks.map((risk) => (
+                  <div
+                    key={risk.risk_id}
+                    className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
+                  >
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <span className="text-xs font-mono text-gray-500">{risk.risk_id}</span>
+                      <span
+                        className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                          risk.status === 'occurred'
+                            ? 'bg-red-100 text-red-800'
+                            : risk.status === 'monitoring'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {risk.status === 'occurred' ? 'เกิดขึ้นแล้ว' : risk.status === 'monitoring' ? 'กำลังติดตาม' : risk.status}
+                      </span>
+                      <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
+                        {risk.category}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {risk.phase} · P:{risk.probability} · I:{risk.impact}
+                      </span>
+                    </div>
+                    <h3 className="font-medium text-gray-900 mb-1">{risk.title}</h3>
+                    {risk.description && (
+                      <p className="text-sm text-gray-600 mb-2">{risk.description}</p>
+                    )}
+                    {risk.mitigation && (
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium text-gray-700">การบรรเทา: </span>
+                        {risk.mitigation}
+                      </p>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                      {risk.owner && <span>ผู้รับผิดชอบ: {risk.owner}</span>}
+                      {risk.occurred_date && (
+                        <span>เกิดเมื่อ: {formatDate(risk.occurred_date)}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>
 
         {/* Sidebar */}

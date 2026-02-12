@@ -277,7 +277,7 @@ export function formatUTCToThai(utcDateString: string): string {
  * Converts UTC dates to local timezone before formatting
  * 
  * @param dateString - Date string in various formats (ISO 8601, DD-MM-YYYY, YYYY-MM-DD)
- * @returns Thai formatted date string: "D MMM พ.ศ.YYYY" (e.g., "15 ม.ค. พ.ศ.2568")
+ * @returns Thai formatted date string: "D MMM YYYY" (e.g., "15 ม.ค. 2568")
  */
 export function formatDateForDisplay(dateString: string | undefined): string {
   if (!dateString || typeof dateString !== 'string') return 'N/A'
@@ -321,7 +321,7 @@ export function formatDateForDisplay(dateString: string | undefined): string {
           const month = date.month() // 0-11
           const adYear = date.year()
           const beYear = adYear + 543
-          return `${day} ${thaiMonths[month]} พ.ศ.${beYear}`
+          return `${day} ${thaiMonths[month]} ${beYear}`
         }
       }
     }
@@ -351,6 +351,6 @@ export function formatDateForDisplay(dateString: string | undefined): string {
   // Convert to Buddhist Era (BE) by adding 543
   const beYear = adYear + 543
   
-  // Format: "15 ม.ค. พ.ศ.2568"
-  return `${day} ${thaiMonths[month]} พ.ศ.${beYear}`
+  // Format: "15 ม.ค. 2568" (Thai date with BE year, no พ.ศ. prefix)
+  return `${day} ${thaiMonths[month]} ${beYear}`
 }

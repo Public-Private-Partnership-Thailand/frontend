@@ -508,7 +508,7 @@ export const translations = {
       totalProjects: 'โครงการทั้งหมด',
       activeProjects: 'โครงการที่ดำเนินการ',
       lastUpdated: 'ข้อมูลอัปเดตล่าสุด',
-      projectsByMinistry: 'โครงการแยกตามกระทรวง',
+      projectsByMinistry: 'จำนวนโครงการแยกตามกระทรวง',
       budgetDistribution: 'การกระจายงบประมาณ',
       noDataAvailable: 'ไม่มีข้อมูล',
       budgetUnder100M: 'ต่ำกว่า 100 ล้านบาท',

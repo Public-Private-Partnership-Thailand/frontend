@@ -15,6 +15,7 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/th'
 import { getColor } from '@/lib/utils/colors'
 import { useInfo, type InfoData } from '@/app/hooks/useInfo'
+import { formatDateForDisplay } from '@/lib/utils/dateUtils'
 
 // Dynamically import Litepicker to avoid SSR issues
 const Litepicker = dynamic(() => import('@/components/Base/Litepicker'), {
@@ -99,7 +100,7 @@ const MultiSelectDropdown = ({
           <span className="truncate text-sm">
             {selectedValues.length === 0 
               ? placeholder 
-              : `เลือก ${selectedValues.length} รายการ`}
+              : `เลือกไว้ ${selectedValues.length} รายการ`}
           </span>
           <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -171,6 +172,8 @@ export default function ProjectsPage() {
     contractType: [] as string[],
     dateRange: ''
   })
+  const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set())
+  const [showCompareModal, setShowCompareModal] = useState(false)
   const { t } = useLanguage()
   const { isAuthenticated } = useAuth()
 
@@ -460,6 +463,46 @@ export default function ProjectsPage() {
     setCurrentPage(1)
   }
 
+  const toggleProjectSelection = (id: string) => {
+    setSelectedProjectIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const selectAllOnPage = (checked: boolean) => {
+    setSelectedProjectIds(prev => {
+      const next = new Set(prev)
+      if (checked) currentProjects.forEach(p => next.add(p.id))
+      else currentProjects.forEach(p => next.delete(p.id))
+      return next
+    })
+  }
+
+  const isAllOnPageSelected = currentProjects.length > 0 && currentProjects.every(p => selectedProjectIds.has(p.id))
+  const selectedProjects = useMemo(() => projects.filter(p => selectedProjectIds.has(p.id)), [projects, selectedProjectIds])
+  const maxCompare = 5
+  const canCompare = selectedProjectIds.size >= 2 && selectedProjectIds.size <= maxCompare
+
+  // Fields to show in compare modal (label, getter)
+  const compareFields: { label: string; getValue: (p: ProjectData) => string }[] = [
+    { label: 'ชื่อโครงการ', getValue: p => p.title || 'N/A' },
+    { label: 'รายละเอียด', getValue: p => (p.description || 'N/A').slice(0, 80) + ((p.description?.length || 0) > 80 ? '...' : '') },
+    { label: 'กระทรวง', getValue: p => p.additionalClassifications?.find(c => c.scheme === 'TH-MINISTRY')?.description || 'N/A' },
+    { label: 'หน่วยงานภาครัฐ', getValue: p => p.publicAuthority?.name || 'N/A' },
+    { label: 'เอกชนคู่สัญญา', getValue: p => p.parties?.filter(party => party.roles?.includes('contractor')).map(party => party.name).join(', ') || 'N/A' },
+    { label: 'กลุ่มธุรกิจ', getValue: p => (p.sector?.map((s: any) => typeof s === 'string' ? s : (s?.description || s?.id || '')).join(', ') || 'N/A').slice(0, 60) },
+    { label: 'วันที่เริ่ม', getValue: p => formatDateForDisplay(p.period?.startDate) },
+    { label: 'วันที่สิ้นสุด', getValue: p => formatDateForDisplay(p.period?.endDate) },
+    { label: 'ระยะเวลา', getValue: p => p.period?.durationInDays ? `${p.period.durationInDays} วัน` : (p.period?.durationInMonths ? `${p.period.durationInMonths} เดือน` : 'N/A') },
+    { label: 'งบประมาณ (บาท)', getValue: p => p.budget?.amount?.amount != null ? new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(p.budget.amount.amount) : 'N/A' },
+    { label: 'ประเภท', getValue: p => p.type || 'N/A' },
+    { label: 'วัตถุประสงค์', getValue: p => (p.purpose || 'N/A').slice(0, 60) },
+    { label: 'สถานะ', getValue: p => p.status || 'N/A' },
+  ]
+
   const exportToCSV = () => {
     const csvData = filteredProjects.map(project => ({
       'Project Name': project.title,
@@ -654,24 +697,46 @@ export default function ProjectsPage() {
       </div>
 
       {/* Projects Table */}
-      <div className="mb-4 flex justify-end items-center gap-3">
-        {isAuthenticated && (
-          <Link
-            href="/create"
-            className="bg-theme-primary hover:bg-theme-primary-dark text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+      <div className="mb-4 flex justify-between items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          {selectedProjectIds.size > 0 && (
+            <span className="text-sm text-gray-600">
+              เลือกไว้ {selectedProjectIds.size} โครงการ
+            </span>
+          )}
+          {selectedProjectIds.size >= 2 && (
+            <button
+              onClick={() => setShowCompareModal(true)}
+              disabled={!canCompare}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-theme-primary hover:bg-theme-primary-dark rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Lucide icon="GitCompare" className="w-5 h-5" />
+              เปรียบเทียบโครงการ ({selectedProjectIds.size})
+            </button>
+          )}
+          {selectedProjectIds.size > maxCompare && (
+            <span className="text-sm text-amber-600">เลือกได้สูงสุด {maxCompare} โครงการ</span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {isAuthenticated && (
+            <Link
+              href="/create"
+              className="bg-theme-primary hover:bg-theme-primary-dark text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+            >
+              {t('projects.createProject')}
+            </Link>
+          )}
+          <button
+            onClick={exportToCSV}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-theme-primary hover:bg-theme-primary-dark rounded-md transition-colors duration-200"
           >
-            {t('projects.createProject')}
-          </Link>
-        )}
-        <button
-          onClick={exportToCSV}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-theme-primary hover:bg-theme-primary-dark rounded-md transition-colors duration-200"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          {t('projects.exportCSV')}
-        </button>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            {t('projects.exportCSV')}
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -679,6 +744,16 @@ export default function ProjectsPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-4 py-3 text-left w-12">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isAllOnPageSelected}
+                      onChange={(e) => selectAllOnPage(e.target.checked)}
+                      className="h-4 w-4 text-theme-primary border-gray-300 rounded focus:ring-theme-primary"
+                    />
+                  </label>
+                </th>
                 <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
                   {t('projects.projectName')}
                 </th>
@@ -699,6 +774,16 @@ export default function ProjectsPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {currentProjects.map((project) => (
                 <tr key={project.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-4">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedProjectIds.has(project.id)}
+                        onChange={() => toggleProjectSelection(project.id)}
+                        className="h-4 w-4 text-theme-primary border-gray-300 rounded focus:ring-theme-primary"
+                      />
+                    </label>
+                  </td>
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-gray-900">
                       {project.title || 'N/A'}
@@ -830,6 +915,67 @@ export default function ProjectsPage() {
           </div>
           <h3 className="mt-2 text-sm font-medium text-gray-900">{t('projects.noProjects')}</h3>
           <p className="mt-1 text-sm text-gray-500">Try adjusting your filters or search terms.</p>
+        </div>
+      )}
+
+      {/* Compare Projects Modal */}
+      {showCompareModal && selectedProjects.length >= 2 && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setShowCompareModal(false)} />
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative bg-white rounded-xl shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">เปรียบเทียบโครงการ</h2>
+                <button
+                  onClick={() => setShowCompareModal(false)}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+                  aria-label="ปิด"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex-1 overflow-auto p-6">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 w-40 shrink-0 border-r border-gray-200">
+                          รายการ
+                        </th>
+                        {selectedProjects.slice(0, maxCompare).map(project => (
+                          <th key={project.id} className="px-4 py-3 text-left text-sm font-semibold text-gray-900 border-r border-gray-200 min-w-[180px]">
+                            <div className="font-medium text-theme-primary">{project.title || 'N/A'}</div>
+                            <Link
+                              href={`/view/${project.id}`}
+                              className="text-xs text-gray-500 hover:text-theme-primary mt-0.5 inline-block"
+                            >
+                              ดูรายละเอียด →
+                            </Link>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {compareFields.map((field, idx) => (
+                        <tr key={idx} className={idx % 2 === 0 ? 'bg-gray-50/50' : ''}>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-700 border-r border-gray-200 align-top whitespace-nowrap">
+                            {field.label}
+                          </td>
+                          {selectedProjects.slice(0, maxCompare).map(project => (
+                            <td key={project.id} className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200 align-top break-words">
+                              {field.getValue(project)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
