@@ -4,6 +4,7 @@ import { useLanguage } from '@/lib/LanguageContext'
 import { useState, useEffect, useRef } from 'react'
 import Litepicker from '@/components/Base/Litepicker'
 import Lucide from '@/components/Base/Lucide'
+import Tippy from '@/components/Base/Tippy'
 import dayjs from 'dayjs'
 import 'dayjs/locale/th'
 import { formatDateForLitepicker, parseLitepickerDateToISO, formatToISO8601 } from '@/lib/utils/dateUtils'
@@ -15,6 +16,19 @@ interface Step2AdditionalDetailsProps {
   setValue: UseFormSetValue<ProjectFormData>
   getValues: () => ProjectFormData
   trigger: UseFormTrigger<ProjectFormData>
+}
+
+const DURATION_INFO_TOOLTIP = 'ระยะเวลา 1 ปี = 365 วัน, 1 เดือน = 30 วัน (ระบบใช้ค่าดังกล่าวในการคำนวณจำนวนวัน)'
+
+function DurationLabel() {
+  return (
+    <span className="inline-flex items-center gap-1">
+      ระยะเวลา
+      <Tippy content={DURATION_INFO_TOOLTIP} as="span" className="inline-flex cursor-help">
+        <Lucide icon="Info" className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+      </Tippy>
+    </span>
+  )
 }
 
 export default function Step2AdditionalDetails({ register, control, errors, setValue, getValues, trigger }: Step2AdditionalDetailsProps) {
@@ -453,7 +467,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
           {/* Period: startDate | endDate | periodInDays (duration) - 3 columns */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-3">
             <div className="min-w-0">
-              <label className="form-label">วันที่ลงนามในสัญญา *</label>
+              <label className="form-label">วันที่ลงนามในสัญญา</label>
               <label className="text-sm text-transparent mb-1 block">.</label>
               <div className="relative">
                 <Lucide
@@ -490,7 +504,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
               {errors.period?.startDate && <p className="mt-1 text-sm text-red-600">{errors.period.startDate.message}</p>}
             </div>
             <div className="min-w-0">
-              <label className="form-label">วันที่สิ้นสุด *</label>
+              <label className="form-label">วันที่สิ้นสุด</label>
               <label className="text-sm text-transparent mb-1 block">.</label>
               <div className="relative">
                 <Lucide icon="Calendar" className="absolute inset-y-0 left-0 z-10 w-4 h-4 my-auto ml-3 text-gray-400" />
@@ -538,7 +552,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
               {errors.period?.endDate && <p className="mt-1 text-sm text-red-600">{errors.period.endDate.message}</p>}
             </div>
             <div className="min-w-0">
-              <label className="form-label">{t('pages.view.projectDuration') || 'ระยะเวลาโครงการ'} *</label>
+              <label className="form-label"><DurationLabel /></label>
               <div className="grid grid-cols-3 gap-2 mt-1">
                 <div>
                   <label className="text-sm text-gray-600 mb-1 block">ปี</label>
@@ -600,7 +614,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
 
           {/* Identification Period */}
           <div className="pt-6 border-t border-gray-200">
-            <h3 className="text-base font-semibold text-gray-900 mb-3">ระยะเวลาการระบุโครงการ (Identification Period)</h3>
+            <h3 className="text-base font-semibold text-gray-900 mb-3">ระยะเวลาการเริ่มต้นโครงการ (Identification Period)</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-3">
             <div className="min-w-0">
               <label className="form-label">วันที่เริ่ม</label>
@@ -625,7 +639,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
               <Controller name="identificationPeriod.durationInDays" control={control} render={({ field }) => <input type="hidden" {...field} value={field.value ?? ''} />} />
             </div>
             <div className="min-w-0">
-              <label className="form-label">วันที่สิ้นสุด *</label>
+              <label className="form-label">วันที่สิ้นสุด</label>
               <label className="text-sm text-transparent mb-1 block">.</label>
               <div className="relative">
                 <Lucide icon="Calendar" className="absolute inset-y-0 left-0 z-10 w-4 h-4 my-auto ml-3 text-gray-400" />
@@ -662,7 +676,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
               <Controller name="identificationPeriod.endDate" control={control} render={({ field }) => <input type="hidden" {...field} value={field.value || ''} />} />
             </div>
             <div className="min-w-0">
-              <label className="form-label">ระยะเวลา *</label>
+              <label className="form-label"><DurationLabel /></label>
               <div className="grid grid-cols-3 gap-2 mt-1">
                 <div><label className="text-sm text-gray-600 mb-1 block">ปี</label><input type="number" min="0" step="1" value={identDurationYear} onChange={(e) => { identEndDateFromPickerRef.current = false; const val = e.target.value === '' ? '0' : e.target.value; setIdentDurationYear(val); identDurationYearRef.current = val }} className="form-input w-full" placeholder="0" /></div>
                 <div><label className="text-sm text-gray-600 mb-1 block">เดือน</label><input type="number" min="0" step="1" value={identDurationMonth} onChange={(e) => { identEndDateFromPickerRef.current = false; const val = e.target.value === '' ? '0' : e.target.value; setIdentDurationMonth(val); identDurationMonthRef.current = val }} className="form-input w-full" placeholder="0" /></div>
@@ -701,7 +715,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
               <Controller name="preparationPeriod.durationInDays" control={control} render={({ field }) => <input type="hidden" {...field} value={field.value ?? ''} />} />
             </div>
             <div className="min-w-0">
-              <label className="form-label">วันที่สิ้นสุด *</label>
+              <label className="form-label">วันที่สิ้นสุด</label>
               <label className="text-sm text-transparent mb-1 block">.</label>
               <div className="relative">
                 <Lucide icon="Calendar" className="absolute inset-y-0 left-0 z-10 w-4 h-4 my-auto ml-3 text-gray-400" />
@@ -738,7 +752,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
               <Controller name="preparationPeriod.endDate" control={control} render={({ field }) => <input type="hidden" {...field} value={field.value || ''} />} />
             </div>
             <div className="min-w-0">
-              <label className="form-label">ระยะเวลา *</label>
+              <label className="form-label"><DurationLabel /></label>
               <div className="grid grid-cols-3 gap-2 mt-1">
                 <div><label className="text-sm text-gray-600 mb-1 block">ปี</label><input type="number" min="0" step="1" value={prepDurationYear} onChange={(e) => { prepEndDateFromPickerRef.current = false; const val = e.target.value === '' ? '0' : e.target.value; setPrepDurationYear(val); prepDurationYearRef.current = val }} className="form-input w-full" placeholder="0" /></div>
                 <div><label className="text-sm text-gray-600 mb-1 block">เดือน</label><input type="number" min="0" step="1" value={prepDurationMonth} onChange={(e) => { const val = e.target.value === '' ? '0' : e.target.value; setPrepDurationMonth(val); prepDurationMonthRef.current = val }} className="form-input w-full" placeholder="0" /></div>
@@ -786,7 +800,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
               <Controller name="implementationPeriod.durationInDays" control={control} render={({ field }) => <input type="hidden" {...field} value={field.value ?? ''} />} />
             </div>
             <div className="min-w-0">
-              <label className="form-label">วันที่สิ้นสุด *</label>
+              <label className="form-label">วันที่สิ้นสุด</label>
               <label className="text-sm text-transparent mb-1 block">.</label>
               <div className="relative">
                 <Lucide icon="Calendar" className="absolute inset-y-0 left-0 z-10 w-4 h-4 my-auto ml-3 text-gray-400" />
@@ -831,7 +845,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
               <Controller name="implementationPeriod.endDate" control={control} render={({ field }) => <input type="hidden" {...field} value={field.value || ''} />} />
             </div>
             <div className="min-w-0">
-              <label className="form-label">ระยะเวลาก่อสร้าง *</label>
+              <label className="form-label"><DurationLabel /></label>
               <div className="grid grid-cols-3 gap-2 mt-1">
                 <div>
                   <label className="text-sm text-gray-600 mb-1 block">ปี</label>
@@ -916,7 +930,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
               <Controller name="completionPeriod.durationInDays" control={control} render={({ field }) => <input type="hidden" {...field} value={field.value ?? ''} />} />
             </div>
             <div className="min-w-0">
-              <label className="form-label">วันที่สิ้นสุด *</label>
+              <label className="form-label">วันที่สิ้นสุด</label>
               <label className="text-sm text-transparent mb-1 block">.</label>
               <div className="relative">
                 <Lucide icon="Calendar" className="absolute inset-y-0 left-0 z-10 w-4 h-4 my-auto ml-3 text-gray-400" />
@@ -953,7 +967,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
               <Controller name="completionPeriod.endDate" control={control} render={({ field }) => <input type="hidden" {...field} value={field.value || ''} />} />
             </div>
             <div className="min-w-0">
-              <label className="form-label">ระยะเวลา *</label>
+              <label className="form-label"><DurationLabel /></label>
               <div className="grid grid-cols-3 gap-2 mt-1">
                 <div><label className="text-sm text-gray-600 mb-1 block">ปี</label><input type="number" min="0" step="1" value={completeDurationYear} onChange={(e) => { completeEndDateFromPickerRef.current = false; const val = e.target.value === '' ? '0' : e.target.value; setCompleteDurationYear(val); completeDurationYearRef.current = val }} className="form-input w-full" placeholder="0" /></div>
                 <div><label className="text-sm text-gray-600 mb-1 block">เดือน</label><input type="number" min="0" step="1" value={completeDurationMonth} onChange={(e) => { const val = e.target.value === '' ? '0' : e.target.value; setCompleteDurationMonth(val); completeDurationMonthRef.current = val }} className="form-input w-full" placeholder="0" /></div>
@@ -1001,7 +1015,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
               <Controller name="maintenancePeriod.durationInDays" control={control} render={({ field }) => <input type="hidden" {...field} value={field.value ?? ''} />} />
             </div>
             <div className="min-w-0">
-              <label className="form-label">วันที่สิ้นสุด *</label>
+              <label className="form-label">วันที่สิ้นสุด</label>
               <label className="text-sm text-transparent mb-1 block">.</label>
               <div className="relative">
                 <Lucide icon="Calendar" className="absolute inset-y-0 left-0 z-10 w-4 h-4 my-auto ml-3 text-gray-400" />
@@ -1046,7 +1060,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
               <Controller name="maintenancePeriod.endDate" control={control} render={({ field }) => <input type="hidden" {...field} value={field.value || ''} />} />
             </div>
             <div className="min-w-0">
-              <label className="form-label">ระยะเวลาบำรุงรักษา *</label>
+              <label className="form-label"><DurationLabel /></label>
               <div className="grid grid-cols-3 gap-2 mt-1">
                 <div>
                   <label className="text-sm text-gray-600 mb-1 block">ปี</label>
@@ -1106,7 +1120,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
 
           {/* Decommissioning Period */}
           <div className="pt-6 border-t border-gray-200">
-            <h3 className="text-base font-semibold text-gray-900 mb-3">ระยะเวลาการเลิกดำเนินการ (Decommissioning Period)</h3>
+            <h3 className="text-base font-semibold text-gray-900 mb-3">ระยะเวลาการสิ้นสุดโครงการ (Decommissioning Period)</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-3">
             <div className="min-w-0">
               <label className="form-label">วันที่เริ่ม</label>
@@ -1131,7 +1145,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
               <Controller name="decommissioningPeriod.durationInDays" control={control} render={({ field }) => <input type="hidden" {...field} value={field.value ?? ''} />} />
             </div>
             <div className="min-w-0">
-              <label className="form-label">วันที่สิ้นสุด *</label>
+              <label className="form-label">วันที่สิ้นสุด</label>
               <label className="text-sm text-transparent mb-1 block">.</label>
               <div className="relative">
                 <Lucide icon="Calendar" className="absolute inset-y-0 left-0 z-10 w-4 h-4 my-auto ml-3 text-gray-400" />
@@ -1168,7 +1182,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
               <Controller name="decommissioningPeriod.endDate" control={control} render={({ field }) => <input type="hidden" {...field} value={field.value || ''} />} />
             </div>
             <div className="min-w-0">
-              <label className="form-label">ระยะเวลา *</label>
+              <label className="form-label"><DurationLabel /></label>
               <div className="grid grid-cols-3 gap-2 mt-1">
                 <div><label className="text-sm text-gray-600 mb-1 block">ปี</label><input type="number" min="0" step="1" value={decommDurationYear} onChange={(e) => { decommEndDateFromPickerRef.current = false; const val = e.target.value === '' ? '0' : e.target.value; setDecommDurationYear(val); decommDurationYearRef.current = val }} className="form-input w-full" placeholder="0" /></div>
                 <div><label className="text-sm text-gray-600 mb-1 block">เดือน</label><input type="number" min="0" step="1" value={decommDurationMonth} onChange={(e) => { const val = e.target.value === '' ? '0' : e.target.value; setDecommDurationMonth(val); decommDurationMonthRef.current = val }} className="form-input w-full" placeholder="0" /></div>

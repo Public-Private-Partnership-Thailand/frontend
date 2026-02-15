@@ -19,7 +19,7 @@ interface Step3BudgetInfoProps {
 export default function Step3BudgetInfo({ register, control, errors, setValue, getValues }: Step3BudgetInfoProps) {
   const { t } = useLanguage()
   const { touchedFields, isSubmitted } = useFormState({ control })
-  const [currencyUnit, setCurrencyUnit] = useState<string>('พันล้าน')
+  const [currencyUnit, setCurrencyUnit] = useState<string>('ล้าน')
   const [budgetInputValue, setBudgetInputValue] = useState<string>('')
   
   // Date picker display values
@@ -39,12 +39,11 @@ export default function Step3BudgetInfo({ register, control, errors, setValue, g
     }
   }, [getValues])
 
-  // Conversion multipliers for currency
+  // Conversion multipliers for currency (บาท, ล้าน, ล้านล้าน only)
   const getCurrencyMultiplier = (unit: string): number => {
     switch (unit) {
-      case 'พันล้าน': return 1000000000 // 1 billion
+      case 'ล้านล้าน': return 1000000000000 // 1 trillion
       case 'ล้าน': return 1000000 // 1 million
-      case 'พัน': return 1000 // 1 thousand
       case 'บาท': return 1
       default: return 1
     }
@@ -83,12 +82,12 @@ export default function Step3BudgetInfo({ register, control, errors, setValue, g
   useEffect(() => {
     const currentAmount = getValues().budget?.amount?.amount
     if (currentAmount && currentAmount > 0 && !budgetInputValue) {
-      // Try to find the best unit to display (default to "พันล้าน")
-      let bestUnit = 'พันล้าน'
+      // Try to find the best unit to display (default to "ล้าน")
+      let bestUnit = 'ล้าน'
       let bestDisplayValue = currentAmount / getCurrencyMultiplier(bestUnit)
       
-      // Try other units to find a more readable value
-      const units = ['พันล้าน', 'ล้าน', 'พัน', 'บาท']
+      // Try other units to find a more readable value (บาท, ล้าน, ล้านล้าน only)
+      const units = ['ล้านล้าน', 'ล้าน', 'บาท']
       for (const unit of units) {
         const multiplier = getCurrencyMultiplier(unit)
         const displayValue = currentAmount / multiplier
@@ -127,18 +126,18 @@ export default function Step3BudgetInfo({ register, control, errors, setValue, g
                   onChange={(e) => handleCurrencyUnitChange(e.target.value)}
                   className="form-input w-32 sm:w-40"
                 >
-                  <option value="พันล้าน">พันล้าน</option>
-                  <option value="ล้าน">ล้าน</option>
-                  <option value="พัน">พัน</option>
                   <option value="บาท">บาท</option>
+                  <option value="ล้าน">ล้าน</option>
+                  <option value="ล้านล้าน">ล้านล้าน</option>
                 </select>
               </div>
-              {/* Hidden input for form (no validation) */}
+              {/* Hidden input for form - validation requires amount > 0 */}
               <input
                 type="hidden"
                 {...register('budget.amount.amount', { 
                   required: t('common.required'),
-                  valueAsNumber: true
+                  valueAsNumber: true,
+                  min: { value: 0.01, message: t('common.required') }
                 })}
               />
               {errors.budget?.amount?.amount && (

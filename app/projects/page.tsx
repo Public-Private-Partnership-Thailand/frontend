@@ -174,6 +174,10 @@ export default function ProjectsPage() {
   })
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set())
   const [showCompareModal, setShowCompareModal] = useState(false)
+  // Delete confirmation: project to delete (null = modal closed)
+  const [deleteConfirmProject, setDeleteConfirmProject] = useState<ProjectData | null>(null)
+  // In comparison modal: ordered list of project ids to show as columns (user can remove or reorder)
+  const [comparisonColumnIds, setComparisonColumnIds] = useState<string[]>([])
   const { t } = useLanguage()
   const { isAuthenticated } = useAuth()
 
@@ -503,6 +507,31 @@ export default function ProjectsPage() {
     { label: 'สถานะ', getValue: p => p.status || 'N/A' },
   ]
 
+  // When comparison modal opens, init column order from selected projects
+  useEffect(() => {
+    if (showCompareModal && selectedProjects.length >= 2) {
+      setComparisonColumnIds(selectedProjects.slice(0, maxCompare).map(p => p.id))
+    }
+  }, [showCompareModal]) // eslint-disable-line react-hooks/exhaustive-deps -- only when modal opens
+
+  const comparisonProjects = useMemo(() => {
+    return comparisonColumnIds
+      .map(id => selectedProjects.find(p => p.id === id))
+      .filter((p): p is ProjectData => p != null)
+  }, [comparisonColumnIds, selectedProjects])
+
+  const removeComparisonColumn = (projectId: string) => {
+    setComparisonColumnIds(prev => prev.filter(id => id !== projectId))
+  }
+
+  const moveComparisonColumn = (index: number, direction: 'left' | 'right') => {
+    const next = [...comparisonColumnIds]
+    const swap = direction === 'left' ? index - 1 : index + 1
+    if (swap < 0 || swap >= next.length) return
+    ;[next[index], next[swap]] = [next[swap], next[index]]
+    setComparisonColumnIds(next)
+  }
+
   const exportToCSV = () => {
     const csvData = filteredProjects.map(project => ({
       'Project Name': project.title,
@@ -697,46 +726,73 @@ export default function ProjectsPage() {
       </div>
 
       {/* Projects Table */}
-      <div className="mb-4 flex justify-between items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          {selectedProjectIds.size > 0 && (
-            <span className="text-sm text-gray-600">
-              เลือกไว้ {selectedProjectIds.size} โครงการ
-            </span>
-          )}
-          {selectedProjectIds.size >= 2 && (
+      <div className="mb-4 flex flex-col gap-3">
+        <div className="flex justify-between items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            {selectedProjectIds.size > 0 && (
+              <span className="text-sm text-gray-600">
+                เลือกไว้ {selectedProjectIds.size} โครงการ
+              </span>
+            )}
+            {selectedProjectIds.size >= 2 && (
+              <button
+                onClick={() => setShowCompareModal(true)}
+                disabled={!canCompare}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-theme-primary hover:bg-theme-primary-dark rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Lucide icon="GitCompare" className="w-5 h-5" />
+                เปรียบเทียบโครงการ ({selectedProjectIds.size})
+              </button>
+            )}
+            {selectedProjectIds.size > maxCompare && (
+              <span className="text-sm text-amber-600">เลือกได้สูงสุด {maxCompare} โครงการ</span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {isAuthenticated && (
+              <Link
+                href="/create"
+                className="bg-theme-primary hover:bg-theme-primary-dark text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+              >
+                {t('projects.createProject')}
+              </Link>
+            )}
             <button
-              onClick={() => setShowCompareModal(true)}
-              disabled={!canCompare}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-theme-primary hover:bg-theme-primary-dark rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={exportToCSV}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-theme-primary hover:bg-theme-primary-dark rounded-md transition-colors duration-200"
             >
-              <Lucide icon="GitCompare" className="w-5 h-5" />
-              เปรียบเทียบโครงการ ({selectedProjectIds.size})
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {t('projects.exportCSV')}
             </button>
-          )}
-          {selectedProjectIds.size > maxCompare && (
-            <span className="text-sm text-amber-600">เลือกได้สูงสุด {maxCompare} โครงการ</span>
-          )}
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          {isAuthenticated && (
-            <Link
-              href="/create"
-              className="bg-theme-primary hover:bg-theme-primary-dark text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
-            >
-              {t('projects.createProject')}
-            </Link>
-          )}
-          <button
-            onClick={exportToCSV}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-theme-primary hover:bg-theme-primary-dark rounded-md transition-colors duration-200"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            {t('projects.exportCSV')}
-          </button>
-        </div>
+        {/* Selected for comparison: display chips with optional remove */}
+        {selectedProjectIds.size > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">โครงการที่เลือกสำหรับเปรียบเทียบ:</span>
+            {selectedProjects.map((project) => (
+              <span
+                key={project.id}
+                className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-lg bg-theme-primary/10 text-theme-primary border border-theme-primary/30 text-sm"
+              >
+                <span className="max-w-[200px] truncate" title={project.title || ''}>
+                  {project.title || 'N/A'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => toggleProjectSelection(project.id)}
+                  className="p-0.5 rounded hover:bg-theme-primary/20 text-theme-primary hover:text-theme-primary-dark transition-colors"
+                  title="ลบออกจากการเปรียบเทียบ"
+                  aria-label="ลบออกจากการเปรียบเทียบ"
+                >
+                  <Lucide icon="X" className="w-4 h-4" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -810,22 +866,33 @@ export default function ProjectsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center justify-center">
+                    <div className="flex items-center justify-center gap-2">
                       <Link
                         href={`/view/${project.id}`}
-                        className="flex items-center mr-3 text-theme-primary hover:text-theme-primary-dark"
+                        className="flex items-center mr-1 text-theme-primary hover:text-theme-primary-dark"
                       >
                         <Lucide icon="Eye" className="w-4 h-4 mr-1" />
                         {t('common.view')}
                       </Link>
                       {isAuthenticated && (
-                        <Link
-                          href={`/edit/${project.id}`}
-                          className="flex items-center text-theme-primary hover:text-theme-primary-dark"
-                        >
-                          <Lucide icon="CheckSquare" className="w-4 h-4 mr-1" />
-                          {t('common.edit')}
-                        </Link>
+                        <>
+                          <Link
+                            href={`/edit/${project.id}`}
+                            className="flex items-center mr-1 text-theme-primary hover:text-theme-primary-dark"
+                          >
+                            <Lucide icon="CheckSquare" className="w-4 h-4 mr-1" />
+                            {t('common.edit')}
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirmProject(project)}
+                            className="flex items-center text-red-600 hover:text-red-700 hover:underline"
+                            title={t('common.delete') || 'ลบ'}
+                          >
+                            <Lucide icon="Trash2" className="w-4 h-4 mr-1" />
+                            {t('common.delete') || 'ลบ'}
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>
@@ -918,12 +985,54 @@ export default function ProjectsPage() {
         </div>
       )}
 
+      {/* Delete confirmation modal */}
+      {deleteConfirmProject && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-modal="true" role="dialog">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setDeleteConfirmProject(null)} />
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {t('common.delete') || 'ลบ'} โครงการ
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                คุณต้องการลบโครงการ &quot;{deleteConfirmProject.title || 'N/A'}&quot; ใช่หรือไม่? การลบจะทำในหน้านี้เท่านั้น (ยังไม่ส่งไปที่เซิร์ฟเวอร์)
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmProject(null)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                >
+                  {t('common.cancel') || 'ยกเลิก'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const id = deleteConfirmProject.id
+                    setProjects(prev => prev.filter(p => p.id !== id))
+                    setSelectedProjectIds(prev => {
+                      const next = new Set(prev)
+                      next.delete(id)
+                      return next
+                    })
+                    setDeleteConfirmProject(null)
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg"
+                >
+                  {t('common.delete') || 'ลบ'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Compare Projects Modal */}
       {showCompareModal && selectedProjects.length >= 2 && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="fixed inset-0 bg-black/50" onClick={() => setShowCompareModal(false)} />
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative bg-white rounded-xl shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+            <div className="relative bg-white rounded-xl shadow-xl w-full max-w-[92vw] max-h-[90vh] flex flex-col">
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-900">เปรียบเทียบโครงการ</h2>
                 <button
@@ -936,43 +1045,92 @@ export default function ProjectsPage() {
                   </svg>
                 </button>
               </div>
-              <div className="flex-1 overflow-auto p-6">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
-                    <thead className="bg-gray-50 sticky top-0 z-10">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 w-40 shrink-0 border-r border-gray-200">
-                          รายการ
-                        </th>
-                        {selectedProjects.slice(0, maxCompare).map(project => (
-                          <th key={project.id} className="px-4 py-3 text-left text-sm font-semibold text-gray-900 border-r border-gray-200 min-w-[180px]">
-                            <div className="font-medium text-theme-primary">{project.title || 'N/A'}</div>
-                            <Link
-                              href={`/view/${project.id}`}
-                              className="text-xs text-gray-500 hover:text-theme-primary mt-0.5 inline-block"
-                            >
-                              ดูรายละเอียด →
-                            </Link>
-                          </th>
+              <div className="flex-1 overflow-auto p-6 min-h-0">
+                {comparisonProjects.length === 0 ? (
+                  <p className="text-gray-500 text-sm">ไม่มีคอลัมน์ที่เลือกไว้ คลิกปิดแล้วเลือกโครงการใหม่</p>
+                ) : (
+                  <div className="w-full">
+                    <table className="w-full table-fixed divide-y divide-gray-200 border border-gray-200" style={{ tableLayout: 'fixed' }}>
+                      <colgroup>
+                        <col style={{ width: '15%' }} />
+                        {comparisonProjects.map((_, i) => (
+                          <col key={i} style={{ width: `${comparisonProjects.length > 0 ? 85 / comparisonProjects.length : 0}%` }} />
                         ))}
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {compareFields.map((field, idx) => (
-                        <tr key={idx} className={idx % 2 === 0 ? 'bg-gray-50/50' : ''}>
-                          <td className="px-4 py-3 text-sm font-medium text-gray-700 border-r border-gray-200 align-top whitespace-nowrap">
-                            {field.label}
-                          </td>
-                          {selectedProjects.slice(0, maxCompare).map(project => (
-                            <td key={project.id} className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200 align-top break-words">
-                              {field.getValue(project)}
-                            </td>
+                      </colgroup>
+                      <thead className="bg-gray-50 sticky top-0 z-10">
+                        <tr>
+                          <th className="px-3 py-3 text-left text-sm font-semibold text-gray-700 border-r border-gray-200">
+                            รายการ
+                          </th>
+                          {comparisonProjects.map((project, colIndex) => (
+                            <th key={project.id} className="px-2 py-3 text-left text-sm font-semibold text-gray-900 border-r border-gray-200 align-top min-w-0">
+                              <div className="flex items-start justify-between gap-1">
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-medium text-theme-primary truncate" title={project.title || ''}>
+                                    {project.title || 'N/A'}
+                                  </div>
+                                  <Link
+                                    href={`/view/${project.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-gray-500 hover:text-theme-primary mt-0.5 inline-block"
+                                  >
+                                    ดูรายละเอียด →
+                                  </Link>
+                                </div>
+                                <div className="flex items-center gap-0.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => moveComparisonColumn(colIndex, 'left')}
+                                    disabled={colIndex === 0}
+                                    className="p-1 rounded hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed text-gray-600"
+                                    title="เลื่อนซ้าย"
+                                    aria-label="เลื่อนซ้าย"
+                                  >
+                                    <Lucide icon="ChevronLeft" className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => moveComparisonColumn(colIndex, 'right')}
+                                    disabled={colIndex === comparisonProjects.length - 1}
+                                    className="p-1 rounded hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed text-gray-600"
+                                    title="เลื่อนขวา"
+                                    aria-label="เลื่อนขวา"
+                                  >
+                                    <Lucide icon="ChevronRight" className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeComparisonColumn(project.id)}
+                                    className="p-1 rounded hover:bg-red-100 text-gray-500 hover:text-red-600"
+                                    title="ลบคอลัมน์ออก"
+                                    aria-label="ลบคอลัมน์ออก"
+                                  >
+                                    <Lucide icon="X" className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </th>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {compareFields.map((field, idx) => (
+                          <tr key={idx} className={idx % 2 === 0 ? 'bg-gray-50/50' : ''}>
+                            <td className="px-3 py-3 text-sm font-medium text-gray-700 border-r border-gray-200 align-top whitespace-nowrap min-w-0">
+                              {field.label}
+                            </td>
+                            {comparisonProjects.map(project => (
+                              <td key={project.id} className="px-2 py-3 text-sm text-gray-900 border-r border-gray-200 align-top break-words min-w-0 overflow-hidden">
+                                {field.getValue(project)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -121,8 +121,9 @@ export const translations = {
         step3: 'Review',
       },
       edit: {
-        title: 'Edit Project',
+        title: 'Update Project',
         subtitle: 'Modify the project details below',
+        submit: 'Update Project',
         success: 'Project updated successfully! Redirecting...',
         error: 'Error updating project. Please try again.',
         notFound: 'Project Not Found',
@@ -601,8 +602,9 @@ export const translations = {
         step3: 'ตรวจสอบ',
       },
       edit: {
-        title: 'แก้ไขโครงการ',
+        title: 'อัปเดตโครงการ',
         subtitle: 'แก้ไขรายละเอียดโครงการด้านล่าง',
+        submit: 'อัปเดตโครงการ',
         success: 'อัปเดตโครงการสำเร็จ! กำลังเปลี่ยนหน้า...',
         error: 'เกิดข้อผิดพลาดในการอัปเดตโครงการ กรุณาลองใหม่',
         notFound: 'ไม่พบโครงการ',

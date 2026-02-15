@@ -487,7 +487,7 @@ export default function HomePage() {
     if (sortedEntries.length <= TOP_N) {
       // If we have fewer or equal to TOP_N ministries, show all
       labels = sortedEntries.map(([name]) => name)
-      data = sortedEntries.map(([, investment]) => investment / 1000000000) // Convert to billions
+      data = sortedEntries.map(([, investment]) => investment / 1000000) // Convert to ล้านบาท (millions)
     } else {
       // Show top N and group the rest as "Other Ministries"
       const topEntries = sortedEntries.slice(0, TOP_N)
@@ -496,12 +496,12 @@ export default function HomePage() {
       const otherSum = otherEntries.reduce((sum, [, investment]) => sum + investment, 0)
       
       labels = [...topEntries.map(([name]) => name)]
-      data = [...topEntries.map(([, investment]) => investment / 1000000000)]
+      data = [...topEntries.map(([, investment]) => investment / 1000000)]
       
       // Only add "Other" category if it has value > 0
       if (otherSum > 0) {
         labels.push('กระทรวงอื่น ๆ')
-        data.push(otherSum / 1000000000)
+        data.push(otherSum / 1000000)
       }
     }
     
@@ -619,7 +619,7 @@ export default function HomePage() {
           callbacks: {
             label: function(context: any) {
               const label = context.label || ''
-              const value = context.parsed || 0 // This is in billions
+              const value = context.parsed || 0 // This is in ล้านบาท (millions)
               let count = 0
               if (label === 'กระทรวงอื่น ๆ') {
                 count = calculateOtherCount()
@@ -628,7 +628,7 @@ export default function HomePage() {
               }
               return [
                 `${label}`,
-                `${t('dashboard.totalInvestment')}: ${value.toFixed(2)} ${t('dashboard.billionBaht')}`,
+                `${t('dashboard.totalInvestment')}: ${value.toLocaleString('th-TH')} ${t('dashboard.millionBaht')}`,
                 `${t('home.numberOfProjects')}: ${count}`
               ]
             }
@@ -658,8 +658,8 @@ export default function HomePage() {
             } else {
               count = ministryCounts[label] || 0
             }
-            const investmentMillions = value * 1000 // Convert from billions to millions
-            return `${label} (${percentage.toFixed(0)}%)\n${investmentMillions.toLocaleString('th-TH')} ล้านบาท\n${count} โครงการ`
+            const valueMillions = value // already in ล้านบาท (millions)
+            return `${label} (${percentage.toFixed(0)}%)\n${valueMillions.toLocaleString('th-TH')} ล้านบาท\n${count} โครงการ`
           },
           textAlign: 'center' as const,
           textStrokeColor: '#ffffff',
@@ -820,13 +820,13 @@ export default function HomePage() {
       .sort((a, b) => a - b)
     
     const labels = sortedYears.map(year => year.toString())
-    const data = sortedYears.map(year => investmentByYear[year] / 1000000000) // Convert to billions
+    const data = sortedYears.map(year => investmentByYear[year] / 1000000) // Convert to ล้านบาท (millions)
     
     return {
       labels,
       datasets: [
         {
-          label: 'มูลค่ารวม (พันล้านบาท)',
+          label: 'มูลค่ารวม (ล้านบาท)',
           data,
           backgroundColor: getColor('primary', 0.8),
           borderColor: getColor('primary', 1),
@@ -848,9 +848,8 @@ export default function HomePage() {
         tooltip: {
           callbacks: {
             label: function(context: any) {
-              const value = context.parsed.y
-              const millions = value * 1000 // Convert from billions to millions
-              return `มูลค่ารวม: ${millions.toLocaleString('th-TH')} ล้านบาท`
+              const value = context.parsed.y // already in ล้านบาท (millions)
+              return `มูลค่ารวม: ${value.toLocaleString('th-TH')} ล้านบาท`
             },
           },
         },
@@ -881,7 +880,7 @@ export default function HomePage() {
             },
             color: getColor('slate.600', 0.8),
             callback: function(value: any) {
-              return value.toFixed(1) + ' พันล้าน'
+              return value.toLocaleString('th-TH') + ' ล้านบาท'
             },
           },
           grid: {
@@ -958,11 +957,11 @@ export default function HomePage() {
               const label = context.label || ''
               const value = context.parsed || 0
               const scaleKey = context.dataIndex === 0 ? 'small' : context.dataIndex === 1 ? 'medium' : 'big'
-              const investment = projectScales[scaleKey].investment / 1000000000 // Convert to billions
+              const investmentMillions = projectScales[scaleKey].investment / 1000000 // ล้านบาท
               return [
                 `${label}`,
                 `${t('home.numberOfProjects')}: ${value}`,
-                `${t('dashboard.totalInvestment')}: ${investment.toFixed(2)} ${t('dashboard.billionBaht')}`
+                `${t('dashboard.totalInvestment')}: ${investmentMillions.toLocaleString('th-TH')} ${t('dashboard.millionBaht')}`
               ]
             }
           }
@@ -999,8 +998,8 @@ export default function HomePage() {
               scaleKey = 'big'
             }
             
-            const investment = projectScales[scaleKey].investment / 1000000 // Convert to millions
-            return `${label} (${percentage.toFixed(0)}%)\n${investment.toLocaleString('th-TH')} ล้านบาท\n${value} โครงการ`
+            const investmentMillions = projectScales[scaleKey].investment / 1000000 // ล้านบาท
+            return `${label} (${percentage.toFixed(0)}%)\n${investmentMillions.toLocaleString('th-TH')} ล้านบาท\n${value} โครงการ`
           },
           textAlign: 'center' as const,
           textStrokeColor: '#ffffff',
@@ -1049,11 +1048,11 @@ export default function HomePage() {
             const label = context.label || ''
             const value = context.parsed || 0
             const scopeKey = context.dataIndex === 0 ? 'domestic' : 'international'
-            const investment = projectScope[scopeKey].investment / 1000000000 // Convert to billions
+            const investmentMillions = projectScope[scopeKey].investment / 1000000 // ล้านบาท
             return [
               `${label}`,
               `${t('home.numberOfProjects')}: ${value}`,
-              `${t('dashboard.totalInvestment')}: ${investment.toFixed(2)} ${t('dashboard.billionBaht')}`
+              `${t('dashboard.totalInvestment')}: ${investmentMillions.toLocaleString('th-TH')} ${t('dashboard.millionBaht')}`
             ]
           }
         }
@@ -1068,10 +1067,10 @@ export default function HomePage() {
         formatter: (value: number, context: any) => {
           const label = context.chart.data.labels[context.dataIndex]
           const scopeKey = context.dataIndex === 0 ? 'domestic' : 'international'
-          const investment = projectScope[scopeKey].investment / 1000000000
+          const investmentMillions = projectScope[scopeKey].investment / 1000000 // ล้านบาท
           const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
           const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0'
-          return `${label}\n${value} ${t('home.projects')}\n${investment.toFixed(2)}B\n(${percentage}%)`
+          return `${label}\n${value} ${t('home.projects')}\n${investmentMillions.toLocaleString('th-TH')} ล้านบาท\n(${percentage}%)`
         },
         textAlign: 'center' as const,
         textStrokeColor: '#333333',
@@ -1316,22 +1315,23 @@ export default function HomePage() {
                     <div className="mt-6 text-3xl font-medium leading-8">
                       {(() => {
                         const totalInvestment = summaryData?.summary?.totalInvestment || 0
-                        const billions = totalInvestment / 1000000000
-                        if (billions >= 1) {
-                          return billions.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        if (totalInvestment >= 1000000000000) {
+                          const trillion = totalInvestment / 1000000000000
+                          return trillion.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         }
-                        const millions = totalInvestment / 1000000
-                        return millions.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        if (totalInvestment >= 1000000) {
+                          const millions = totalInvestment / 1000000
+                          return millions.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        }
+                        return totalInvestment.toLocaleString('th-TH')
                       })()}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                       {t('dashboard.totalInvestment')} {(() => {
                         const totalInvestment = summaryData?.summary?.totalInvestment || 0
-                        const billions = totalInvestment / 1000000000
-                        if (billions >= 1) {
-                          return `(${t('dashboard.billionBaht')})`
-                        }
-                        return `(${t('dashboard.millionBaht')})`
+                        if (totalInvestment >= 1000000000000) return '(ล้านล้านบาท)'
+                        if (totalInvestment >= 1000000) return '(ล้านบาท)'
+                        return '(บาท)'
                       })()}
                     </div>
                   </div>
@@ -1352,23 +1352,24 @@ export default function HomePage() {
                       {(() => {
                         const maxBudget = summaryData?.summary?.maxBudget || 0
                         if (maxBudget === 0) return '0.00'
-                        const billions = maxBudget / 1000000000
-                        if (billions >= 1) {
-                          return billions.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        if (maxBudget >= 1000000000000) {
+                          const trillion = maxBudget / 1000000000000
+                          return trillion.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         }
-                        const millions = maxBudget / 1000000
-                        return millions.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        if (maxBudget >= 1000000) {
+                          const millions = maxBudget / 1000000
+                          return millions.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        }
+                        return maxBudget.toLocaleString('th-TH')
                       })()}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                       {t('home.highestProjectBudget') || 'Highest Project Budget'} {(() => {
                         const maxBudget = summaryData?.summary?.maxBudget || 0
                         if (maxBudget === 0) return ''
-                        const billions = maxBudget / 1000000000
-                        if (billions >= 1) {
-                          return `(${t('dashboard.billionBaht')})`
-                        }
-                        return `(${t('dashboard.millionBaht')})`
+                        if (maxBudget >= 1000000000000) return '(ล้านล้านบาท)'
+                        if (maxBudget >= 1000000) return '(ล้านบาท)'
+                        return '(บาท)'
                       })()}
                     </div>
                   </div>
@@ -1389,7 +1390,7 @@ export default function HomePage() {
                       {24}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
-                      โครงการกำลังดำเนินการ/ใกล้แล้วเสร็จ
+                      โครงการกำลังดำเนินการ
                     </div>
                   </div>
                 </div>
@@ -1462,7 +1463,7 @@ export default function HomePage() {
                       {t('home.projectScale') || 'Project Scale Distribution'}
                     </h2>
                     <Tippy
-                      content={'เล็ก (&lt;1,000 ล้าน)<br/>กลาง (1,000-5,000 ล้าน)<br/>ใหญ่ (&gt;5,000 ล้าน)'}
+                      content={'เล็ก (&lt;1,000 ล้านบาท)<br/>กลาง (1,000-5,000 ล้านบาท)<br/>ใหญ่ (&gt;5,000 ล้านบาท)'}
                       options={{
                         placement: 'top',
                         trigger: 'click',
@@ -1725,7 +1726,7 @@ export default function HomePage() {
                       <h3 className="text-base font-medium text-gray-700">{t('home.domesticProjects') || 'Domestic Projects'}</h3>
                       <p className="text-2xl font-bold text-chula-pink">{projectScope.domestic.count.toLocaleString()}</p>
                       <p className="text-sm text-gray-600 mt-1">
-                        {t('dashboard.totalInvestment')}: {(projectScope.domestic.investment / 1000000000).toFixed(2)} {t('dashboard.billionBaht')}
+                        {t('dashboard.totalInvestment')}: {(projectScope.domestic.investment / 1000000).toLocaleString('th-TH')} ล้านบาท
                       </p>
                     </div>
                   </div>
@@ -1740,7 +1741,7 @@ export default function HomePage() {
                       <h3 className="text-base font-medium text-gray-700">{t('home.internationalProjects') || 'International Projects'}</h3>
                       <p className="text-2xl font-bold text-chula-pink-darker">{projectScope.international.count.toLocaleString()}</p>
                       <p className="text-sm text-gray-600 mt-1">
-                        {t('dashboard.totalInvestment')}: {(projectScope.international.investment / 1000000000).toFixed(2)} {t('dashboard.billionBaht')}
+                        {t('dashboard.totalInvestment')}: {(projectScope.international.investment / 1000000).toLocaleString('th-TH')} ล้านบาท
                       </p>
                     </div>
                   </div>

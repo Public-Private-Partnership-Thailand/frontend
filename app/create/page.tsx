@@ -355,7 +355,7 @@ export default function CreateProjectPage() {
         {currentStep === 1 ? (
           <div className="card">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">{t('pages.create.step1') || 'Essential Information'}</h2>
-            <Step1EssentialInfo register={register} control={control} errors={errors} setValue={setValue} getValues={getValues} />
+            <Step1EssentialInfo register={register} control={control} errors={errors} setValue={setValue} getValues={getValues} trigger={trigger} />
           </div>
         ) : currentStep === 2 ? (
           <div className="card">

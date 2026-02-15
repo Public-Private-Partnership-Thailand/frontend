@@ -11,9 +11,10 @@ interface Step1EssentialInfoProps {
   errors: FieldErrors<ProjectFormData>
   setValue: UseFormSetValue<ProjectFormData>
   getValues: () => ProjectFormData
+  trigger?: (name?: string | string[]) => Promise<boolean>
 }
 
-export default function Step1EssentialInfo({ register, control, errors, setValue, getValues }: Step1EssentialInfoProps) {
+export default function Step1EssentialInfo({ register, control, errors, setValue, getValues, trigger }: Step1EssentialInfoProps) {
   const { t } = useLanguage()
   const { touchedFields, isSubmitted } = useFormState({ control })
   const publicAuthorityValue = useWatch({ control, name: 'publicAuthority' })
@@ -333,6 +334,10 @@ export default function Step1EssentialInfo({ register, control, errors, setValue
         <label className="form-label">{t('form.basicInfo.projectTitle')} *</label>
         <input
           {...register('title', { required: t('common.required') })}
+          onChange={(e) => {
+            register('title').onChange(e)
+            trigger?.('title')
+          }}
           className={`form-input ${errors.title ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
           placeholder={t('form.basicInfo.enterTitle')}
         />
@@ -403,8 +408,12 @@ export default function Step1EssentialInfo({ register, control, errors, setValue
         <select 
           {...register('type', { 
             required: t('common.required'),
-            validate: (value) => value !== '' || t('common.required')
+            validate: (value) => (value !== '' && value != null) || t('common.required')
           })} 
+          onChange={(e) => {
+            register('type').onChange(e)
+            trigger?.('type')
+          }}
           className={`form-input ${errors.type ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
         >
           <option value="">{t('common.select')}</option>

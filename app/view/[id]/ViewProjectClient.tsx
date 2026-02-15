@@ -10,6 +10,8 @@ import { fetchProjectById } from '@/lib/projectService'
 import { BUSINESS_GROUP_CODE_TO_DISPLAY_NAME, BUSINESS_GROUP_CODES } from '@/types/businessGroup'
 import { formatDateForDisplay } from '@/lib/utils/dateUtils'
 import { MOCK_RISKS, getRisksForProject } from '@/lib/mockRisks'
+import Tippy from '@/components/Base/Tippy'
+import Lucide from '@/components/Base/Lucide'
 
 export default function ViewProjectClient() {
   const { t } = useLanguage()
@@ -85,32 +87,52 @@ export default function ViewProjectClient() {
 
   // Timeline phases in order; current phase is where today falls within [start, end]
   const PHASES = [
-    { key: 'identification', label: 'ระบุโครงการ', getStart: (p: ProjectData) => p.identificationPeriod?.startDate, getEnd: (p: ProjectData) => p.identificationPeriod?.endDate },
+    { key: 'identification', label: 'เริ่มต้นโครงการ', getStart: (p: ProjectData) => p.identificationPeriod?.startDate, getEnd: (p: ProjectData) => p.identificationPeriod?.endDate },
     { key: 'preparation', label: 'เตรียมการ', getStart: (p: ProjectData) => p.preparationPeriod?.startDate, getEnd: (p: ProjectData) => p.preparationPeriod?.endDate },
     { key: 'implementation', label: 'ก่อสร้าง', getStart: (p: ProjectData) => p.implementationPeriod?.startDate, getEnd: (p: ProjectData) => p.implementationPeriod?.endDate },
     { key: 'completion', label: 'ส่งมอบ', getStart: (p: ProjectData) => p.completionPeriod?.startDate, getEnd: (p: ProjectData) => p.completionPeriod?.endDate },
     { key: 'maintenance', label: 'บำรุงรักษา', getStart: (p: ProjectData) => p.maintenancePeriod?.startDate, getEnd: (p: ProjectData) => p.maintenancePeriod?.endDate },
-    { key: 'decommissioning', label: 'เลิกดำเนินการ', getStart: (p: ProjectData) => p.decommissioningPeriod?.startDate, getEnd: (p: ProjectData) => p.decommissioningPeriod?.endDate },
+    { key: 'decommissioning', label: 'สิ้นสุดโครงการ', getStart: (p: ProjectData) => p.decommissioningPeriod?.startDate, getEnd: (p: ProjectData) => p.decommissioningPeriod?.endDate },
   ] as const
 
-  const getCurrentPhaseIndex = (proj: ProjectData | null): number => {
-    if (!proj) return 1
+  // Helper: true when period has startDate and today is within [start, end]
+  const isTodayInPeriod = (startStr: string | undefined, endStr: string | undefined): boolean => {
+    if (!startStr) return false
+    const start = new Date(startStr)
+    start.setHours(0, 0, 0, 0)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    for (let i = 0; i < PHASES.length; i++) {
-      const startStr = PHASES[i].getStart(proj)
-      const endStr = PHASES[i].getEnd(proj)
-      const start = startStr ? new Date(startStr) : null
-      const end = endStr ? new Date(endStr) : null
-      if (start) start.setHours(0, 0, 0, 0)
-      if (end) end.setHours(0, 0, 0, 0)
-      const afterStart = !start || today >= start
-      const beforeEnd = !end || today <= end
-      if (afterStart && beforeEnd) return i + 1 // 1-based current step
-      if (end && today > end) continue // past this phase
-      if (start && today < start) return i + 1 // not yet started any period; show first as current, or could return 1
+    if (today < start) return false
+    if (!endStr) return true
+    const end = new Date(endStr)
+    end.setHours(0, 0, 0, 0)
+    return today <= end
+  }
+
+  const getCurrentPhaseIndex = (proj: ProjectData | null): number => {
+    if (!proj) return 5
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    // Phase 6: period now > endDate, or decommissioningPeriod has startDate and today in range
+    const periodEndStr = proj.period?.endDate
+    if (periodEndStr) {
+      const periodEnd = new Date(periodEndStr)
+      periodEnd.setHours(0, 0, 0, 0)
+      if (periodEnd < today) return 6
     }
-    return PHASES.length // past all phases
+    if (isTodayInPeriod(proj.decommissioningPeriod?.startDate, proj.decommissioningPeriod?.endDate)) return 6
+    // Phase 5: maintenancePeriod has startDate and today in range
+    if (isTodayInPeriod(proj.maintenancePeriod?.startDate, proj.maintenancePeriod?.endDate)) return 5
+    // Phase 4: completionPeriod has startDate and today in range
+    if (isTodayInPeriod(proj.completionPeriod?.startDate, proj.completionPeriod?.endDate)) return 4
+    // Phase 3: implementationPeriod has startDate and today in range
+    if (isTodayInPeriod(proj.implementationPeriod?.startDate, proj.implementationPeriod?.endDate)) return 3
+    // Phase 2: preparationPeriod has startDate and today in range
+    if (isTodayInPeriod(proj.preparationPeriod?.startDate, proj.preparationPeriod?.endDate)) return 2
+    // Phase 1: identificationPeriod has startDate and today in range
+    if (isTodayInPeriod(proj.identificationPeriod?.startDate, proj.identificationPeriod?.endDate)) return 1
+    // Default when no period contains today
+    return 5
   }
 
   const formatDuration = (days: number | undefined, months: number | undefined): string => {
@@ -544,7 +566,17 @@ export default function ViewProjectClient() {
           {/* Risks / Issues */}
           {projectRisks.length > 0 && (
             <div className="bg-white shadow rounded-lg p-4 sm:p-6 w-full">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">ความเสี่ยง / ประเด็นปัญหา (Risks / Issues)</h2>
+              <div className="flex items-center gap-2 mb-4">
+                <h2 className="text-lg font-medium text-gray-900">ความเสี่ยง / ประเด็นปัญหา (Risks / Issues)</h2>
+                <Tippy
+                  content="P = Probability (ความน่าจะเป็น) · I = Impact (ผลกระทบ)"
+                  as="span"
+                  className="inline-flex cursor-help"
+                  options={{ placement: 'top' }}
+                >
+                  <Lucide icon="Info" className="w-4 h-4 text-gray-400 hover:text-gray-600 flex-shrink-0" />
+                </Tippy>
+              </div>
               <div className="space-y-4">
                 {projectRisks.map((risk) => (
                   <div
