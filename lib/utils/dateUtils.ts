@@ -106,7 +106,13 @@ export function formatDateForLitepicker(adDate: string): string {
   
   if (!date || !date.isValid()) return ''
   
-  return date.locale('th').format('D MMM YYYY')
+  // Display with Buddhist Era (B.E.) year for Litepicker / Thai UI
+  const day = date.date()
+  const month = date.month()
+  const adYear = date.year()
+  const beYear = adYear + 543
+  const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+  return `${day} ${thaiMonths[month]} ${beYear}`
 }
 
 /**

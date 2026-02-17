@@ -12,12 +12,15 @@ import Step2AdditionalDetails from '@/components/form/Step2AdditionalDetails'
 import Step3BudgetInfo from '@/components/form/Step3BudgetInfo'
 import Step4LegalAndReference from '@/components/form/Step4LegalAndReference'
 import Step5Review from '@/components/form/Step5Review'
+import { useInfo } from '@/app/hooks/useInfo'
 import dayjs from 'dayjs'
 
 export default function CreateProjectPage() {
   const { t } = useLanguage()
   const router = useRouter()
+  const { isLoading: isInfoLoading } = useInfo()
   const [currentStep, setCurrentStep] = useState(1)
+  const [step1ValidationAttempted, setStep1ValidationAttempted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const submitButtonClicked = useRef(false)
@@ -74,6 +77,7 @@ export default function CreateProjectPage() {
     setSubmitStatus('idle')
     
     if (currentStep === 1) {
+      setStep1ValidationAttempted(true)
       // Validate Step 1 fields
       const isValid = await trigger([
         'title',
@@ -218,59 +222,8 @@ export default function CreateProjectPage() {
 
       const additionalClassifications = [...otherClassifications, ...formattedContractTypeClassifications]
 
-      // Map parties: separate contractors and publicAuthority
-      // Ministry is already in parties[].additionalIdentifiers with scheme "ministry"
-      const allParties = Array.isArray(data.parties) ? data.parties : []
-      
-      // Filter contractors (เอกชนคู่สัญญา)
-      const contractorParties = allParties.filter(p => {
-        const roles = Array.isArray(p?.roles) ? p.roles.filter(r => r) : []
-        return roles.includes('contractor') && !roles.includes('publicAuthority')
-      }).map(p => ({
-        ...p,
-        identifier: {
-          scheme: "",
-          legalName: p?.name || "",
-          id: p?.id || "",
-          uri: p?.identifier?.uri || undefined
-        }
-      }))
-      
-      // Filter other parties (not publicAuthority, not contractor)
-      const otherParties = allParties.filter(p => {
-        const roles = Array.isArray(p?.roles) ? p.roles.filter(r => r) : []
-        return !roles.includes('publicAuthority') && !roles.includes('contractor')
-      })
-      
-      // Get publicAuthority parties (ministry is already in additionalIdentifiers)
-      const existingPublicAuthorityParties = allParties.filter(p => {
-        const roles = Array.isArray(p?.roles) ? p.roles.filter(r => r) : []
-        return roles.includes('publicAuthority')
-      })
-      
-      // Create publicAuthority party (ministry is already included in additionalIdentifiers)
-      const publicAuthorityName = data.publicAuthority?.name || ""
-      const publicAuthorityId = data.publicAuthority?.id || ""
-      
-      const publicAuthorityParty = existingPublicAuthorityParties.length > 0
-        ? existingPublicAuthorityParties[0]
-        : (publicAuthorityName ? {
-            name: publicAuthorityName,
-            id: publicAuthorityId,
-            identifier: undefined,
-            additionalIdentifiers: undefined,
-            address: undefined,
-            contactPoint: undefined,
-            roles: ['publicAuthority'],
-            people: undefined,
-            classifications: undefined,
-            beneficialOwners: undefined
-          } : null)
-
-      // Combine all parties
-      const parties = publicAuthorityParty
-        ? [publicAuthorityParty, ...contractorParties, ...otherParties]
-        : [...contractorParties, ...otherParties]
+      // Parties: each item is หน่วยงานเจ้าของโครงการ with ministries and เอกชนคู่สัญญา in additionalIdentifiers
+      const parties = Array.isArray(data.parties) ? data.parties : []
 
       // Dates are already in ISO 8601 format from the form steps
       // No conversion needed - they're stored directly as ISO 8601
@@ -304,6 +257,17 @@ export default function CreateProjectPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (isInfoLoading) {
+    return (
+      <div className="px-4 sm:px-6 lg:px-0 flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-theme-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-gray-500">{t('common.loading') || 'Loading...'}</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -355,7 +319,7 @@ export default function CreateProjectPage() {
         {currentStep === 1 ? (
           <div className="card">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">{t('pages.create.step1') || 'Essential Information'}</h2>
-            <Step1EssentialInfo register={register} control={control} errors={errors} setValue={setValue} getValues={getValues} trigger={trigger} />
+            <Step1EssentialInfo register={register} control={control} errors={errors} setValue={setValue} getValues={getValues} trigger={trigger} showAuthorityValidationErrors={step1ValidationAttempted} />
           </div>
         ) : currentStep === 2 ? (
           <div className="card">

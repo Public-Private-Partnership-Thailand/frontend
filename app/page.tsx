@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { ProjectData } from '@/types/project'
-import { BUSINESS_GROUP_INFO, getBusinessGroupInfo } from '@/types/businessGroup'
+import { BUSINESS_GROUP_INFO, getBusinessGroupInfo, getBusinessGroupDisplayName } from '@/types/businessGroup'
 import ProjectCard from '@/components/ProjectCard'
 import HomePageSkeleton from '@/components/HomePageSkeleton'
 import ThailandMap from '@/components/ThailandMap'
@@ -14,22 +14,12 @@ import clsx from 'clsx'
 import Lucide from '@/components/Base/Lucide'
 import Tippy from '@/components/Base/Tippy'
 import ReportPieChart from '@/components/ReportPieChart'
-import dynamic from 'next/dynamic'
 import dayjs from 'dayjs'
 import 'dayjs/locale/th'
 import { parseThaiDateRangeToISO } from '@/lib/utils/dateUtils'
 import { useInfo, type InfoData } from '@/app/hooks/useInfo'
-import { useSummary, type SummaryData, type SummaryFilters } from '@/app/hooks/useSummary'
+import { useSummary, type SummaryData, type SummaryFilters, getIconNameByGroupName } from '@/app/hooks/useSummary'
 
-// Dynamically import Litepicker to avoid SSR issues
-const Litepicker = dynamic(() => import('@/components/Base/Litepicker'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-400">
-      Loading date picker...
-    </div>
-  )
-})
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -185,7 +175,8 @@ export default function HomePage() {
     ministry: [] as string[],
     businessGroup: [] as string[],
     contractType: [] as string[],
-    dateRange: ''
+    startYear: '',
+    endYear: ''
   })
   const [tempFilters, setTempFilters] = useState({
     sector: '',
@@ -193,7 +184,8 @@ export default function HomePage() {
     ministry: [] as string[],
     businessGroup: [] as string[],
     contractType: [] as string[],
-    dateRange: ''
+    startYear: '',
+    endYear: ''
   })
   const { t } = useLanguage()
   const router = useRouter()
@@ -209,7 +201,7 @@ export default function HomePage() {
     filters, 
     infoData ? {
       ministry: infoData.ministry,
-      sector: infoData.sector as Array<{ id: string; value: string }>,
+      sector: infoData.sector,
       contractType: infoData.contractType
     } : undefined
   )
@@ -302,20 +294,14 @@ export default function HomePage() {
       // This prevents double API calls (one without params, one with params)
     }
   }, [safeInfoData, ministries, businessGroups, contractTypes])
-  
-  // Helper function to get Thai display name for business group key
-  // Since we're now using sector values from API, just return the key as-is
-  const getBusinessGroupDisplayName = (key: string): string => {
-    return key
-  }
 
-  // Get available years from summary data
+  // Year range for filter: 1950 to current year + 50
   const availableYears = useMemo(() => {
-    if (summaryData?.investmentByYear) {
-      return summaryData.investmentByYear.map(item => item.year).sort((a, b) => a - b)
-    }
-    return []
-  }, [summaryData])
+    const currentYear = new Date().getFullYear()
+    const start = 1950
+    const end = currentYear + 50
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+  }, [])
 
   const handleFilterChange = (key: string, value: string) => {
     const newFilters = { ...tempFilters, [key]: value }
@@ -355,6 +341,13 @@ export default function HomePage() {
   }
 
   const applyFilters = () => {
+    const startY = tempFilters.startYear ? parseInt(tempFilters.startYear, 10) : NaN
+    const endY = tempFilters.endYear ? parseInt(tempFilters.endYear, 10) : NaN
+    if (tempFilters.startYear && tempFilters.endYear && (!Number.isInteger(startY) || !Number.isInteger(endY) || endY < startY)) {
+      setFilterValidationError(t('home.yearRangeInvalid') || 'ปีสิ้นสุดต้องไม่น้อยกว่าปีเริ่มต้น')
+      return
+    }
+    setFilterValidationError(null)
     setFilters(tempFilters)
     // The useSummary hook will automatically refetch when filters change (React Query handles this)
   }
@@ -366,7 +359,8 @@ export default function HomePage() {
       ministry: [] as string[],
       businessGroup: [] as string[],
       contractType: [] as string[],
-      dateRange: ''
+      startYear: '',
+      endYear: ''
     }
     setFilters(emptyFilters)
     setTempFilters(emptyFilters)
@@ -381,7 +375,8 @@ export default function HomePage() {
       filters.ministry.length > 0 ||
       filters.businessGroup.length > 0 ||
       filters.contractType.length > 0 ||
-      filters.dateRange
+      filters.startYear ||
+      filters.endYear
     )
   }
 
@@ -1097,7 +1092,7 @@ export default function HomePage() {
             <div className="box p-4 sticky top-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-semibold text-gray-900">
-                  {t('home.search')} & {t('home.filters')}
+                  {t('home.filters')}
                 </h3>
                 <button
                   onClick={() => setShowFilters(false)}
@@ -1107,20 +1102,6 @@ export default function HomePage() {
                 </button>
               </div>
             
-              {/* Search */}
-              <div className="mb-3">
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  {t('home.search')}
-                </label>
-                <input
-                  type="text"
-                  placeholder={t('home.searchProjects')}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary"
-                  value={tempFilters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                />
-              </div>
-
               {/* Business Group Filter */}
               <MultiSelectDropdown
               label={t('dashboard.businessGroup')}
@@ -1155,39 +1136,38 @@ export default function HomePage() {
               placeholder={t('home.allContractTypes')}
             />
 
-              {/* Year Range Filter */}
+              {/* Year Range Filter - ช่วงปีที่ลงนามในสัญญา */}
               <div className="mb-3">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   {t('home.yearRange')}
                 </label>
-                <div className="relative">
-                  <Lucide
-                    icon="Calendar"
-                    className="absolute inset-y-0 left-0 z-10 w-4 h-4 my-auto ml-3 text-gray-400"
-                  />
-                  <Litepicker
-                    value={tempFilters.dateRange}
-                    onChange={(e) => handleFilterChange('dateRange', e.target.value)}
-                    options={{
-                      autoApply: false,
-                      singleMode: false,
-                      numberOfColumns: 2,
-                      numberOfMonths: 2,
-                      showWeekNumbers: true,
-                      format: 'D MMM YYYY',
-                      lang: 'th-TH',
-                      // maxDays will be set to null in the initialization to allow unlimited range
-                      // Only constraint: end date must be >= start date (handled by Litepicker automatically)
-                      dropdowns: {
-                        minYear: availableYears.length > 0 ? Math.min(...availableYears) : 1990,
-                        maxYear: availableYears.length > 0 ? Math.max(...availableYears) : null,
-                        months: true,
-                        years: true,
-                      },
-                    }}
-                    className="pl-10 w-full text-xs !box"
-                    placeholder="ทั้งหมด"
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="sr-only">{t('home.startYear') || 'ปีเริ่มต้น'}</label>
+                    <select
+                      value={tempFilters.startYear}
+                      onChange={(e) => handleFilterChange('startYear', e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary"
+                    >
+                      <option value="">{t('home.allYears') || 'ทั้งหมด'}</option>
+                      {availableYears.map((y) => (
+                        <option key={y} value={String(y)}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="sr-only">{t('home.endYear') || 'ปีสิ้นสุด'}</label>
+                    <select
+                      value={tempFilters.endYear}
+                      onChange={(e) => handleFilterChange('endYear', e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary"
+                    >
+                      <option value="">{t('home.allYears') || 'ทั้งหมด'}</option>
+                      {availableYears.map((y) => (
+                        <option key={y} value={String(y)}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 {filterValidationError && (
                   <div className="mt-1.5 p-1.5 bg-red-50 border border-red-200 rounded-md">
@@ -1251,7 +1231,7 @@ export default function HomePage() {
                     count += filters.ministry.length
                     count += filters.businessGroup.length
                     count += filters.contractType.length
-                    if (filters.dateRange) count++
+                    if (filters.startYear || filters.endYear) count++
                     return count
                   })()}
                 </span>
@@ -1566,8 +1546,8 @@ export default function HomePage() {
                     const groupsToDisplay = summaryData?.businessGroupStats 
                       ? summaryData.businessGroupStats.map(group => ({
                           groupName: group.groupName,
-                          displayName: group.displayName,
-                          icon: group.icon,
+                          displayName: getBusinessGroupDisplayName(group.groupName),
+                          icon: getIconNameByGroupName(group.groupName),
                           stats: {
                             total: group.total,
                             small: group.small,
@@ -1585,7 +1565,7 @@ export default function HomePage() {
                           const info = getBusinessGroupInfo(groupName) || { displayName: groupName, icon: 'default.jpg' }
                           return {
                             groupName,
-                            displayName: info.displayName,
+                            displayName: getBusinessGroupDisplayName(groupName),
                             icon: info.icon,
                             stats
                           }

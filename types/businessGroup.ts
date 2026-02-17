@@ -103,18 +103,18 @@ export const BUSINESS_GROUP_DISPLAY_NAME_TO_CODE: Record<string, BusinessGroupCo
 
 // Map: Code -> Display name (full) (reverse mapping)
 export const BUSINESS_GROUP_CODE_TO_DISPLAY_NAME: Record<BusinessGroupCode, string> = {
-  'transport.road': 'ถนน ทางหลวง ทางพิเศษ การขนส่งทางถนน',
-  'transport.rail': 'รถไฟ รถไฟฟ้า การขนส่งทางราง',
-  'transport.air': 'ท่าอากาศยาน การขนส่งทางอากาศ',
-  'transport.water': 'ท่าเรือ การขนส่งทางน้ำ',
-  'waterAndWaste': 'การจัดการน้ำ การชลประทาน การประปา การบำบัดน้ำเสีย',
-  'energy': 'การพลังงาน',
-  'communications': 'การโทรคมนาคม การสื่อสาร',
-  'health': 'โรงพยาบาล การสาธารณสุข',
-  'education': 'โรงเรียน การศึกษา',
-  'socialHousing': 'ที่อยู่อาศัยหรือสิ่งอำนวยความสะดวกสำหรับผู้มีรายได้น้อย ผู้สูงวัย ผู้ด้อยโอกาส หรือผู้พิการ',
-  'cultureSportsAndRecreation': 'ศูนย์นิทรรศการและศูนย์การประชุม',
-  'others': 'กิจการอื่นตามที่กำหนดในพระราชกฤษฎีกา'
+  'transport.road': '1. ถนน ทางหลวง ทางพิเศษ การขนส่งทางถนน',
+  'transport.rail': '2. รถไฟ รถไฟฟ้า การขนส่งทางราง',
+  'transport.air': '3. ท่าอากาศยาน การขนส่งทางอากาศ',
+  'transport.water': '4. ท่าเรือ การขนส่งทางน้ำ',
+  'waterAndWaste': '5. การจัดการน้ำ การชลประทาน การประปา การบำบัดน้ำเสีย',
+  'energy': '6.การพลังงาน',
+  'communications': '7. การโทรคมนาคม การสื่อสาร',
+  'health': '8. โรงพยาบาล การสาธารณสุข',
+  'education': '9. โรงเรียน การศึกษา',
+  'socialHousing': '10. ที่อยู่อาศัยหรือสิ่งอำนวยความสะดวกสำหรับผู้มีรายได้น้อย ผู้สูงวัย ผู้ด้อยโอกาส หรือผู้พิการ',
+  'cultureSportsAndRecreation': '11. ศูนย์นิทรรศการและศูนย์การประชุม',
+  'others': '12. กิจการอื่นตามที่กำหนดในพระราชกฤษฎีกา'
 }
 
 // Map: Code -> Info (displayName + icon) (for dashboard/list views)

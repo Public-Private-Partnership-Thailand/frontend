@@ -20,6 +20,10 @@ interface Step2AdditionalDetailsProps {
 
 const DURATION_INFO_TOOLTIP = 'ระยะเวลา 1 ปี = 365 วัน, 1 เดือน = 30 วัน (ระบบใช้ค่าดังกล่าวในการคำนวณจำนวนวัน)'
 
+const currentYear = dayjs().year()
+const YEAR_MIN = currentYear - 100
+const YEAR_MAX = currentYear + 100
+
 function DurationLabel() {
   return (
     <span className="inline-flex items-center gap-1">
@@ -293,6 +297,92 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
       setValue('decommissioningPeriod.endDate', '', { shouldValidate: false })
     }
   }, [decommDurationYear, decommDurationMonth, decommDurationDay, setValue])
+
+  // When start date changes, recalc end date from start + duration so the three fields stay in sync
+  useEffect(() => {
+    periodEndDateFromPickerRef.current = false
+    const totalDays = calculateTotalDays(durationYear, durationMonth, durationDay)
+    if (startDateValue && totalDays > 0) {
+      const endIso = computeEndDateFromStartAndDays(startDateValue, totalDays)
+      if (endIso) {
+        setValue('period.endDate', endIso, { shouldValidate: false, shouldTouch: true })
+        setValue('period.durationInDays', totalDays, { shouldValidate: false })
+        setProjectEndDateDisplay(formatDateForLitepicker(endIso))
+      }
+    }
+  }, [startDateValue])
+  useEffect(() => {
+    identEndDateFromPickerRef.current = false
+    const totalDays = calculateTotalDays(identDurationYear, identDurationMonth, identDurationDay)
+    if (identificationStartDateValue && totalDays > 0) {
+      const endIso = computeEndDateFromStartAndDays(identificationStartDateValue, totalDays)
+      if (endIso) {
+        setValue('identificationPeriod.endDate', endIso, { shouldValidate: false })
+        setValue('identificationPeriod.durationInDays', totalDays, { shouldValidate: false })
+        setIdentificationEndDateDisplay(formatDateForLitepicker(endIso))
+      }
+    }
+  }, [identificationStartDateValue])
+  useEffect(() => {
+    prepEndDateFromPickerRef.current = false
+    const totalDays = calculateTotalDays(prepDurationYear, prepDurationMonth, prepDurationDay)
+    if (preparationStartDateValue && totalDays > 0) {
+      const endIso = computeEndDateFromStartAndDays(preparationStartDateValue, totalDays)
+      if (endIso) {
+        setValue('preparationPeriod.endDate', endIso, { shouldValidate: false })
+        setValue('preparationPeriod.durationInDays', totalDays, { shouldValidate: false })
+        setPreparationEndDateDisplay(formatDateForLitepicker(endIso))
+      }
+    }
+  }, [preparationStartDateValue])
+  useEffect(() => {
+    implEndDateFromPickerRef.current = false
+    const totalDays = calculateTotalDays(implDurationYear, implDurationMonth, implDurationDay)
+    if (implementationStartDateValue && totalDays > 0) {
+      const endIso = computeEndDateFromStartAndDays(implementationStartDateValue, totalDays)
+      if (endIso) {
+        setValue('implementationPeriod.endDate', endIso, { shouldValidate: false })
+        setValue('implementationPeriod.durationInDays', totalDays, { shouldValidate: false })
+        setImplementationEndDateDisplay(formatDateForLitepicker(endIso))
+      }
+    }
+  }, [implementationStartDateValue])
+  useEffect(() => {
+    completeEndDateFromPickerRef.current = false
+    const totalDays = calculateTotalDays(completeDurationYear, completeDurationMonth, completeDurationDay)
+    if (completionStartDateValue && totalDays > 0) {
+      const endIso = computeEndDateFromStartAndDays(completionStartDateValue, totalDays)
+      if (endIso) {
+        setValue('completionPeriod.endDate', endIso, { shouldValidate: false })
+        setValue('completionPeriod.durationInDays', totalDays, { shouldValidate: false })
+        setCompletionEndDateDisplay(formatDateForLitepicker(endIso))
+      }
+    }
+  }, [completionStartDateValue])
+  useEffect(() => {
+    maintEndDateFromPickerRef.current = false
+    const totalDays = calculateTotalDays(maintDurationYear, maintDurationMonth, maintDurationDay)
+    if (maintenanceStartDateValue && totalDays > 0) {
+      const endIso = computeEndDateFromStartAndDays(maintenanceStartDateValue, totalDays)
+      if (endIso) {
+        setValue('maintenancePeriod.endDate', endIso, { shouldValidate: false })
+        setValue('maintenancePeriod.durationInDays', totalDays, { shouldValidate: false })
+        setMaintenanceEndDateDisplay(formatDateForLitepicker(endIso))
+      }
+    }
+  }, [maintenanceStartDateValue])
+  useEffect(() => {
+    decommEndDateFromPickerRef.current = false
+    const totalDays = calculateTotalDays(decommDurationYear, decommDurationMonth, decommDurationDay)
+    if (decommissioningStartDateValue && totalDays > 0) {
+      const endIso = computeEndDateFromStartAndDays(decommissioningStartDateValue, totalDays)
+      if (endIso) {
+        setValue('decommissioningPeriod.endDate', endIso, { shouldValidate: false })
+        setValue('decommissioningPeriod.durationInDays', totalDays, { shouldValidate: false })
+        setDecommissioningEndDateDisplay(formatDateForLitepicker(endIso))
+      }
+    }
+  }, [decommissioningStartDateValue])
   
   // Date conversion functions are now imported from @/lib/utils/dateUtils
 
@@ -493,7 +583,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     singleMode: true,
                     format: 'D MMM YYYY',
                     lang: 'th-TH',
-                    dropdowns: { minYear: 1990, maxYear: null, months: true, years: true },
+                    dropdowns: { minYear: YEAR_MIN, maxYear: YEAR_MAX, months: true, years: true },
                   }}
                   className={`pl-10 w-full min-w-0 max-w-full ${errors.period?.startDate && (touchedFields.period?.startDate || isSubmitted) ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   placeholder="เลือกวันที่"
@@ -534,6 +624,9 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     } else {
                       setValue('period.endDate', '', { shouldValidate: true, shouldTouch: true })
                       setValue('period.durationInDays', undefined, { shouldValidate: false })
+                      setDurationYear('0')
+                      setDurationMonth('0')
+                      setDurationDay('0')
                       setTimeout(() => trigger('period.endDate'), 0)
                     }
                   }}
@@ -542,7 +635,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     singleMode: true,
                     format: 'D MMM YYYY',
                     lang: 'th-TH',
-                    dropdowns: { minYear: 1990, maxYear: null, months: true, years: true },
+                    dropdowns: { minYear: YEAR_MIN, maxYear: YEAR_MAX, months: true, years: true },
                   }}
                   className={`pl-10 w-full min-w-0 max-w-full ${errors.period?.endDate && (touchedFields.period?.endDate || isSubmitted) ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   placeholder="เลือกวันที่"
@@ -630,7 +723,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     if (iso) setValue('identificationPeriod.startDate', iso, { shouldValidate: false, shouldDirty: true })
                     else setValue('identificationPeriod.startDate', '', { shouldValidate: false, shouldDirty: true })
                   }}
-                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: 1990, maxYear: null, months: true, years: true } }}
+                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: YEAR_MIN, maxYear: YEAR_MAX, months: true, years: true } }}
                   className="pl-10 w-full min-w-0 max-w-full"
                   placeholder="เลือกวันที่"
                 />
@@ -666,9 +759,12 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     } else {
                       setValue('identificationPeriod.endDate', '', { shouldValidate: false })
                       setValue('identificationPeriod.durationInDays', undefined, { shouldValidate: false })
+                      setIdentDurationYear('0')
+                      setIdentDurationMonth('0')
+                      setIdentDurationDay('0')
                     }
                   }}
-                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: 1990, maxYear: null, months: true, years: true } }}
+                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: YEAR_MIN, maxYear: YEAR_MAX, months: true, years: true } }}
                   className="pl-10 w-full min-w-0 max-w-full"
                   placeholder="เลือกวันที่"
                 />
@@ -706,7 +802,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     if (iso) setValue('preparationPeriod.startDate', iso, { shouldValidate: false, shouldDirty: true })
                     else setValue('preparationPeriod.startDate', '', { shouldValidate: false, shouldDirty: true })
                   }}
-                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: 1990, maxYear: null, months: true, years: true } }}
+                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: YEAR_MIN, maxYear: YEAR_MAX, months: true, years: true } }}
                   className="pl-10 w-full min-w-0 max-w-full"
                   placeholder="เลือกวันที่"
                 />
@@ -742,9 +838,12 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     } else {
                       setValue('preparationPeriod.endDate', '', { shouldValidate: false })
                       setValue('preparationPeriod.durationInDays', undefined, { shouldValidate: false })
+                      setPrepDurationYear('0')
+                      setPrepDurationMonth('0')
+                      setPrepDurationDay('0')
                     }
                   }}
-                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: 1990, maxYear: null, months: true, years: true } }}
+                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: YEAR_MIN, maxYear: YEAR_MAX, months: true, years: true } }}
                   className="pl-10 w-full min-w-0 max-w-full"
                   placeholder="เลือกวันที่"
                 />
@@ -790,7 +889,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     singleMode: true,
                     format: 'D MMM YYYY',
                     lang: 'th-TH',
-                    dropdowns: { minYear: 1990, maxYear: null, months: true, years: true },
+                    dropdowns: { minYear: YEAR_MIN, maxYear: YEAR_MAX, months: true, years: true },
                   }}
                   className="pl-10 w-full min-w-0 max-w-full"
                   placeholder="เลือกวันที่"
@@ -829,6 +928,9 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     } else {
                       setValue('implementationPeriod.endDate', '', { shouldValidate: false })
                       setValue('implementationPeriod.durationInDays', undefined, { shouldValidate: false })
+                      setImplDurationYear('0')
+                      setImplDurationMonth('0')
+                      setImplDurationDay('0')
                     }
                   }}
                   options={{
@@ -836,7 +938,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     singleMode: true,
                     format: 'D MMM YYYY',
                     lang: 'th-TH',
-                    dropdowns: { minYear: 1990, maxYear: null, months: true, years: true },
+                    dropdowns: { minYear: YEAR_MIN, maxYear: YEAR_MAX, months: true, years: true },
                   }}
                   className="pl-10 w-full min-w-0 max-w-full"
                   placeholder="เลือกวันที่"
@@ -921,7 +1023,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     if (iso) setValue('completionPeriod.startDate', iso, { shouldValidate: false, shouldDirty: true })
                     else setValue('completionPeriod.startDate', '', { shouldValidate: false, shouldDirty: true })
                   }}
-                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: 1990, maxYear: null, months: true, years: true } }}
+                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: YEAR_MIN, maxYear: YEAR_MAX, months: true, years: true } }}
                   className="pl-10 w-full min-w-0 max-w-full"
                   placeholder="เลือกวันที่"
                 />
@@ -957,9 +1059,12 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     } else {
                       setValue('completionPeriod.endDate', '', { shouldValidate: false })
                       setValue('completionPeriod.durationInDays', undefined, { shouldValidate: false })
+                      setCompleteDurationYear('0')
+                      setCompleteDurationMonth('0')
+                      setCompleteDurationDay('0')
                     }
                   }}
-                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: 1990, maxYear: null, months: true, years: true } }}
+                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: YEAR_MIN, maxYear: YEAR_MAX, months: true, years: true } }}
                   className="pl-10 w-full min-w-0 max-w-full"
                   placeholder="เลือกวันที่"
                 />
@@ -1005,7 +1110,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     singleMode: true,
                     format: 'D MMM YYYY',
                     lang: 'th-TH',
-                    dropdowns: { minYear: 1990, maxYear: null, months: true, years: true },
+                    dropdowns: { minYear: YEAR_MIN, maxYear: YEAR_MAX, months: true, years: true },
                   }}
                   className="pl-10 w-full min-w-0 max-w-full"
                   placeholder="เลือกวันที่"
@@ -1044,6 +1149,9 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     } else {
                       setValue('maintenancePeriod.endDate', '', { shouldValidate: false })
                       setValue('maintenancePeriod.durationInDays', undefined, { shouldValidate: false })
+                      setMaintDurationYear('0')
+                      setMaintDurationMonth('0')
+                      setMaintDurationDay('0')
                     }
                   }}
                   options={{
@@ -1051,7 +1159,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     singleMode: true,
                     format: 'D MMM YYYY',
                     lang: 'th-TH',
-                    dropdowns: { minYear: 1990, maxYear: null, months: true, years: true },
+                    dropdowns: { minYear: YEAR_MIN, maxYear: YEAR_MAX, months: true, years: true },
                   }}
                   className="pl-10 w-full min-w-0 max-w-full"
                   placeholder="เลือกวันที่"
@@ -1136,7 +1244,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     if (iso) setValue('decommissioningPeriod.startDate', iso, { shouldValidate: false, shouldDirty: true })
                     else setValue('decommissioningPeriod.startDate', '', { shouldValidate: false, shouldDirty: true })
                   }}
-                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: 1990, maxYear: null, months: true, years: true } }}
+                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: YEAR_MIN, maxYear: YEAR_MAX, months: true, years: true } }}
                   className="pl-10 w-full min-w-0 max-w-full"
                   placeholder="เลือกวันที่"
                 />
@@ -1172,9 +1280,12 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
                     } else {
                       setValue('decommissioningPeriod.endDate', '', { shouldValidate: false })
                       setValue('decommissioningPeriod.durationInDays', undefined, { shouldValidate: false })
+                      setDecommDurationYear('0')
+                      setDecommDurationMonth('0')
+                      setDecommDurationDay('0')
                     }
                   }}
-                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: 1990, maxYear: null, months: true, years: true } }}
+                  options={{ autoApply: true, singleMode: true, format: 'D MMM YYYY', lang: 'th-TH', dropdowns: { minYear: YEAR_MIN, maxYear: YEAR_MAX, months: true, years: true } }}
                   className="pl-10 w-full min-w-0 max-w-full"
                   placeholder="เลือกวันที่"
                 />

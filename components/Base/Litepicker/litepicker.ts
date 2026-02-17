@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
 import "dayjs/locale/th";
 import { LitepickerElement, LitepickerProps } from "./index";
+import { parseThaiDate } from "@/lib/utils/dateUtils";
 
 // Lazy load Litepicker to avoid SSR issues
 const getLitepicker = () => {
@@ -285,21 +286,20 @@ const init = (el: LitepickerElement, props: LitepickerProps) => {
     },
   });
   
-  // Set initial value if provided
+  // Set initial value if provided (parse as B.E. so display persists after click away)
   if (props.value && props.value.length > 0) {
     el.value = props.value;
     if (el.litePickerInstance && el.litePickerInstance.setDate) {
-      // Parse the date range and set it
-      const dateParts = props.value.split(' - ');
-      if (dateParts.length === 2) {
-        const startDate = dayjs(dateParts[0].trim(), format, 'th');
-        const endDate = dayjs(dateParts[1].trim(), format, 'th');
-        if (startDate.isValid() && endDate.isValid()) {
+      const dateParts = props.value.split(' - ').map((p: string) => p.trim()).filter(Boolean);
+      if (dateParts.length >= 2) {
+        const startDate = parseThaiDate(dateParts[0]);
+        const endDate = parseThaiDate(dateParts[1]);
+        if (startDate && endDate && startDate.isValid() && endDate.isValid()) {
           el.litePickerInstance.setDateRange(startDate.toDate(), endDate.toDate());
         }
       } else if (dateParts.length === 1) {
-        const date = dayjs(dateParts[0].trim(), format, 'th');
-        if (date.isValid()) {
+        const date = parseThaiDate(dateParts[0]);
+        if (date && date.isValid()) {
           el.litePickerInstance.setDate(date.toDate());
         }
       }

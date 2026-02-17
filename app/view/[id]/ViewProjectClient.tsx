@@ -7,7 +7,7 @@ import { useLanguage } from '@/lib/LanguageContext'
 import { useAuth } from '@/lib/AuthContext'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { fetchProjectById } from '@/lib/projectService'
-import { BUSINESS_GROUP_CODE_TO_DISPLAY_NAME, BUSINESS_GROUP_CODES } from '@/types/businessGroup'
+import { BUSINESS_GROUP_CODE_TO_DISPLAY_NAME } from '@/types/businessGroup'
 import { formatDateForDisplay } from '@/lib/utils/dateUtils'
 import { MOCK_RISKS, getRisksForProject } from '@/lib/mockRisks'
 import Tippy from '@/components/Base/Tippy'
@@ -209,29 +209,31 @@ export default function ViewProjectClient() {
   }
 
   const ministryName = project.additionalClassifications?.find(c => c.scheme === 'TH-MINISTRY')?.description || 'N/A'
-  const privateContractors = project.parties?.filter(party => party.roles && party.roles.includes('contractor')).map(party => party.name).join(', ') || 'N/A'
+  // กระทรวงเจ้าสังกัด: all legalName from parties[].additionalIdentifiers[]
+  const ministryLegalNames = project.parties?.flatMap(party => party.additionalIdentifiers ?? []).map(ai => ai.legalName).filter((name): name is string => Boolean(name)) ?? []
+  // เอกชนคู่สัญญา: from parties[index].identifier.legalName (comma-separated per party)
+  const privateContractors = (project.parties ?? [])
+    .flatMap(party => {
+      const legalName = party.identifier?.legalName ?? ''
+      return legalName ? legalName.split(',').map(s => s.trim()).filter(Boolean) : []
+    })
+    .join(', ') || 'N/A'
 
-  // Get businessGroup display name and code from sector array
-  const getBusinessGroupInfo = (): { name: string; number: number | null } => {
-    if (!project.sector || !Array.isArray(project.sector)) return { name: 'N/A', number: null }
-    
-    // Find the first sector code that matches a business group code
+  // Get businessGroup display name from sector array
+  const getBusinessGroupInfo = (): { name: string } => {
+    if (!project.sector || !Array.isArray(project.sector)) return { name: 'N/A' }
     for (const sectorItem of project.sector) {
       const sectorCode = typeof sectorItem === 'string' ? sectorItem : (sectorItem?.id || '')
       if (sectorCode && BUSINESS_GROUP_CODE_TO_DISPLAY_NAME[sectorCode as keyof typeof BUSINESS_GROUP_CODE_TO_DISPLAY_NAME]) {
         const businessGroupCode = sectorCode as keyof typeof BUSINESS_GROUP_CODE_TO_DISPLAY_NAME
-        const displayName = BUSINESS_GROUP_CODE_TO_DISPLAY_NAME[businessGroupCode]
-        const number = BUSINESS_GROUP_CODES.indexOf(businessGroupCode) + 1
-        return { name: displayName, number }
+        return { name: BUSINESS_GROUP_CODE_TO_DISPLAY_NAME[businessGroupCode] }
       }
     }
-    return { name: 'N/A', number: null }
+    return { name: 'N/A' }
   }
 
   const businessGroupInfo = getBusinessGroupInfo()
-  const businessGroupName = businessGroupInfo.number 
-    ? `${businessGroupInfo.number}. ${businessGroupInfo.name}`
-    : businessGroupInfo.name
+  const businessGroupName = businessGroupInfo.name
 
   // Get contractType from additionalClassifications
   const getContractType = (): string => {
@@ -368,31 +370,35 @@ export default function ViewProjectClient() {
           {/* Timeline Phase (like create page step indicator) */}
           <div className="mt-6">
             <h3 className="text-sm font-medium text-gray-700 mb-3">Timeline Phase</h3>
-            <div className="flex items-center justify-between w-full overflow-x-auto pb-2">
+            <div className="flex items-start justify-between w-full overflow-x-auto pb-2">
               {PHASES.map((phase, index) => {
                 const step = index + 1
                 const currentPhase = getCurrentPhaseIndex(project)
                 const isActive = currentPhase >= step
                 const isCurrent = currentPhase === step
                 return (
-                  <div key={phase.key} className="flex items-center flex-1 min-w-0">
-                    <div className="flex flex-col items-center flex-1 min-w-0">
-                      <div
-                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${
-                          isCurrent ? 'bg-theme-primary text-white ring-2 ring-theme-primary ring-offset-2' : isActive ? 'bg-theme-primary text-white' : 'bg-gray-200 text-gray-600'
-                        }`}
-                      >
-                        {step}
+                  <div key={phase.key} className="flex items-start flex-1 min-w-0">
+                    <div className="flex flex-col items-center flex-none w-24 min-w-0">
+                      <div className="py-2 flex justify-center flex-shrink-0">
+                        <div
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${
+                            isCurrent ? 'bg-theme-primary text-white ring-2 ring-theme-primary ring-offset-2' : isActive ? 'bg-theme-primary text-white' : 'bg-gray-200 text-gray-600'
+                          }`}
+                        >
+                          {step}
+                        </div>
                       </div>
                       <span
-                        className={`mt-1.5 text-xs text-center px-0.5 truncate max-w-full ${isCurrent ? 'text-theme-primary font-semibold' : isActive ? 'text-theme-primary font-medium' : 'text-gray-500'}`}
+                        className={`mt-1.5 text-xs text-center px-0.5 w-full break-words ${isCurrent ? 'text-theme-primary font-semibold' : isActive ? 'text-theme-primary font-medium' : 'text-gray-500'}`}
                         title={phase.label}
                       >
                         {phase.label}
                       </span>
                     </div>
                     {index < PHASES.length - 1 && (
-                      <div className={`flex-1 h-0.5 mx-0.5 min-w-[8px] ${currentPhase > step ? 'bg-theme-primary' : 'bg-gray-300'}`} />
+                      <div className="flex-1 flex items-center min-w-[8px] mx-0.5 h-11">
+                        <div className={`w-full h-0.5 ${currentPhase > step ? 'bg-theme-primary' : 'bg-gray-300'}`} />
+                      </div>
                     )}
                   </div>
                 )
@@ -421,7 +427,7 @@ export default function ViewProjectClient() {
                 <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.ministry')}</dt>
                 <dd className="mt-1">
                   <span className="inline-block px-3 py-1 rounded-md text-base font-medium bg-blue-100 text-blue-800 break-words">
-                    {ministryName}
+                    {ministryLegalNames.length > 0 ? ministryLegalNames.join(', ') : 'N/A'}
                   </span>
                 </dd>
               </div>
@@ -539,7 +545,7 @@ export default function ViewProjectClient() {
                   <div className="sm:col-span-2">
                     <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.totalProjectValue')}</dt>
                     <dd className="mt-1 text-base text-gray-900 break-words">
-                      {formatCurrency(project.budget?.amount?.amount ?? 0)}
+                      {project.budget?.amount?.amountFormatted ?? formatCurrency(project.budget?.amount?.amount ?? 0)}
                     </dd>
                   </div>
                   <div>

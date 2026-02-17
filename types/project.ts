@@ -40,6 +40,7 @@ export interface PublicAuthority {
 export interface Amount {
   amount: number;
   currency: string;
+  amountFormatted?: string;
 }
 
 export interface BudgetBreakdownItem {
@@ -146,6 +147,7 @@ export interface BeneficialOwner {
 export interface Party {
   name: string;
   id: string;
+  /** เอกชนคู่สัญญา: comma-separated names in legalName */
   identifier?: {
     scheme: string;
     legalName?: string;

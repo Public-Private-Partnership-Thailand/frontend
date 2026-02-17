@@ -110,7 +110,7 @@ export default function Step3BudgetInfo({ register, control, errors, setValue, g
     <div className="space-y-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="form-label">{t('form.budget.amountN')} *</label>
+              <label className="form-label">{t('form.budget.amountN')}</label>
               <div className="flex gap-2">
                 <input
                   type="number"
@@ -118,7 +118,7 @@ export default function Step3BudgetInfo({ register, control, errors, setValue, g
                   min="0"
                   value={budgetInputValue}
                   onChange={(e) => handleBudgetAmountChange(e.target.value)}
-                  className={`form-input flex-1 ${errors.budget?.amount?.amount ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                  className="form-input flex-1"
                   placeholder="0"
                 />
                 <select
@@ -131,18 +131,10 @@ export default function Step3BudgetInfo({ register, control, errors, setValue, g
                   <option value="ล้านล้าน">ล้านล้าน</option>
                 </select>
               </div>
-              {/* Hidden input for form - validation requires amount > 0 */}
               <input
                 type="hidden"
-                {...register('budget.amount.amount', { 
-                  required: t('common.required'),
-                  valueAsNumber: true,
-                  min: { value: 0.01, message: t('common.required') }
-                })}
+                {...register('budget.amount.amount', { valueAsNumber: true })}
               />
-              {errors.budget?.amount?.amount && (
-                <p className="mt-1 text-sm text-red-600">{errors.budget.amount.amount.message}</p>
-              )}
             </div>
             <div>
               <label className="form-label">{t('form.budget.currency')}</label>

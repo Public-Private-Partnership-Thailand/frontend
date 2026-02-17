@@ -520,7 +520,7 @@ export const translations = {
       numberOfProjects: 'จำนวนโครงการ',
       search: 'ค้นหา',
       filters: 'กรองข้อมูล',
-      searchProjects: 'ค้นหาชื่อโครงการ...',
+      searchProjects: 'ค้นหาชื่อโครงการ, ชื่อหน่วยงานเจ้าของสัญญา หรือชื่อเอกชนคู่สัญญา...',
       allBusinessGroups: 'กรุณาเลือก',
       allMinistries: 'กรุณาเลือก',
       allLocations: 'สถานที่ทั้งหมด',
@@ -561,7 +561,7 @@ export const translations = {
       projectsByScope: 'โครงการแยกตามขอบเขต',
       scopeStatistics: 'สถิติตามขอบเขต',
       distributionPercentage: 'สัดส่วนการกระจาย',
-      applyFilters: 'ค้นหา',
+      applyFilters: 'กรอง',
     },
     common: {
       loading: 'กำลังโหลด...',

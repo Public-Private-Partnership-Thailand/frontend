@@ -64,12 +64,10 @@ function Litepicker({
       initialRender.current = false;
     } else {
       if (tempValue.current !== props.value && litepickerRef.current !== null) {
-        // Update the input value directly to keep it in sync
-        if (litepickerRef.current) {
-          litepickerRef.current.value = props.value || '';
-        }
-        // Reinitialize to sync Litepicker with new value
+        // Reinitialize to sync Litepicker with new value (init parses BE and sets date)
         reInit(litepickerRef.current, props);
+        // Ensure input shows selected value after reInit (library destroy can clear it)
+        litepickerRef.current.value = props.value || '';
       }
     }
 

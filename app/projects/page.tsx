@@ -2,50 +2,45 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { ProjectData } from '@/types/project'
-import { BUSINESS_GROUP_INFO, getBusinessGroupInfo } from '@/types/businessGroup'
+import { BUSINESS_GROUP_INFO, getBusinessGroupInfo, getBusinessGroupDisplayName, BUSINESS_GROUP_CODES, BUSINESS_GROUP_CODE_TO_DISPLAY_NAME } from '@/types/businessGroup'
 import { useLanguage } from '@/lib/LanguageContext'
 import { useAuth } from '@/lib/AuthContext'
-import { fetchProjectsFromAPI } from '@/lib/projectService'
+import { fetchProjectsFromAPI, fetchProjectById, type ProjectQueryParams } from '@/lib/projectService'
 import ProjectsPageSkeleton from '@/components/ProjectsPageSkeleton'
 import Link from 'next/link'
 import Papa from 'papaparse'
 import Lucide from '@/components/Base/Lucide'
-import dynamic from 'next/dynamic'
+import Tippy from '@/components/Base/Tippy'
 import dayjs from 'dayjs'
 import 'dayjs/locale/th'
 import { getColor } from '@/lib/utils/colors'
 import { useInfo, type InfoData } from '@/app/hooks/useInfo'
+import { useDeleteProject } from '@/app/hooks/useDelete'
+import { getIconNameByGroupName } from '@/app/hooks/useSummary'
 import { formatDateForDisplay } from '@/lib/utils/dateUtils'
 
-// Dynamically import Litepicker to avoid SSR issues
-const Litepicker = dynamic(() => import('@/components/Base/Litepicker'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-gray-50 text-gray-400">
-      Loading date picker...
-    </div>
-  )
-})
+// Option shape from api/v1/info (id is unique per list, use for React key to avoid duplicate-value keys)
+type InfoOption = { id: number; value: string }
 
 // Multi-select dropdown component (same as home page)
-const MultiSelectDropdown = ({ 
-  label, 
-  options, 
-  selectedValues, 
-  onChange, 
+const MultiSelectDropdown = ({
+  label,
+  options,
+  selectedValues,
+  onChange,
   onSelectAll,
   onClear,
   placeholder,
   displayNameMap
-}: { 
-  label: string; 
-  options: string[]; 
-  selectedValues: string[]; 
-  onChange: (value: string) => void; 
-  onSelectAll: (selectAll: boolean) => void;
-  onClear: () => void;
-  placeholder: string;
-  displayNameMap?: (key: string) => string;
+}: {
+  label: string
+  options: InfoOption[]
+  selectedValues: string[]
+  onChange: (value: string) => void
+  onSelectAll: (selectAll: boolean) => void
+  onClear: () => void
+  placeholder: string
+  displayNameMap?: (key: string) => string
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -98,15 +93,15 @@ const MultiSelectDropdown = ({
           className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-left flex items-center justify-between"
         >
           <span className="truncate text-sm">
-            {selectedValues.length === 0 
-              ? placeholder 
+            {selectedValues.length === 0
+              ? placeholder
               : `เลือกไว้ ${selectedValues.length} รายการ`}
           </span>
           <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </button>
-        
+
         {isOpen && (
           <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-auto">
             {/* Select All option */}
@@ -122,18 +117,17 @@ const MultiSelectDropdown = ({
               />
               <span className="text-sm font-medium text-gray-900">เลือกทั้งหมด</span>
             </label>
-            {options.map(option => {
-              // Use display name map if provided, otherwise use option as-is
-              const displayName = displayNameMap ? displayNameMap(option) : option
+            {options.map((option) => {
+              const displayName = displayNameMap ? displayNameMap(option.value) : option.value
               return (
                 <label
-                  key={option}
+                  key={option.id}
                   className="flex items-center px-2 py-1.5 hover:bg-gray-50 cursor-pointer"
                 >
                   <input
                     type="checkbox"
-                    checked={selectedValues.includes(option)}
-                    onChange={() => onChange(option)}
+                    checked={selectedValues.includes(option.value)}
+                    onChange={() => onChange(option.value)}
                     className="mr-2 h-3.5 w-3.5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                   />
                   <span className="text-sm text-gray-700">{displayName}</span>
@@ -162,7 +156,9 @@ export default function ProjectsPage() {
     ministry: [] as string[],
     businessGroup: [] as string[],
     contractType: [] as string[],
-    dateRange: ''
+    concessionForm: [] as string[],
+    startYear: '',
+    endYear: ''
   })
   const [tempFilters, setTempFilters] = useState({
     sector: '',
@@ -170,12 +166,18 @@ export default function ProjectsPage() {
     ministry: [] as string[],
     businessGroup: [] as string[],
     contractType: [] as string[],
-    dateRange: ''
+    concessionForm: [] as string[],
+    startYear: '',
+    endYear: ''
   })
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set())
   const [showCompareModal, setShowCompareModal] = useState(false)
+  // Fetched full project data for compare modal (from api/v1/projects/:id per project)
+  const [compareLoading, setCompareLoading] = useState(false)
+  const [fetchedCompareProjects, setFetchedCompareProjects] = useState<ProjectData[]>([])
   // Delete confirmation: project to delete (null = modal closed)
   const [deleteConfirmProject, setDeleteConfirmProject] = useState<ProjectData | null>(null)
+  const deleteProjectMutation = useDeleteProject()
   // In comparison modal: ordered list of project ids to show as columns (user can remove or reorder)
   const [comparisonColumnIds, setComparisonColumnIds] = useState<string[]>([])
   const { t } = useLanguage()
@@ -188,12 +190,11 @@ export default function ProjectsPage() {
     dayjs.locale('th')
   }, [])
 
-  const fetchProjects = async () => {
+  const fetchProjects = async (queryParams?: ProjectQueryParams) => {
     try {
       setLoading(true)
       setError(null)
-      const data = await fetchProjectsFromAPI()
-      console.log('Fetched projects:', data.length, data)
+      const data = await fetchProjectsFromAPI(queryParams)
       setProjects(data || [])
     } catch (error) {
       console.error('Error fetching projects:', error)
@@ -204,29 +205,29 @@ export default function ProjectsPage() {
     }
   }
 
-  // Get ministries from API data, fallback to empty array
-  const ministries = useMemo(() => {
-    if (!infoData?.ministry) return []
-    return infoData.ministry.map((m: { id: number; value: string }) => m.value)
-  }, [infoData])
-
-  // Get contract types from API data, fallback to empty array
-  const contractTypes = useMemo(() => {
-    if (!infoData?.contractType) return []
-    return infoData.contractType.map((o: { id: number; value: string }) => o.value)
-  }, [infoData])
-
-  // Get business groups (sectors) from API data, fallback to empty array
-  const businessGroups = useMemo(() => {
+  // Option lists with id for unique React keys (api/v1/info can have duplicate values e.g. "BTO")
+  const businessGroupOptions = useMemo(() => {
     if (!infoData?.sector) return []
-    return infoData.sector.map((s: { id: string; value: string }) => s.value)
+    return infoData.sector.map((s: { id: number; value: string }) => ({ id: s.id, value: s.value }))
+  }, [infoData])
+  const ministryOptions = useMemo(() => {
+    if (!infoData?.ministry) return []
+    return infoData.ministry.map((m: { id: number; value: string }) => ({ id: m.id, value: m.value }))
+  }, [infoData])
+  const contractTypeOptions = useMemo(() => {
+    if (!infoData?.contractType) return []
+    return infoData.contractType.map((o: { id: number; value: string }) => ({ id: o.id, value: o.value }))
+  }, [infoData])
+  const concessionFormOptions = useMemo(() => {
+    if (!infoData?.concessionForm) return []
+    return infoData.concessionForm.map((c: { id: number; value: string }) => ({ id: c.id, value: c.value }))
   }, [infoData])
 
-  // Helper function to get Thai display name for business group key
-  // Since we're now using sector values from API, just return the key as-is
-  const getBusinessGroupDisplayName = (key: string): string => {
-    return key
-  }
+  // Value-only arrays for filter state and handleSelectAll
+  const businessGroups = useMemo(() => businessGroupOptions.map(o => o.value), [businessGroupOptions])
+  const ministries = useMemo(() => ministryOptions.map(o => o.value), [ministryOptions])
+  const contractTypes = useMemo(() => contractTypeOptions.map(o => o.value), [contractTypeOptions])
+  const concessionForms = useMemo(() => concessionFormOptions.map(o => o.value), [concessionFormOptions])
 
   // Get available years from projects
   const availableYears = useMemo(() => {
@@ -251,16 +252,18 @@ export default function ProjectsPage() {
         ...prev,
         ministry: [...ministries],
         businessGroup: [...businessGroups],
-        contractType: [...contractTypes]
+        contractType: [...contractTypes],
+        concessionForm: concessionForms.length > 0 ? [...concessionForms] : prev.concessionForm
       }))
       setFilters(prev => ({
         ...prev,
         ministry: [...ministries],
         businessGroup: [...businessGroups],
-        contractType: [...contractTypes]
+        contractType: [...contractTypes],
+        concessionForm: concessionForms.length > 0 ? [...concessionForms] : prev.concessionForm
       }))
     }
-  }, [infoData, ministries, businessGroups, contractTypes])
+  }, [infoData, ministries, businessGroups, contractTypes, concessionForms])
 
   // Filter and search projects (same logic as home page)
   const filteredProjects = useMemo(() => {
@@ -273,7 +276,8 @@ export default function ProjectsPage() {
       }))
       
       // Filter by business group (sector) - match by sector value from API
-      const matchesBusinessGroup = filters.businessGroup.length === 0 || filters.businessGroup.some(selectedGroup => {
+      const noBusinessGroupFilter = filters.businessGroup.length === 0 || filters.businessGroup.length === businessGroups.length
+      const matchesBusinessGroup = noBusinessGroupFilter || filters.businessGroup.some(selectedGroup => {
         // Handle "อื่น ๆ" - projects that don't match any defined business group
         if (selectedGroup === 'อื่น ๆ') {
           if (!project.sector || !Array.isArray(project.sector)) return true
@@ -303,23 +307,23 @@ export default function ProjectsPage() {
         })
       })
       
-      const ministryClassification = project.additionalClassifications?.find(c => c.scheme === 'TH-MINISTRY')
-      const matchesMinistry = filters.ministry.length === 0 || filters.ministry.some(selectedMinistry => {
+      const ministryDescriptions = project.additionalClassifications?.filter(c => c.scheme === 'TH-MINISTRY').map(c => c.description).filter(Boolean) ?? []
+      const noMinistryFilter = filters.ministry.length === 0 || filters.ministry.length === ministries.length
+      const matchesMinistry = noMinistryFilter || filters.ministry.some(selectedMinistry => {
         // Handle "อื่น ๆ" - projects that don't have a ministry or have a ministry not in the list
         if (selectedMinistry === 'อื่น ๆ') {
-          const ministryName = ministryClassification?.description
-          if (!ministryName) return true // No ministry classification = "อื่น ๆ"
-          // Check if ministry is in the predefined list (excluding "อื่น ๆ")
+          if (ministryDescriptions.length === 0) return true
           const predefinedMinistries = ministries.filter(m => m !== 'อื่น ๆ')
-          return !predefinedMinistries.includes(ministryName)
+          const hasOnlyOther = ministryDescriptions.every(d => !predefinedMinistries.includes(d ?? ''))
+          return hasOnlyOther
         }
-        
-        return ministryClassification?.description === selectedMinistry
+        return ministryDescriptions.includes(selectedMinistry)
       })
       
       // Filter by contract type - match by value from API
       const contractTypeIdentifier = project.identifiers?.find(i => i.scheme === 'TH-PPP-TYPE')
-      const matchesContractType = filters.contractType.length === 0 || filters.contractType.some(selectedType => {
+      const noContractTypeFilter = filters.contractType.length === 0 || filters.contractType.length === contractTypes.length
+      const matchesContractType = noContractTypeFilter || filters.contractType.some(selectedType => {
         // Handle "อื่น ๆ" - projects that don't match any contract type from API
         if (selectedType === 'อื่น ๆ') {
           const contractTypeId = contractTypeIdentifier?.id
@@ -341,68 +345,32 @@ export default function ProjectsPage() {
         // Handle cases where the API value contains the contract type (e.g., "BOT (ช่วงแรก)\nBTO (ช่วงหลัง)")
         return selectedType.includes(contractTypeIdentifier.id) || contractTypeIdentifier.id === selectedType
       })
+
+      const concessionFormDesc = project.additionalClassifications?.find(c => c.scheme === 'รูปแบบสัมปทานหรือค่าตอบแทน')?.description
+      const noConcessionFormFilter = filters.concessionForm.length === 0 || (concessionForms.length > 0 && filters.concessionForm.length === concessionForms.length)
+      const matchesConcessionForm = noConcessionFormFilter || (concessionFormDesc != null && filters.concessionForm.some(selected => selected === concessionFormDesc || (concessionFormDesc && concessionFormDesc.includes(selected))))
       
       const matchesSearch = !filters.search || 
         project.title?.toLowerCase().includes(filters.search.toLowerCase()) ||
         project.description?.toLowerCase().includes(filters.search.toLowerCase()) ||
         project.publicAuthority?.name?.toLowerCase().includes(filters.search.toLowerCase())
 
-      // Filter by date range (same as home page)
-      const matchesDateRange = (() => {
-        if (!filters.dateRange) return true
-        
-        // Parse date range string (format: "D MMM YYYY - D MMM YYYY" or "D MMM YYYY")
-        const dateRangeParts = filters.dateRange.split(' - ')
-        if (dateRangeParts.length === 0) return true
-        
-        let filterStartDate: Date | null = null
-        let filterEndDate: Date | null = null
-        
-        if (dateRangeParts.length === 1) {
-          // Single date selected
-          const parsedDate = dayjs(dateRangeParts[0].trim(), 'D MMM YYYY', 'th')
-          if (parsedDate.isValid()) {
-            filterStartDate = parsedDate.startOf('year').toDate()
-            filterEndDate = parsedDate.endOf('year').toDate()
-          }
-        } else if (dateRangeParts.length === 2) {
-          // Date range selected
-          const startParsed = dayjs(dateRangeParts[0].trim(), 'D MMM YYYY', 'th')
-          const endParsed = dayjs(dateRangeParts[1].trim(), 'D MMM YYYY', 'th')
-          if (startParsed.isValid()) {
-            filterStartDate = startParsed.startOf('year').toDate()
-          }
-          if (endParsed.isValid()) {
-            filterEndDate = endParsed.endOf('year').toDate()
-          }
-        }
-        
-        if (!filterStartDate && !filterEndDate) return true
-        
-        const projectStartDate = project.period?.startDate ? new Date(project.period.startDate) : null
-        const projectEndDate = project.period?.endDate ? new Date(project.period.endDate) : null
-        
-        if (!projectStartDate && !projectEndDate) return false
-        
-        // Check if project period overlaps with filter date range
-        if (filterStartDate && filterEndDate) {
-          const projectStart = projectStartDate || projectEndDate || new Date(0)
-          const projectEnd = projectEndDate || projectStartDate || new Date(9999, 11, 31)
-          return projectStart <= filterEndDate && projectEnd >= filterStartDate
-        } else if (filterStartDate) {
-          const projectEnd = projectEndDate || projectStartDate || new Date(0)
-          return projectEnd >= filterStartDate
-        } else if (filterEndDate) {
-          const projectStart = projectStartDate || projectEndDate || new Date(9999, 11, 31)
-          return projectStart <= filterEndDate
-        }
-        
+      // Filter by year range (ช่วงปีที่ลงนามในสัญญา) - same as home page: start year / end year dropdowns
+      const matchesYearRange = (() => {
+        if (!filters.startYear && !filters.endYear) return true
+        const projectYear = project.period?.startDate ? new Date(project.period.startDate).getFullYear() : null
+        if (projectYear == null || isNaN(projectYear)) return false
+        const startY = filters.startYear ? parseInt(filters.startYear, 10) : null
+        const endY = filters.endYear ? parseInt(filters.endYear, 10) : null
+        if (startY != null && endY != null) return projectYear >= startY && projectYear <= endY
+        if (startY != null) return projectYear >= startY
+        if (endY != null) return projectYear <= endY
         return true
       })()
 
-      return matchesSector && matchesBusinessGroup && matchesMinistry && matchesContractType && matchesSearch && matchesDateRange
+      return matchesSector && matchesBusinessGroup && matchesMinistry && matchesContractType && matchesConcessionForm && matchesSearch && matchesYearRange
     })
-  }, [projects, filters, ministries, businessGroups, contractTypes, infoData])
+  }, [projects, filters, ministries, businessGroups, contractTypes, concessionForms, infoData])
 
   // Pagination
   const totalPages = Math.ceil(filteredProjects.length / itemsPerPage)
@@ -416,7 +384,7 @@ export default function ProjectsPage() {
     setFilterValidationError(null)
   }
 
-  const handleMultiSelectChange = (key: 'ministry' | 'businessGroup' | 'contractType', value: string) => {
+  const handleMultiSelectChange = (key: 'ministry' | 'businessGroup' | 'contractType' | 'concessionForm', value: string) => {
     setTempFilters(prev => {
       const currentValues = prev[key]
       const newValues = currentValues.includes(value)
@@ -426,7 +394,7 @@ export default function ProjectsPage() {
     })
   }
 
-  const handleSelectAll = (key: 'ministry' | 'businessGroup' | 'contractType', selectAll: boolean) => {
+  const handleSelectAll = (key: 'ministry' | 'businessGroup' | 'contractType' | 'concessionForm', selectAll: boolean) => {
     setTempFilters(prev => {
       let allOptions: string[] = []
       if (key === 'ministry') {
@@ -435,12 +403,14 @@ export default function ProjectsPage() {
         allOptions = businessGroups
       } else if (key === 'contractType') {
         allOptions = contractTypes
+      } else if (key === 'concessionForm') {
+        allOptions = concessionForms
       }
       return { ...prev, [key]: selectAll ? allOptions : [] }
     })
   }
 
-  const handleClearFilter = (key: 'ministry' | 'businessGroup' | 'contractType') => {
+  const handleClearFilter = (key: 'ministry' | 'businessGroup' | 'contractType' | 'concessionForm') => {
     setTempFilters(prev => ({
       ...prev,
       [key]: []
@@ -448,8 +418,48 @@ export default function ProjectsPage() {
   }
 
   const applyFilters = () => {
+    const startY = tempFilters.startYear ? parseInt(tempFilters.startYear, 10) : NaN
+    const endY = tempFilters.endYear ? parseInt(tempFilters.endYear, 10) : NaN
+    if (tempFilters.startYear && tempFilters.endYear && (!Number.isInteger(startY) || !Number.isInteger(endY) || endY < startY)) {
+      setFilterValidationError(t('home.yearRangeInvalid') || 'ปีสิ้นสุดต้องไม่น้อยกว่าปีเริ่มต้น')
+      return
+    }
+    setFilterValidationError(null)
     setFilters(tempFilters)
-    setCurrentPage(1) // Reset to first page when filtering
+    setCurrentPage(1)
+
+    const params: ProjectQueryParams = {}
+    if (infoData) {
+      if (tempFilters.businessGroup.length > 0) {
+        params.sector_id = tempFilters.businessGroup
+          .map(v => infoData.sector?.find(s => s.value === v)?.id)
+          .filter((id): id is number => id != null)
+        if (params.sector_id.length === 0) delete params.sector_id
+      }
+      if (tempFilters.ministry.length > 0) {
+        params.ministry_id = tempFilters.ministry
+          .map(v => infoData.ministry?.find(m => m.value === v)?.id)
+          .filter((id): id is number => id != null)
+        if (params.ministry_id.length === 0) delete params.ministry_id
+      }
+      // contract_type_id: not sent in query (commented out)
+      // if (tempFilters.contractType.length > 0) {
+      //   params.contract_type_id = tempFilters.contractType
+      //     .map(v => infoData.contractType?.find(c => c.value === v)?.id)
+      //     .filter((id): id is number => id != null)
+      //   if (params.contract_type_id.length === 0) delete params.contract_type_id
+      // }
+      // concession_form_id: uncomment when needed
+      // if (tempFilters.concessionForm.length > 0 && infoData.concessionForm) {
+      //   params.concession_form_id = tempFilters.concessionForm
+      //     .map(v => infoData.concessionForm?.find(c => c.value === v)?.id)
+      //     .filter((id): id is number => id != null)
+      //   if (params.concession_form_id.length === 0) delete params.concession_form_id
+      // }
+    }
+    if (tempFilters.search?.trim()) params.search = tempFilters.search.trim()
+
+    fetchProjects(Object.keys(params).length > 0 ? params : undefined)
   }
 
   const clearFilters = () => {
@@ -459,12 +469,15 @@ export default function ProjectsPage() {
       ministry: [] as string[],
       businessGroup: [] as string[],
       contractType: [] as string[],
-      dateRange: ''
+      concessionForm: [] as string[],
+      startYear: '',
+      endYear: ''
     }
     setFilters(emptyFilters)
     setTempFilters(emptyFilters)
     setFilterValidationError(null)
     setCurrentPage(1)
+    fetchProjects()
   }
 
   const toggleProjectSelection = (id: string) => {
@@ -490,35 +503,100 @@ export default function ProjectsPage() {
   const maxCompare = 5
   const canCompare = selectedProjectIds.size >= 2 && selectedProjectIds.size <= maxCompare
 
-  // Fields to show in compare modal (label, getter)
+  // Display formatters for table columns
+  const formatProjectTitle = (title: string | undefined) => (title || '').replace(/โครงการ/g, '').replace(/\s+/g, ' ').trim() || 'N/A'
+  const formatMinistry = (description: string | undefined) => (description || '').replace(/กระทรวง/g, '').replace(/\s+/g, ' ').trim() || 'N/A'
+  const formatContractorName = (name: string) => (name || '').replace(/บริษัท/g, '').replace(/จำกัด/g, '').replace(/\s+/g, ' ').trim() || name
+
+  // Helpers for compare modal (aligned with view page)
+  const formatDurationForCompare = (days: number | undefined, months: number | undefined): string => {
+    if (months != null && months > 0) {
+      const years = Math.floor(months / 12)
+      const rem = months % 12
+      if (years > 0 && rem > 0) return `${years} ปี ${rem} เดือน`
+      if (years > 0) return `${years} ปี`
+      return `${rem} เดือน`
+    }
+    if (days != null && days > 0) {
+      const years = Math.floor(days / 365)
+      const remD = days % 365
+      const months = Math.floor(remD / 30)
+      if (years > 0 && months > 0) return `${years} ปี ${months} เดือน`
+      if (years > 0) return `${years} ปี`
+      if (months > 0) return `${months} เดือน`
+      return `${days} วัน`
+    }
+    return 'N/A'
+  }
+  const formatCurrencyForCompare = (amount: number | undefined) => {
+    if (amount == null || amount === 0) return 'N/A'
+    return new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount)
+  }
+  const getCompareMinistry = (p: ProjectData) => {
+    const fromParties = p.parties?.flatMap(party => party.additionalIdentifiers ?? []).map(ai => ai.legalName).filter((x): x is string => Boolean(x)) ?? []
+    if (fromParties.length > 0) return fromParties.join(', ')
+    return p.additionalClassifications?.find(c => c.scheme === 'TH-MINISTRY')?.description || 'N/A'
+  }
+  const getComparePrivateContractors = (p: ProjectData) => {
+    const names = (p.parties ?? []).flatMap(party => {
+      const legalName = party.identifier?.legalName ?? ''
+      return legalName ? legalName.split(',').map(s => s.trim()).filter(Boolean) : []
+    })
+    return names.join(', ') || 'N/A'
+  }
+  const getCompareBusinessGroup = (p: ProjectData) => {
+    if (!p.sector?.length) return 'N/A'
+    for (const s of p.sector) {
+      const code = typeof s === 'string' ? s : (s?.id ?? '')
+      if (code && (BUSINESS_GROUP_CODE_TO_DISPLAY_NAME as Record<string, string>)[code]) return (BUSINESS_GROUP_CODE_TO_DISPLAY_NAME as Record<string, string>)[code]
+    }
+    return 'N/A'
+  }
+  const getCompareContractType = (p: ProjectData) => p.additionalClassifications?.find(c => c.scheme === 'รูปแบบการจัดสรรกรรมสิทธิ์')?.description || 'N/A'
+  const getCompareConcessionForm = (p: ProjectData) => p.additionalClassifications?.find(c => c.scheme === 'รูปแบบสัมปทานหรือค่าตอบแทน')?.description || 'N/A'
+
+  // Fields to show in compare modal (same schema sources as view page)
   const compareFields: { label: string; getValue: (p: ProjectData) => string }[] = [
     { label: 'ชื่อโครงการ', getValue: p => p.title || 'N/A' },
     { label: 'รายละเอียด', getValue: p => (p.description || 'N/A').slice(0, 80) + ((p.description?.length || 0) > 80 ? '...' : '') },
-    { label: 'กระทรวง', getValue: p => p.additionalClassifications?.find(c => c.scheme === 'TH-MINISTRY')?.description || 'N/A' },
-    { label: 'หน่วยงานภาครัฐ', getValue: p => p.publicAuthority?.name || 'N/A' },
-    { label: 'เอกชนคู่สัญญา', getValue: p => p.parties?.filter(party => party.roles?.includes('contractor')).map(party => party.name).join(', ') || 'N/A' },
-    { label: 'กลุ่มธุรกิจ', getValue: p => (p.sector?.map((s: any) => typeof s === 'string' ? s : (s?.description || s?.id || '')).join(', ') || 'N/A').slice(0, 60) },
-    { label: 'วันที่เริ่ม', getValue: p => formatDateForDisplay(p.period?.startDate) },
-    { label: 'วันที่สิ้นสุด', getValue: p => formatDateForDisplay(p.period?.endDate) },
-    { label: 'ระยะเวลา', getValue: p => p.period?.durationInDays ? `${p.period.durationInDays} วัน` : (p.period?.durationInMonths ? `${p.period.durationInMonths} เดือน` : 'N/A') },
-    { label: 'งบประมาณ (บาท)', getValue: p => p.budget?.amount?.amount != null ? new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(p.budget.amount.amount) : 'N/A' },
-    { label: 'ประเภท', getValue: p => p.type || 'N/A' },
-    { label: 'วัตถุประสงค์', getValue: p => (p.purpose || 'N/A').slice(0, 60) },
+    { label: 'กระทรวง', getValue: getCompareMinistry },
+    { label: 'หน่วยงานภาครัฐ (ชื่อหน่วยงานเจ้าของสัญญา)', getValue: p => p.publicAuthority?.name || 'N/A' },
+    { label: 'เอกชนคู่สัญญา', getValue: getComparePrivateContractors },
+    { label: 'กลุ่มกิจการ', getValue: getCompareBusinessGroup },
+    { label: 'วันที่ลงนามในสัญญา', getValue: p => formatDateForDisplay(p.period?.startDate) || 'N/A' },
+    { label: 'วันที่สิ้นสุด', getValue: p => formatDateForDisplay(p.period?.endDate) || 'N/A' },
+    { label: 'ระยะเวลา', getValue: p => formatDurationForCompare(p.period?.durationInDays, p.period?.durationInMonths) },
+    { label: 'มูลค่าโครงการ (บาท)', getValue: p => (p.budget?.amount?.amountFormatted ?? formatCurrencyForCompare(p.budget?.amount?.amount)) || 'N/A' },
+    { label: 'ประเภทโครงการ', getValue: p => p.type || 'N/A' },
+    { label: 'วัตถุประสงค์', getValue: p => (p.purpose || 'N/A').slice(0, 80) + ((p.purpose?.length || 0) > 80 ? '...' : '') },
+    { label: 'กรรมสิทธิ์', getValue: getCompareContractType },
+    { label: 'รูปแบบสัมปทานหรือค่าตอบแทน', getValue: getCompareConcessionForm },
+    { label: 'สถานที่', getValue: p => p.locations?.map(loc => loc.description || loc.id).filter(Boolean).join(', ') || 'N/A' },
     { label: 'สถานะ', getValue: p => p.status || 'N/A' },
   ]
 
-  // When comparison modal opens, init column order from selected projects
+  // When comparison modal opens, init column order and fetch full project data per id
   useEffect(() => {
-    if (showCompareModal && selectedProjects.length >= 2) {
-      setComparisonColumnIds(selectedProjects.slice(0, maxCompare).map(p => p.id))
+    if (!showCompareModal) return
+    const ids = Array.from(selectedProjectIds).slice(0, maxCompare)
+    if (ids.length < 2) return
+    setComparisonColumnIds(ids)
+    setCompareLoading(true)
+    setFetchedCompareProjects([])
+    const fetchAll = async () => {
+      const results = await Promise.all(ids.map(id => fetchProjectById(id)))
+      const loaded = results.filter((p): p is ProjectData => p != null)
+      setFetchedCompareProjects(loaded)
+      setCompareLoading(false)
     }
+    fetchAll()
   }, [showCompareModal]) // eslint-disable-line react-hooks/exhaustive-deps -- only when modal opens
 
   const comparisonProjects = useMemo(() => {
     return comparisonColumnIds
-      .map(id => selectedProjects.find(p => p.id === id))
+      .map(id => fetchedCompareProjects.find(p => p.id === id))
       .filter((p): p is ProjectData => p != null)
-  }, [comparisonColumnIds, selectedProjects])
+  }, [comparisonColumnIds, fetchedCompareProjects])
 
   const removeComparisonColumn = (projectId: string) => {
     setComparisonColumnIds(prev => prev.filter(id => id !== projectId))
@@ -575,7 +653,7 @@ export default function ProjectsPage() {
         <p className="mt-1 text-sm text-gray-500">{error}</p>
         <div className="mt-6">
           <button
-            onClick={fetchProjects}
+            onClick={() => fetchProjects()}
             className="btn-primary"
           >
             ลองใหม่
@@ -603,27 +681,27 @@ export default function ProjectsPage() {
           {t('home.search')} & {t('home.filters')}
         </h3>
         
-        {/* All Filters in One Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 mb-3">
-          {/* Search */}
-          <div className="lg:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('home.search')}
-            </label>
-            <input
-              type="text"
-              placeholder={t('home.searchProjects')}
-              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary"
-              value={tempFilters.search}
-              onChange={(e) => handleFilterChange('search', e.target.value)}
-            />
-          </div>
+        {/* First row: Search only */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {t('home.search')}
+          </label>
+          <input
+            type="text"
+            placeholder={t('home.searchProjects')}
+            className="w-full max-w-md px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary"
+            value={tempFilters.search}
+            onChange={(e) => handleFilterChange('search', e.target.value)}
+          />
+        </div>
 
+        {/* Second row: Other filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 mb-3">
           {/* Business Group Filter */}
           <div className="lg:col-span-2">
             <MultiSelectDropdown
               label={t('dashboard.businessGroup')}
-              options={businessGroups}
+              options={businessGroupOptions}
               selectedValues={tempFilters.businessGroup}
               onChange={(value) => handleMultiSelectChange('businessGroup', value)}
               onSelectAll={(selectAll) => handleSelectAll('businessGroup', selectAll)}
@@ -637,7 +715,7 @@ export default function ProjectsPage() {
           <div className="lg:col-span-2">
             <MultiSelectDropdown
               label={t('dashboard.ministry')}
-              options={ministries}
+              options={ministryOptions}
               selectedValues={tempFilters.ministry}
               onChange={(value) => handleMultiSelectChange('ministry', value)}
               onSelectAll={(selectAll) => handleSelectAll('ministry', selectAll)}
@@ -646,11 +724,54 @@ export default function ProjectsPage() {
             />
           </div>
 
-          {/* Contract Type Filter */}
+          {/* Year Range Filter - ช่วงปีที่ลงนามในสัญญา (same as home page: start year / end year dropdowns) */}
+          <div className="lg:col-span-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('home.yearRange')}
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="sr-only">{t('home.startYear') || 'ปีเริ่มต้น'}</label>
+                <select
+                  value={tempFilters.startYear}
+                  onChange={(e) => handleFilterChange('startYear', e.target.value)}
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary"
+                >
+                  <option value="">{t('home.allYears') || 'ทั้งหมด'}</option>
+                  {availableYears.map((y) => (
+                    <option key={y} value={String(y)}>{y}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="sr-only">{t('home.endYear') || 'ปีสิ้นสุด'}</label>
+                <select
+                  value={tempFilters.endYear}
+                  onChange={(e) => handleFilterChange('endYear', e.target.value)}
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary"
+                >
+                  <option value="">{t('home.allYears') || 'ทั้งหมด'}</option>
+                  {availableYears.map((y) => (
+                    <option key={y} value={String(y)}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {filterValidationError && (
+              <div className="mt-1.5 p-1.5 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-600">{filterValidationError}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Third row: รูปแบบการจัดสรรกรรมสิทธิ์ and รูปแบบสัมปทานหรือค่าตอบแทน */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 mb-3">
+          {/* Contract Type Filter - รูปแบบการจัดสรรกรรมสิทธิ์ */}
           <div className="lg:col-span-3">
             <MultiSelectDropdown
               label={t('home.contractType')}
-              options={contractTypes}
+              options={contractTypeOptions}
               selectedValues={tempFilters.contractType}
               onChange={(value) => handleMultiSelectChange('contractType', value)}
               onSelectAll={(selectAll) => handleSelectAll('contractType', selectAll)}
@@ -659,44 +780,20 @@ export default function ProjectsPage() {
             />
           </div>
 
-          {/* Year Range Filter */}
-          <div className="lg:col-span-3">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('home.yearRange')}
-            </label>
-            <div className="relative">
-              <Lucide
-                icon="Calendar"
-                className="absolute inset-y-0 left-0 z-10 w-4 h-4 my-auto ml-3 text-gray-400"
-              />
-              <Litepicker
-                value={tempFilters.dateRange}
-                onChange={(e) => handleFilterChange('dateRange', e.target.value)}
-                options={{
-                  autoApply: false,
-                  singleMode: false,
-                  numberOfColumns: 2,
-                  numberOfMonths: 2,
-                  showWeekNumbers: true,
-                  format: 'D MMM YYYY',
-                  lang: 'th-TH',
-                  dropdowns: {
-                    minYear: availableYears.length > 0 ? Math.min(...availableYears) : 1990,
-                    maxYear: availableYears.length > 0 ? Math.max(...availableYears) : null,
-                    months: true,
-                    years: true,
-                  },
-                }}
-                className="pl-10 w-full text-sm !box"
+          {/* Concession Form Filter - รูปแบบสัมปทานหรือค่าตอบแทน */}
+          {concessionForms.length > 0 && (
+            <div className="lg:col-span-3">
+              <MultiSelectDropdown
+                label="รูปแบบสัมปทานหรือค่าตอบแทน"
+                options={concessionFormOptions}
+                selectedValues={tempFilters.concessionForm}
+                onChange={(value) => handleMultiSelectChange('concessionForm', value)}
+                onSelectAll={(selectAll) => handleSelectAll('concessionForm', selectAll)}
+                onClear={() => handleClearFilter('concessionForm')}
                 placeholder="ทั้งหมด"
               />
             </div>
-            {filterValidationError && (
-              <div className="mt-1.5 p-1.5 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-600">{filterValidationError}</p>
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Submit and Clear Buttons */}
@@ -801,26 +898,51 @@ export default function ProjectsPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left w-12">
-                  <label className="flex items-center cursor-pointer">
+                  <label className={`flex items-center ${selectedProjectIds.size >= maxCompare ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                     <input
                       type="checkbox"
                       checked={isAllOnPageSelected}
+                      disabled={selectedProjectIds.size >= maxCompare}
                       onChange={(e) => selectAllOnPage(e.target.checked)}
-                      className="h-4 w-4 text-theme-primary border-gray-300 rounded focus:ring-theme-primary"
+                      className="h-4 w-4 text-theme-primary border-gray-300 rounded focus:ring-theme-primary disabled:cursor-not-allowed"
                     />
                   </label>
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
                   {t('projects.projectName')}
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider w-52 min-w-[13rem]">
                   {t('projects.ministry')}
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider w-52 min-w-[13rem]">
                   {t('projects.publicAuthority')}
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
                   {t('projects.privateContractor')}
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
+                  <span className="inline-flex items-center gap-1">
+                    กลุ่มกิจการ
+                    <Tippy
+                      content={`<div class="text-left text-sm max-w-xs"><strong>ความหมายไอคอนกลุ่มกิจการ</strong><br/>${BUSINESS_GROUP_CODES.map(code => {
+                        const iconName = getIconNameByGroupName(code)
+                        const iconPath = `/assets/icons/${iconName}`
+                        const label = (BUSINESS_GROUP_CODE_TO_DISPLAY_NAME as Record<string, string>)[code] || code
+                        return `<div style="display:flex;align-items:center;gap:6px;margin:4px 0;"><img src="${iconPath}" alt="${code}" style="width:20px;height:20px;object-fit:contain;flex-shrink:0" /> <span>${label}</span></div>`
+                      }).join('')}</div>`}
+                      options={{ placement: 'bottom', allowHTML: true, theme: 'light' }}
+                    >
+                      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 hover:text-gray-800">
+                        <Lucide icon="Info" className="w-3.5 h-3.5" />
+                      </span>
+                    </Tippy>
+                  </span>
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
+                  กรรมสิทธิ์
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
+                วันที่ลงนามในสัญญา
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
                   {t('projects.actions')}
@@ -831,28 +953,27 @@ export default function ProjectsPage() {
               {currentProjects.map((project) => (
                 <tr key={project.id} className="hover:bg-gray-50">
                   <td className="px-4 py-4">
-                    <label className="flex items-center cursor-pointer">
+                    <label className={`flex items-center ${selectedProjectIds.size >= maxCompare && !selectedProjectIds.has(project.id) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                       <input
                         type="checkbox"
                         checked={selectedProjectIds.has(project.id)}
+                        disabled={selectedProjectIds.size >= maxCompare && !selectedProjectIds.has(project.id)}
                         onChange={() => toggleProjectSelection(project.id)}
-                        className="h-4 w-4 text-theme-primary border-gray-300 rounded focus:ring-theme-primary"
+                        className="h-4 w-4 text-theme-primary border-gray-300 rounded focus:ring-theme-primary disabled:cursor-not-allowed"
                       />
                     </label>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-gray-900">
-                      {project.title || 'N/A'}
+                      {formatProjectTitle(project.title)}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 w-52 min-w-[13rem]">
                     <div className="text-sm text-gray-900">
-                      {project.additionalClassifications
-                        ?.find(classification => classification.scheme === 'TH-MINISTRY')
-                        ?.description || 'N/A'}
+                      {formatMinistry(project.additionalClassifications?.filter(c => c.scheme === 'TH-MINISTRY').map(c => c.description).filter(Boolean).join(', '))}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 w-52 min-w-[13rem]">
                     <div className="text-sm text-gray-900">
                       {project.publicAuthority?.name || 'N/A'}
                     </div>
@@ -861,36 +982,75 @@ export default function ProjectsPage() {
                     <div className="text-sm text-gray-900">
                       {project.parties
                         ?.filter(party => party.roles && party.roles.includes('contractor'))
-                        .map(party => party.name)
+                        .map(party => formatContractorName(party.name))
+                        .filter(Boolean)
                         .join(', ') || 'N/A'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {project.sector && project.sector.length > 0 ? (
+                        project.sector.map((s: any, idx: number) => {
+                          const code = typeof s === 'string' ? s : (s?.id ?? s?.description ?? '')
+                          if (!code) return null
+                          const iconName = getIconNameByGroupName(code)
+                          const iconPath = `/assets/icons/${iconName}`
+                          const label = typeof s === 'string' ? s : (s?.description ?? s?.id ?? code)
+                          const tooltipLabel = getBusinessGroupDisplayName(code)
+                          return (
+                            <img
+                              key={`${project.id}-sector-${idx}-${code}`}
+                              src={iconPath}
+                              alt={tooltipLabel}
+                              title={tooltipLabel}
+                              className="w-6 h-6 object-contain flex-shrink-0"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement
+                                target.style.display = 'none'
+                              }}
+                            />
+                          )
+                        })
+                      ) : (
+                        <span className="text-sm text-gray-500">N/A</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-900">
+                      {project.identifiers?.find((i: { scheme?: string }) => i.scheme === 'TH-PPP-TYPE')?.id ?? project.additionalClassifications?.find((c: { scheme?: string }) => c.scheme === 'รูปแบบการจัดสรรกรรมสิทธิ์')?.description ?? 'N/A'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-900">
+                      {formatDateForDisplay(project.period?.startDate) || 'N/A'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center justify-center gap-2">
                       <Link
                         href={`/view/${project.id}`}
-                        className="flex items-center mr-1 text-theme-primary hover:text-theme-primary-dark"
+                        className="flex items-center justify-center p-1.5 rounded text-theme-primary hover:text-theme-primary-dark hover:bg-theme-primary/10"
+                        title={t('common.view')}
                       >
-                        <Lucide icon="Eye" className="w-4 h-4 mr-1" />
-                        {t('common.view')}
+                        <Lucide icon="Eye" className="w-4 h-4" />
                       </Link>
                       {isAuthenticated && (
                         <>
                           <Link
                             href={`/edit/${project.id}`}
-                            className="flex items-center mr-1 text-theme-primary hover:text-theme-primary-dark"
+                            className="flex items-center justify-center p-1.5 rounded text-theme-primary hover:text-theme-primary-dark hover:bg-theme-primary/10"
+                            title={t('common.edit')}
                           >
-                            <Lucide icon="CheckSquare" className="w-4 h-4 mr-1" />
-                            {t('common.edit')}
+                            <Lucide icon="CheckSquare" className="w-4 h-4" />
                           </Link>
                           <button
                             type="button"
                             onClick={() => setDeleteConfirmProject(project)}
-                            className="flex items-center text-red-600 hover:text-red-700 hover:underline"
+                            className="flex items-center justify-center p-1.5 rounded text-red-600 hover:text-red-700 hover:bg-red-50"
                             title={t('common.delete') || 'ลบ'}
                           >
-                            <Lucide icon="Trash2" className="w-4 h-4 mr-1" />
-                            {t('common.delete') || 'ลบ'}
+                            <Lucide icon="Trash2" className="w-4 h-4" />
                           </button>
                         </>
                       )}
@@ -995,31 +1155,47 @@ export default function ProjectsPage() {
                 {t('common.delete') || 'ลบ'} โครงการ
               </h3>
               <p className="text-sm text-gray-600 mb-4">
-                คุณต้องการลบโครงการ &quot;{deleteConfirmProject.title || 'N/A'}&quot; ใช่หรือไม่? การลบจะทำในหน้านี้เท่านั้น (ยังไม่ส่งไปที่เซิร์ฟเวอร์)
+                คุณต้องการลบโครงการ &quot;{deleteConfirmProject.title || 'N/A'}&quot; ใช่หรือไม่? การลบจะส่งไปที่เซิร์ฟเวอร์
               </p>
+              {deleteProjectMutation.isError && (
+                <p className="text-sm text-red-600 mb-2">
+                  {deleteProjectMutation.error instanceof Error
+                    ? deleteProjectMutation.error.message
+                    : t('common.error') || 'เกิดข้อผิดพลาด'}
+                </p>
+              )}
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setDeleteConfirmProject(null)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                  disabled={deleteProjectMutation.isPending}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
                 >
                   {t('common.cancel') || 'ยกเลิก'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     const id = deleteConfirmProject.id
-                    setProjects(prev => prev.filter(p => p.id !== id))
-                    setSelectedProjectIds(prev => {
-                      const next = new Set(prev)
-                      next.delete(id)
-                      return next
-                    })
-                    setDeleteConfirmProject(null)
+                    try {
+                      const success = await deleteProjectMutation.mutateAsync(id)
+                      if (success) {
+                        setProjects(prev => prev.filter(p => p.id !== id))
+                        setSelectedProjectIds(prev => {
+                          const next = new Set(prev)
+                          next.delete(id)
+                          return next
+                        })
+                        setDeleteConfirmProject(null)
+                      }
+                    } catch {
+                      // Error already shown via isError
+                    }
                   }}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg"
+                  disabled={deleteProjectMutation.isPending}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
                 >
-                  {t('common.delete') || 'ลบ'}
+                  {deleteProjectMutation.isPending ? (t('common.loading') || 'กำลังลบ...') : (t('common.delete') || 'ลบ')}
                 </button>
               </div>
             </div>
@@ -1028,7 +1204,7 @@ export default function ProjectsPage() {
       )}
 
       {/* Compare Projects Modal */}
-      {showCompareModal && selectedProjects.length >= 2 && (
+      {showCompareModal && selectedProjectIds.size >= 2 && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="fixed inset-0 bg-black/50" onClick={() => setShowCompareModal(false)} />
           <div className="flex min-h-full items-center justify-center p-4">
@@ -1046,8 +1222,15 @@ export default function ProjectsPage() {
                 </button>
               </div>
               <div className="flex-1 overflow-auto p-6 min-h-0">
-                {comparisonProjects.length === 0 ? (
-                  <p className="text-gray-500 text-sm">ไม่มีคอลัมน์ที่เลือกไว้ คลิกปิดแล้วเลือกโครงการใหม่</p>
+                {compareLoading ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                    <div className="w-10 h-10 border-2 border-theme-primary border-t-transparent rounded-full animate-spin mb-3" />
+                    <p className="text-sm">กำลังโหลดรายละเอียดโครงการ...</p>
+                  </div>
+                ) : comparisonProjects.length === 0 ? (
+                  <p className="text-gray-500 text-sm">ไม่สามารถโหลดข้อมูลโครงการได้ หรือไม่มีคอลัมน์ที่เลือกไว้ คลิกปิดแล้วลองใหม่</p>
+                ) : comparisonProjects.length < 2 ? (
+                  <p className="text-gray-500 text-sm">โหลดได้น้อยกว่า 2 โครงการ กรุณาลองใหม่</p>
                 ) : (
                   <div className="w-full">
                     <table className="w-full table-fixed divide-y divide-gray-200 border border-gray-200" style={{ tableLayout: 'fixed' }}>
@@ -1059,7 +1242,7 @@ export default function ProjectsPage() {
                       </colgroup>
                       <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
-                          <th className="px-3 py-3 text-left text-sm font-semibold text-gray-700 border-r border-gray-200">
+                          <th className="px-3 py-3 text-left text-sm font-semibold text-gray-700 border-r border-gray-200 align-top break-words min-w-0 w-[15%]">
                             รายการ
                           </th>
                           {comparisonProjects.map((project, colIndex) => (
@@ -1117,7 +1300,7 @@ export default function ProjectsPage() {
                       <tbody className="bg-white divide-y divide-gray-200">
                         {compareFields.map((field, idx) => (
                           <tr key={idx} className={idx % 2 === 0 ? 'bg-gray-50/50' : ''}>
-                            <td className="px-3 py-3 text-sm font-medium text-gray-700 border-r border-gray-200 align-top whitespace-nowrap min-w-0">
+                            <td className="px-3 py-3 text-sm font-medium text-gray-700 border-r border-gray-200 align-top break-words min-w-0 w-[15%]">
                               {field.label}
                             </td>
                             {comparisonProjects.map(project => (
