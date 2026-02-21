@@ -1,9 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { ProjectData } from '@/types/project'
-import { BUSINESS_GROUP_INFO, getBusinessGroupInfo, getBusinessGroupDisplayName } from '@/types/businessGroup'
-import ProjectCard from '@/components/ProjectCard'
+import {getBusinessGroupInfo, getBusinessGroupDisplayName } from '@/types/businessGroup'
 import HomePageSkeleton from '@/components/HomePageSkeleton'
 import ThailandMap from '@/components/ThailandMap'
 import { useLanguage } from '@/lib/LanguageContext'
@@ -16,7 +14,6 @@ import Tippy from '@/components/Base/Tippy'
 import ReportPieChart from '@/components/ReportPieChart'
 import dayjs from 'dayjs'
 import 'dayjs/locale/th'
-import { parseThaiDateRangeToISO } from '@/lib/utils/dateUtils'
 import { useInfo, type InfoData } from '@/app/hooks/useInfo'
 import { useSummary, type SummaryData, type SummaryFilters, getIconNameByGroupName } from '@/app/hooks/useSummary'
 
@@ -531,7 +528,7 @@ export default function HomePage() {
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          display: false,
+          display: true,
         },
         tooltip: {
           callbacks: {
@@ -608,7 +605,7 @@ export default function HomePage() {
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          display: false,
+          display: true,
         },
         tooltip: {
           callbacks: {
@@ -663,64 +660,6 @@ export default function HomePage() {
       }
     }
   }, [ministryCounts, ministryInvestments, t])
-
-  // Sector ID to display name mapping
-  const sectorIdMapping: Record<string, string> = {
-    'transport.road': '(1) ถนน ทางหลวง ทางพิเศษ การขนส่งทางถนน',
-    'transport.rail': '(2) รถไฟ รถไฟฟ้า การขนส่งทางราง',
-    'transport.urban': '(2) รถไฟ รถไฟฟ้า การขนส่งทางราง',
-    'transport.air': '(3) ท่าอากาศยาน การขนส่งทางอากาศ',
-    'transport.water': '(4) ท่าเรือ การขนส่งทางน้ำ',
-    'waterAndWaste': '(5) การจัดการน้ำ การชลประทาน การประปา การบำบัดน้ำเสีย',
-    'energy': '(6) การพลังงาน',
-    'communications': '(7) การโทรคมนาคม การสื่อสาร',
-    'health': '(8) โรงพยาบาล การสาธารณสุข',
-    'education': '(9) โรงเรียน การศึกษา',
-    'socialHousing': '(10) ที่อยู่อาศัยหรือสิ่งอำนวยความสะดวกสำหรับผู้มีรายได้น้อย ผู้สูงวัย ผู้ด้อยโอกาส หรือผู้พิการ',
-    'cultureSportsAndRecreation': '(11) ศูนย์นิทรรศการและศูนย์การประชุม',
-    'economy': '(12) กิจการอื่นตามที่กำหนดในพระราชกฤษฎีกา',
-    'governance': '(12) กิจการอื่นตามที่กำหนดในพระราชกฤษฎีกา'
-  }
-
-  // Calculate sector counts for the 12 sectors (use summary data)
-  const sectorCounts = useMemo(() => {
-    if (summaryData?.sectorCounts) {
-      // Initialize all sectors with zeros, then merge summary data
-      const sectors: Record<string, number> = {
-        '(1) ถนน ทางหลวง ทางพิเศษ การขนส่งทางถนน': 0,
-        '(2) รถไฟ รถไฟฟ้า การขนส่งทางราง': 0,
-        '(3) ท่าอากาศยาน การขนส่งทางอากาศ': 0,
-        '(4) ท่าเรือ การขนส่งทางน้ำ': 0,
-        '(5) การจัดการน้ำ การชลประทาน การประปา การบำบัดน้ำเสีย': 0,
-        '(6) การพลังงาน': 0,
-        '(7) การโทรคมนาคม การสื่อสาร': 0,
-        '(8) โรงพยาบาล การสาธารณสุข': 0,
-        '(9) โรงเรียน การศึกษา': 0,
-        '(10) ที่อยู่อาศัยหรือสิ่งอำนวยความสะดวกสำหรับผู้มีรายได้น้อย ผู้สูงวัย ผู้ด้อยโอกาส หรือผู้พิการ': 0,
-        '(11) ศูนย์นิทรรศการและศูนย์การประชุม': 0,
-        '(12) กิจการอื่นตามที่กำหนดในพระราชกฤษฎีกา': 0
-      }
-      // Merge summary data
-      Object.assign(sectors, summaryData.sectorCounts)
-      return sectors
-    }
-    // Return empty sectors if no summary data
-    return {
-      '(1) ถนน ทางหลวง ทางพิเศษ การขนส่งทางถนน': 0,
-      '(2) รถไฟ รถไฟฟ้า การขนส่งทางราง': 0,
-      '(3) ท่าอากาศยาน การขนส่งทางอากาศ': 0,
-      '(4) ท่าเรือ การขนส่งทางน้ำ': 0,
-      '(5) การจัดการน้ำ การชลประทาน การประปา การประปา การบำบัดน้ำเสีย': 0,
-      '(6) การพลังงาน': 0,
-      '(7) การโทรคมนาคม การสื่อสาร': 0,
-      '(8) โรงพยาบาล การสาธารณสุข': 0,
-      '(9) โรงเรียน การศึกษา': 0,
-      '(10) ที่อยู่อาศัยหรือสิ่งอำนวยความสะดวกสำหรับผู้มีรายได้น้อย ผู้สูงวัย ผู้ด้อยโอกาส หรือผู้พิการ': 0,
-      '(11) ศูนย์นิทรรศการและศูนย์การประชุม': 0,
-      '(12) กิจการอื่นตามที่กำหนดในพระราชกฤษฎีกา': 0
-    }
-  }, [summaryData])
-
 
   // Calculate business group statistics by scale (use summary data)
   const businessGroupStats = useMemo(() => {
@@ -782,17 +721,6 @@ export default function HomePage() {
       small: { count: 0, investment: 0 },
       medium: { count: 0, investment: 0 },
       big: { count: 0, investment: 0 }
-    }
-  }, [summaryData])
-
-  // Calculate domestic vs international distribution (use summary data if available)
-  const projectScope = useMemo(() => {
-    if (summaryData?.projectScope) {
-      return summaryData.projectScope
-    }
-    return {
-      domestic: { count: 0, investment: 0 },
-      international: { count: 0, investment: 0 }
     }
   }, [summaryData])
 
@@ -875,7 +803,7 @@ export default function HomePage() {
             },
             color: getColor('slate.600', 0.8),
             callback: function(value: any) {
-              return value.toLocaleString('th-TH') + ' ล้านบาท'
+              return value.toLocaleString('th-TH')
             },
           },
           grid: {
@@ -944,7 +872,7 @@ export default function HomePage() {
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          display: false,
+          display: true,
         },
         tooltip: {
           callbacks: {
@@ -1003,76 +931,6 @@ export default function HomePage() {
       }
     }
   }, [projectScales, t])
-
-  // Prepare pie chart data for project scope (Domestic vs International)
-  const projectScopeChartData = useMemo(() => {
-    const allLabels = [
-      t('home.domesticProjects') || 'Domestic',
-      t('home.internationalProjects') || 'International'
-    ]
-    const allData = [
-      projectScope.domestic.count,
-      projectScope.international.count
-    ]
-    // Filter out zero values
-    const filteredData = allLabels
-      .map((label, index) => ({ label, value: allData[index] }))
-      .filter(item => item.value > 0)
-    
-    return {
-      labels: filteredData.map(item => item.label),
-      datasets: [{
-        label: t('home.projectsByScope') || 'Projects by Scope',
-        data: filteredData.map(item => item.value),
-        borderColor: '#ffffff',
-        borderWidth: 2,
-      }]
-    }
-  }, [projectScope, t])
-
-  const projectScopeChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false,
-      },
-      tooltip: {
-        callbacks: {
-          label: function(context: any) {
-            const label = context.label || ''
-            const value = context.parsed || 0
-            const scopeKey = context.dataIndex === 0 ? 'domestic' : 'international'
-            const investmentMillions = projectScope[scopeKey].investment / 1000000 // ล้านบาท
-            return [
-              `${label}`,
-              `${t('home.numberOfProjects')}: ${value}`,
-              `${t('dashboard.totalInvestment')}: ${investmentMillions.toLocaleString('th-TH')} ${t('dashboard.millionBaht')}`
-            ]
-          }
-        }
-      },
-      datalabels: {
-        color: '#ffffff',
-        font: {
-          family: 'IBM Plex Sans Thai',
-          weight: 'bold' as const,
-          size: 14,
-        },
-        formatter: (value: number, context: any) => {
-          const label = context.chart.data.labels[context.dataIndex]
-          const scopeKey = context.dataIndex === 0 ? 'domestic' : 'international'
-          const investmentMillions = projectScope[scopeKey].investment / 1000000 // ล้านบาท
-          const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
-          const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0'
-          return `${label}\n${value} ${t('home.projects')}\n${investmentMillions.toLocaleString('th-TH')} ล้านบาท\n(${percentage}%)`
-        },
-        textAlign: 'center' as const,
-        textStrokeColor: '#333333',
-        textStrokeWidth: 1.5,
-      }
-    }
-  }
 
   if (loading) {
     return <HomePageSkeleton />
@@ -1356,7 +1214,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Ongoing / Completing Projects Card (mock number) */}
+              {/* Ongoing Projects Card */}
               <div className="col-span-12 sm:col-span-6 xl:col-span-3 intro-y">
                 <div className="relative zoom-in h-full">
                   <div className="p-5 box h-full">
@@ -1367,7 +1225,7 @@ export default function HomePage() {
                       />
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
-                      {24}
+                      {(summaryData?.summary?.inprogressProjects ?? 0).toLocaleString()}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                       โครงการกำลังดำเนินการ
@@ -1515,7 +1373,7 @@ export default function HomePage() {
               <div className="box p-4 sm:p-6">
                 <div className="mb-4">
                   <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-                    มูลค่ารวมของโครงการแยกตามปี
+                    มูลค่ารวมของโครงการแยกตามปี (ล้านบาท)
                   </h2>
                 </div>
                 {Object.keys(investmentByYear).length > 0 ? (
@@ -1667,67 +1525,6 @@ export default function HomePage() {
                   })()}
                 </div>
               </div>
-
-            {/* Domestic vs International Section */}
-            {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start mt-8">
-              <div className="box p-6">
-                <div className="mb-4">
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {t('home.projectScope') || 'Project Scope Distribution'}
-                  </h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {t('home.projectScopeDesc') || 'Domestic vs International Projects'}
-                  </p>
-                </div>
-                <div className="h-80">
-                  {summaryData?.projectScope ? (
-                    <ReportPieChart 
-                      data={projectScopeChartData.datasets[0].data}
-                      labels={projectScopeChartData.labels}
-                      height={320}
-                    />
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-gray-500">
-                      {t('home.noDataAvailable')}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-lg p-6">
-                <div className="flex flex-col justify-center gap-6 py-8">
-                  <div className="flex items-center p-4 bg-pink-50 rounded-lg hover:bg-pink-100 transition-colors shadow">
-                    <div className="flex-shrink-0 mr-4">
-                      <svg className="w-8 h-8 text-chula-pink" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                      </svg>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-medium text-gray-700">{t('home.domesticProjects') || 'Domestic Projects'}</h3>
-                      <p className="text-2xl font-bold text-chula-pink">{projectScope.domestic.count.toLocaleString()}</p>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {t('dashboard.totalInvestment')}: {(projectScope.domestic.investment / 1000000).toLocaleString('th-TH')} ล้านบาท
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center p-4 bg-pink-50 rounded-lg hover:bg-pink-100 transition-colors shadow">
-                    <div className="flex-shrink-0 mr-4">
-                      <svg className="w-8 h-8 text-chula-pink-darker" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-medium text-gray-700">{t('home.internationalProjects') || 'International Projects'}</h3>
-                      <p className="text-2xl font-bold text-chula-pink-darker">{projectScope.international.count.toLocaleString()}</p>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {t('dashboard.totalInvestment')}: {(projectScope.international.investment / 1000000).toLocaleString('th-TH')} ล้านบาท
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div> */}
           </div>
 
           {/* Map and Latest Projects Section - Template Style */}

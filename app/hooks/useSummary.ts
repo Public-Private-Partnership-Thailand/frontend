@@ -9,6 +9,7 @@ export interface SummaryData {
     uniqueContractors: number
     totalInvestment: number
     maxBudget: number
+    inprogressProjects?: number
   }
   ministryStats: Array<{
     ministry: string
