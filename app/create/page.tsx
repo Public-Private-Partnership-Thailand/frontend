@@ -7,10 +7,12 @@ import { ProjectFormData } from '@/types/project'
 import { useLanguage } from '@/lib/LanguageContext'
 import { createProject } from '@/lib/projectService'
 import { BUSINESS_GROUP_CODES, isValidBusinessGroupCode } from '@/types/businessGroup'
+import { RISK_CATEGORIES, RISK_FACTORS } from '@/lib/riskConstants'
 import Step1EssentialInfo from '@/components/form/Step1EssentialInfo'
 import Step2AdditionalDetails from '@/components/form/Step2AdditionalDetails'
 import Step3BudgetInfo from '@/components/form/Step3BudgetInfo'
 import Step4LegalAndReference from '@/components/form/Step4LegalAndReference'
+import Step5Risk from '@/components/form/Step5Risk'
 import Step5Review from '@/components/form/Step5Review'
 import { useInfo } from '@/app/hooks/useInfo'
 import dayjs from 'dayjs'
@@ -68,7 +70,8 @@ export default function CreateProjectPage() {
         amount: { amount: 0, currency: 'THB' }
       },
       parties: [],
-      documents: []
+      documents: [],
+      risks: [],
     }
   })
 
@@ -122,6 +125,19 @@ export default function CreateProjectPage() {
         // Scroll to top of page
         window.scrollTo({ top: 0, behavior: 'smooth' })
       }
+    } else if (currentStep === 5) {
+      // Validate Step 5 (Risk) - risks are optional; only validate if any were added
+      const risks = getValues('risks')
+      if (risks && risks.length > 0) {
+        const isValid = await trigger(['risks'])
+        if (isValid) {
+          setCurrentStep(6)
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+      } else {
+        setCurrentStep(6)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
     }
   }
 
@@ -129,9 +145,11 @@ export default function CreateProjectPage() {
     // Reset submit status when navigating between steps
     setSubmitStatus('idle')
     
-    if (currentStep === 5) {
+    if (currentStep === 6) {
+      setCurrentStep(5)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } else if (currentStep === 5) {
       setCurrentStep(4)
-      // Scroll to top of page
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } else if (currentStep === 4) {
       setCurrentStep(3)
@@ -150,8 +168,8 @@ export default function CreateProjectPage() {
 
 
   const onSubmit: SubmitHandler<ProjectFormData> = async (data) => {
-    // Only allow submission on step 5 and if submit button was explicitly clicked
-    if (currentStep !== 5 || !submitButtonClicked.current) {
+    // Only allow submission on step 6 and if submit button was explicitly clicked
+    if (currentStep !== 6 || !submitButtonClicked.current) {
       submitButtonClicked.current = false
       return
     }
@@ -228,12 +246,44 @@ export default function CreateProjectPage() {
       // Dates are already in ISO 8601 format from the form steps
       // No conversion needed - they're stored directly as ISO 8601
 
+      // Transform risks: enrich category/factor IDs with names, split textarea strings to arrays
+      const risks = (data.risks ?? []).map((risk, idx) => {
+        const descriptionLines = (risk.description ?? '')
+          .split('\n').map((s: string) => s.trim()).filter(Boolean)
+        const impactLines = (risk.impact_statement ?? '')
+          .split('\n').map((s: string) => s.trim()).filter(Boolean)
+
+        const categoryDrivers = (risk.category_drivers ?? []).map((cd) => {
+          const cat = RISK_CATEGORIES.find((c) => c.category_id === cd.risk_category_id)
+          return {
+            risk_category_id: cd.risk_category_id,
+            risk_category_code: cat?.category_code ?? '',
+            category_name: cat?.category_name ?? '',
+            driven_by_risk_factors: (cd.driven_by_risk_factors ?? []).map((fid: string) => {
+              const factor = RISK_FACTORS.find((f) => f.factor_id === fid)
+              return { risk_factor_id: fid, factor_name: factor?.factor_name ?? fid }
+            }),
+          }
+        })
+
+        return {
+          risk_id: `RISK-${String(idx + 1).padStart(3, '0')}`,
+          title: risk.title,
+          phase: risk.phase,
+          description: descriptionLines,
+          category_drivers: categoryDrivers,
+          mitigation_handling: risk.mitigation_handling ?? [],
+          impact_statement: impactLines,
+        }
+      })
+
       // Build the project data according to schema
       const projectData: any = {
         ...data,
         sector: sector, // Array of string codes
         additionalClassifications: additionalClassifications, // Includes contractType from form
-        parties: parties // Includes ministry in publicAuthority.additionalIdentifiers
+        parties: parties, // Includes ministry in publicAuthority.additionalIdentifiers
+        risks,
       }
       
       // Create project via backend API
@@ -272,7 +322,7 @@ export default function CreateProjectPage() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-0">
-      <div className={`mx-auto ${currentStep === 4 || currentStep === 5 ? 'max-w-[700px] md:w-[700px]' : 'max-w-[700px]'}`}>
+      <div className={`mx-auto ${currentStep === 4 || currentStep === 5 || currentStep === 6 ? 'max-w-[700px] md:w-[700px]' : 'max-w-[700px]'}`}>
         <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('pages.create.title')}</h1>
         <p className="mt-2 text-sm sm:text-base text-gray-600">
@@ -281,7 +331,7 @@ export default function CreateProjectPage() {
         {/* Step Indicator */}
         <div className="mt-6">
           <div className="flex items-center justify-between w-full">
-            {[1, 2, 3, 4, 5].map((step, index) => (
+            {[1, 2, 3, 4, 5, 6].map((step, index) => (
               <div key={step} className="flex items-center flex-1">
                 <div className="flex flex-col items-center flex-1">
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${currentStep >= step ? 'bg-theme-primary text-white' : 'bg-gray-200 text-gray-600'}`}>
@@ -292,10 +342,11 @@ export default function CreateProjectPage() {
                     {step === 2 && 'ระยะเวลา'}
                     {step === 3 && 'งบประมาณ'}
                     {step === 4 && 'กฎหมาย'}
-                    {step === 5 && (t('pages.create.step3') || 'Review')}
+                    {step === 5 && 'ความเสี่ยง'}
+                    {step === 6 && (t('pages.create.step3') || 'Review')}
                   </span>
                 </div>
-                {index < 4 && (
+                {index < 5 && (
                   <div className={`flex-1 h-0.5 mx-1 ${currentStep > step ? 'bg-theme-primary' : 'bg-gray-300'}`}></div>
                 )}
               </div>
@@ -308,8 +359,8 @@ export default function CreateProjectPage() {
         onSubmit={(e) => {
           e.preventDefault()
           e.stopPropagation()
-          // Only submit if we're on step 5 and not already submitting
-          if (currentStep === 5 && !isSubmitting) {
+          // Only submit if we're on step 6 and not already submitting
+          if (currentStep === 6 && !isSubmitting) {
             handleSubmit(onSubmit)(e)
           }
         }} 
@@ -335,6 +386,11 @@ export default function CreateProjectPage() {
           <div className="card">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">กฎหมายและอ้างอิง</h2>
             <Step4LegalAndReference register={register} control={control} errors={errors} setValue={setValue} getValues={getValues} />
+          </div>
+        ) : currentStep === 5 ? (
+          <div className="card">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Risk ความเสี่ยง</h2>
+            <Step5Risk register={register} control={control} errors={errors} setValue={setValue} />
           </div>
         ) : (
           <div className="card">
@@ -363,7 +419,7 @@ export default function CreateProjectPage() {
             >
               {t('common.cancel')}
             </button>
-            {currentStep < 5 ? (
+            {currentStep < 6 ? (
               <button
                 type="button"
                 onClick={handleNext}
@@ -381,7 +437,7 @@ export default function CreateProjectPage() {
                   // Explicitly prevent any default behavior and ensure we're submitting
                   e.preventDefault()
                   e.stopPropagation()
-                  if (currentStep === 5 && !isSubmitting && submitStatus !== 'success') {
+                  if (currentStep === 6 && !isSubmitting && submitStatus !== 'success') {
                     handleSubmit(onSubmit)(e)
                   } else {
                     submitButtonClicked.current = false

@@ -2,6 +2,7 @@ import { Control, useWatch } from 'react-hook-form'
 import { ProjectFormData } from '@/types/project'
 import { useLanguage } from '@/lib/LanguageContext'
 import { BUSINESS_GROUP_CODE_TO_DISPLAY_NAME } from '@/types/businessGroup'
+import { RISK_CATEGORIES, RISK_FACTORS, RISK_PHASE_OPTIONS } from '@/lib/riskConstants'
 import { useEffect } from 'react'
 
 interface Step5ReviewProps {
@@ -232,6 +233,84 @@ export default function Step5Review({ control }: Step5ReviewProps) {
                     <a href={doc.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-theme-primary hover:underline break-all">
                       {doc.url}
                     </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {formData.risks && formData.risks.length > 0 && (
+        <div className="card">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Risk ความเสี่ยง</h2>
+          <div className="space-y-4">
+            {formData.risks.map((risk, riskIndex) => (
+              <div key={riskIndex} className="border border-gray-200 rounded-lg p-4">
+                <div className="space-y-3">
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">ชื่อความเสี่ยง (Title)</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{risk.title || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Phase</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {RISK_PHASE_OPTIONS.find((p) => p.value === risk.phase)?.label ?? (risk.phase || '—')}
+                    </dd>
+                  </div>
+                  {risk.description && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">รายละเอียด (Description)</dt>
+                      <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{risk.description}</dd>
+                    </div>
+                  )}
+                  {risk.category_drivers && risk.category_drivers.length > 0 && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Risk Category Drivers</dt>
+                      <dd className="mt-1 space-y-2">
+                        {risk.category_drivers.map((cd, cdIndex) => {
+                          const categoryName = cd.risk_category_id
+                            ? RISK_CATEGORIES.find((c) => c.category_id === cd.risk_category_id)?.category_name ?? cd.risk_category_id
+                            : '—'
+                          const factorNames = (cd.driven_by_risk_factors ?? [])
+                            .map((fid) => RISK_FACTORS.find((f) => f.factor_id === fid)?.factor_name ?? fid)
+                            .filter(Boolean)
+                          return (
+                            <div key={cdIndex} className="text-sm pl-2 border-l-2 border-gray-200">
+                              <span className="font-medium text-gray-700">{categoryName}</span>
+                              {factorNames.length > 0 && (
+                                <ul className="mt-1 list-disc list-inside text-gray-600">
+                                  {factorNames.map((name, i) => (
+                                    <li key={i}>{name}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </dd>
+                    </div>
+                  )}
+                  {risk.mitigation_handling && risk.mitigation_handling.length > 0 && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Mitigation / Handling</dt>
+                      <dd className="mt-1 space-y-1">
+                        {risk.mitigation_handling.map((m, mIdx) => (
+                          <div key={mIdx} className="text-sm pl-2 border-l-2 border-gray-200">
+                            <span className="text-gray-700">{m.action || '—'}</span>
+                            {m.status && (
+                              <span className="ml-2 text-xs text-gray-500 italic">({m.status})</span>
+                            )}
+                          </div>
+                        ))}
+                      </dd>
+                    </div>
+                  )}
+                  {risk.impact_statement && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">ผลกระทบ (Impact Statement)</dt>
+                      <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{risk.impact_statement}</dd>
+                    </div>
                   )}
                 </div>
               </div>

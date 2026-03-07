@@ -1165,12 +1165,7 @@ export default function HomePage() {
                       })()}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
-                      {t('dashboard.totalInvestment')} {(() => {
-                        const totalInvestment = summaryData?.summary?.totalInvestment || 0
-                        if (totalInvestment >= 1000000000000) return '(ล้านล้านบาท)'
-                        if (totalInvestment >= 1000000) return '(ล้านบาท)'
-                        return '(บาท)'
-                      })()}
+                      {t('dashboard.totalInvestment')}
                     </div>
                   </div>
                 </div>
@@ -1202,13 +1197,7 @@ export default function HomePage() {
                       })()}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
-                      {t('home.highestProjectBudget') || 'Highest Project Budget'} {(() => {
-                        const maxBudget = summaryData?.summary?.maxBudget || 0
-                        if (maxBudget === 0) return ''
-                        if (maxBudget >= 1000000000000) return '(ล้านล้านบาท)'
-                        if (maxBudget >= 1000000) return '(ล้านบาท)'
-                        return '(บาท)'
-                      })()}
+                      {t('home.highestProjectBudget') || 'Highest Project Budget'}
                     </div>
                   </div>
                 </div>

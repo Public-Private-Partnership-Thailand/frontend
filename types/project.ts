@@ -213,6 +213,34 @@ export interface RelatedProject {
   title: string;
 }
 
+/** One risk category driver entry (stores IDs in form; enriched with names at submit time) */
+export interface RiskCategoryDriver {
+  risk_category_id: string;
+  driven_by_risk_factors: string[]; // array of factor_id values
+}
+
+/** Single mitigation / handling action */
+export interface RiskMitigationItem {
+  action: string;
+  status: string; // 'planned' | 'in_progress' | 'done_or_selected' | 'rejected'
+}
+
+/** Single risk item (form shape — description & impact_statement stored as newline-separated strings) */
+export interface Risk {
+  title: string;
+  phase: string; // 'pre-construction' | 'construction' | 'operation'
+  description: string;       // textarea — split to string[] at submit
+  category_drivers: RiskCategoryDriver[];
+  mitigation_handling: RiskMitigationItem[];
+  impact_statement: string;  // textarea — split to string[] at submit
+}
+
+/** @deprecated use RiskCategoryDriver */
+export interface RiskCategoryEntry {
+  category_id: string;
+  risk_factors: string[];
+}
+
 export interface CostMeasurement {
   id: string;
   date: string;
@@ -272,6 +300,7 @@ export interface ProjectData {
   environment?: any;
   policyAlignment?: any;
   benefits?: any[];
+  risks?: Risk[];
 }
 
 export interface ProjectFormData extends Omit<ProjectData, 'id' | 'updated'> {
