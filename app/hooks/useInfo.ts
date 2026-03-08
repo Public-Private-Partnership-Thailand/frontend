@@ -1,12 +1,28 @@
 import { useQuery } from '@tanstack/react-query'
 import { appConfig } from '@/app/configs/appConfig'
 
+export interface RiskCategory {
+  id: string
+  code: string
+  name: string
+  description_en: string
+  description_th: string
+}
+
+export interface RiskFactor {
+  id: string
+  name: string
+  description_th: string
+}
+
 export interface InfoData {
   sector: Array<{ id: number; value: string }>
   ministry: Array<{ id: number; value: string }>
   contractType: Array<{ id: number; value: string }>
   projectType: Array<{ id: number; value: string }>
   concessionForm: Array<{ id: number; value: string }>
+  riskCategory: RiskCategory[]
+  riskFactor: RiskFactor[]
 }
 
 export const useInfo = () => {

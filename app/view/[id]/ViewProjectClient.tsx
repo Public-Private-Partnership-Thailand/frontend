@@ -9,10 +9,7 @@ import LoadingSpinner from '@/components/LoadingSpinner'
 import { fetchProjectById } from '@/lib/projectService'
 import { BUSINESS_GROUP_CODE_TO_DISPLAY_NAME } from '@/types/businessGroup'
 import { formatDateForDisplay } from '@/lib/utils/dateUtils'
-import { MOCK_RISKS, getRisksForProject } from '@/lib/mockRisks'
-import Tippy from '@/components/Base/Tippy'
-import Lucide from '@/components/Base/Lucide'
-
+import { useInfo } from '@/app/hooks/useInfo'
 export default function ViewProjectClient() {
   const { t } = useLanguage()
   const { isAuthenticated } = useAuth()
@@ -24,6 +21,10 @@ export default function ViewProjectClient() {
   const [project, setProject] = useState<ProjectData | null>(null)
   const [showAdditionalInfo, setShowAdditionalInfo] = useState(false)
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null)
+
+  const { data: infoData } = useInfo()
+  const riskCategories = infoData?.riskCategory ?? []
+  const riskFactors = infoData?.riskFactor ?? []
 
   useEffect(() => {
     fetchProject()
@@ -315,8 +316,6 @@ export default function ViewProjectClient() {
   const projectImages = getProjectImages()
   const hasMultipleImages = projectImages.length > 1
 
-  const projectRisks = getRisksForProject(MOCK_RISKS, project.id, project.title)
-
   const handleImageClick = (index: number) => {
     setSelectedImageIndex(index)
   }
@@ -569,67 +568,188 @@ export default function ViewProjectClient() {
             </div>
           </div>
 
-          {/* Risks / Issues */}
-          {projectRisks.length > 0 && (
-            <div className="bg-white shadow rounded-lg p-4 sm:p-6 w-full">
-              <div className="flex items-center gap-2 mb-4">
-                <h2 className="text-lg font-medium text-gray-900">ความเสี่ยง / ประเด็นปัญหา (Risks / Issues)</h2>
-                <Tippy
-                  content="P = Probability (ความน่าจะเป็น) · I = Impact (ผลกระทบ)"
-                  as="span"
-                  className="inline-flex cursor-help"
-                  options={{ placement: 'top' }}
-                >
-                  <Lucide icon="Info" className="w-4 h-4 text-gray-400 hover:text-gray-600 flex-shrink-0" />
-                </Tippy>
-              </div>
-              <div className="space-y-4">
-                {projectRisks.map((risk) => (
-                  <div
-                    key={risk.risk_id}
-                    className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
-                  >
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
-                      <span className="text-xs font-mono text-gray-500">{risk.risk_id}</span>
-                      <span
-                        className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-                          risk.status === 'occurred'
-                            ? 'bg-red-100 text-red-800'
-                            : risk.status === 'monitoring'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {risk.status === 'occurred' ? 'เกิดขึ้นแล้ว' : risk.status === 'monitoring' ? 'กำลังติดตาม' : risk.status}
-                      </span>
-                      <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
-                        {risk.category}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {risk.phase} · P:{risk.probability} · I:{risk.impact}
-                      </span>
-                    </div>
-                    <h3 className="font-medium text-gray-900 mb-1">{risk.title}</h3>
-                    {risk.description && (
-                      <p className="text-sm text-gray-600 mb-2">{risk.description}</p>
-                    )}
-                    {risk.mitigation && (
-                      <p className="text-sm text-gray-600">
-                        <span className="font-medium text-gray-700">การบรรเทา: </span>
-                        {risk.mitigation}
-                      </p>
-                    )}
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-                      {risk.owner && <span>ผู้รับผิดชอบ: {risk.owner}</span>}
-                      {risk.occurred_date && (
-                        <span>เกิดเมื่อ: {formatDate(risk.occurred_date)}</span>
-                      )}
-                    </div>
+          {/* Risks */}
+          {(() => {
+            const risks = project.risks ?? []
+            if (risks.length === 0) {
+              return (
+                <div className="bg-white shadow rounded-lg p-4 sm:p-6 w-full">
+                  <div className="flex items-center justify-between mb-5">
+                    <h2 className="text-lg font-semibold text-gray-900">ความเสี่ยง (Risks)</h2>
+                    <span className="text-sm text-gray-400">0 รายการ</span>
                   </div>
-                ))}
+                  <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-gray-200 rounded-xl bg-gray-50">
+                    <svg className="w-10 h-10 text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                    <p className="text-sm font-medium text-gray-500">ไม่มีข้อมูลความเสี่ยงสำหรับโครงการนี้</p>
+                    <p className="text-xs text-gray-400 mt-1">No risks have been recorded for this project</p>
+                  </div>
+                </div>
+              )
+            }
+
+            const PHASE_META: Record<string, { label: string; cls: string }> = {
+              'pre-construction': { label: 'ก่อนก่อสร้าง', cls: 'bg-violet-100 text-violet-700' },
+              construction:       { label: 'ก่อสร้าง',       cls: 'bg-blue-100 text-blue-700' },
+              operation:          { label: 'ดำเนินการ',        cls: 'bg-emerald-100 text-emerald-700' },
+            }
+            const MITIGATION_META: Record<string, { label: string; icon: string; cls: string }> = {
+              planned:          { label: 'วางแผน',          icon: '○', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+              in_progress:      { label: 'กำลังดำเนินการ',   icon: '◑', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+              done_or_selected: { label: 'ดำเนินการแล้ว',    icon: '●', cls: 'bg-green-50 text-green-700 border-green-200' },
+              rejected:         { label: 'ไม่ดำเนินการ',     icon: '✕', cls: 'bg-red-50 text-red-700 border-red-200' },
+            }
+
+            return (
+              <div className="bg-white shadow rounded-lg p-4 sm:p-6 w-full">
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="text-lg font-semibold text-gray-900">ความเสี่ยง (Risks)</h2>
+                  <span className="text-sm text-gray-500">{risks.length} รายการ</span>
+                </div>
+
+                <div className="space-y-6">
+                  {risks.map((risk, riskIndex) => {
+                    const phaseMeta = PHASE_META[risk.phase] ?? { label: risk.phase, cls: 'bg-gray-100 text-gray-600' }
+
+                    return (
+                      <div key={risk.risk_id ?? riskIndex} className="rounded-xl border border-gray-200 overflow-hidden">
+
+                        {/* ── Header ── */}
+                        <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                          <div className="flex items-start gap-3">
+                            <span className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full bg-theme-primary/10 text-theme-primary text-xs font-bold flex items-center justify-center">
+                              {riskIndex + 1}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-gray-900 text-sm leading-snug mb-1.5">
+                                {risk.title}
+                              </h3>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${phaseMeta.cls}`}>
+                                {phaseMeta.label}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="divide-y divide-gray-100">
+
+                          {/* ── Description ── */}
+                          {risk.description && risk.description.length > 0 && (
+                            <div className="px-4 py-4">
+                              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-2">รายละเอียด</p>
+                              <ol className="space-y-2">
+                                {risk.description.map((line, i) => (
+                                  <li key={i} className="flex gap-3 text-sm text-gray-700 leading-relaxed">
+                                    <span className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-gray-100 text-gray-500 text-[10px] font-semibold flex items-center justify-center">
+                                      {i + 1}
+                                    </span>
+                                    <span>{line}</span>
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
+                          )}
+
+                          {/* ── Category Drivers ── */}
+                          {risk.category_drivers && risk.category_drivers.length > 0 && (
+                            <div className="px-4 py-4">
+                              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-3">Risk Category Drivers</p>
+                              <div className="space-y-3">
+                                {risk.category_drivers.map((driver, dIdx) => {
+                                  const catInfo = riskCategories.find(c => c.id === driver.risk_category_id)
+                                  return (
+                                    <div key={dIdx} className="rounded-lg border border-indigo-100 bg-indigo-50/40 overflow-hidden">
+                                      {/* Category header */}
+                                      <div className="px-3 py-2.5 border-b border-indigo-100 bg-indigo-50">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-theme-primary text-white tracking-wide">
+                                            {driver.risk_category_code}
+                                          </span>
+                                          <span className="text-sm font-semibold text-gray-800">{driver.category_name}</span>
+                                        </div>
+                                        {catInfo?.description_th && (
+                                          <p className="text-xs text-indigo-700/80 leading-relaxed pl-0.5">
+                                            {catInfo.description_th}
+                                          </p>
+                                        )}
+                                      </div>
+
+                                      {/* Risk Factors */}
+                                      {driver.driven_by_risk_factors && driver.driven_by_risk_factors.length > 0 && (
+                                        <div className="px-3 py-2.5">
+                                          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Risk Factors</p>
+                                          <div className="space-y-2">
+                                            {driver.driven_by_risk_factors.map((factor, fIdx) => {
+                                              const factorInfo = riskFactors.find(f => f.id === factor.risk_factor_id)
+                                              return (
+                                                <div key={fIdx} className="flex gap-2.5">
+                                                  <span className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 text-[11px] font-bold flex items-center justify-center">
+                                                    {fIdx + 1}
+                                                  </span>
+                                                  <div className="min-w-0">
+                                                    <p className="text-sm font-medium text-gray-800 leading-snug">{factor.factor_name}</p>
+                                                    {factorInfo?.description_th && (
+                                                      <p className="text-xs text-gray-500 leading-relaxed mt-0.5">{factorInfo.description_th}</p>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              )
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* ── Mitigation / Handling ── */}
+                          {risk.mitigation_handling && risk.mitigation_handling.length > 0 && (
+                            <div className="px-4 py-4">
+                              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-2">มาตรการรับมือ</p>
+                              <div className="space-y-2">
+                                {risk.mitigation_handling.map((m, mIdx) => {
+                                  const meta = MITIGATION_META[m.status] ?? { label: m.status, icon: '·', cls: 'bg-gray-50 text-gray-600 border-gray-200' }
+                                  return (
+                                    <div key={mIdx} className="flex items-start gap-2.5">
+                                      <span className={`flex-shrink-0 mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium ${meta.cls}`}>
+                                        <span>{meta.icon}</span>
+                                        {meta.label}
+                                      </span>
+                                      <span className="text-sm text-gray-700 leading-relaxed">{m.action}</span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* ── Impact Statement ── */}
+                          {risk.impact_statement && risk.impact_statement.length > 0 && (
+                            <div className="px-4 py-4 bg-amber-50/30">
+                              <p className="text-[11px] font-semibold text-amber-600/70 uppercase tracking-widest mb-2">ผลกระทบ (Impact)</p>
+                              <ul className="space-y-1.5">
+                                {risk.impact_statement.map((line, i) => (
+                                  <li key={i} className="flex gap-2.5 text-sm text-gray-700 leading-relaxed">
+                                    <span className="mt-2 w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                                    <span>{line}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
         </div>
 

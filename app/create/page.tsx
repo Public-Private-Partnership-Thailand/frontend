@@ -7,7 +7,6 @@ import { ProjectFormData } from '@/types/project'
 import { useLanguage } from '@/lib/LanguageContext'
 import { createProject } from '@/lib/projectService'
 import { BUSINESS_GROUP_CODES, isValidBusinessGroupCode } from '@/types/businessGroup'
-import { RISK_CATEGORIES, RISK_FACTORS } from '@/lib/riskConstants'
 import Step1EssentialInfo from '@/components/form/Step1EssentialInfo'
 import Step2AdditionalDetails from '@/components/form/Step2AdditionalDetails'
 import Step3BudgetInfo from '@/components/form/Step3BudgetInfo'
@@ -246,36 +245,15 @@ export default function CreateProjectPage() {
       // Dates are already in ISO 8601 format from the form steps
       // No conversion needed - they're stored directly as ISO 8601
 
-      // Transform risks: enrich category/factor IDs with names, split textarea strings to arrays
-      const risks = (data.risks ?? []).map((risk, idx) => {
-        const descriptionLines = (risk.description ?? '')
-          .split('\n').map((s: string) => s.trim()).filter(Boolean)
-        const impactLines = (risk.impact_statement ?? '')
-          .split('\n').map((s: string) => s.trim()).filter(Boolean)
-
-        const categoryDrivers = (risk.category_drivers ?? []).map((cd) => {
-          const cat = RISK_CATEGORIES.find((c) => c.category_id === cd.risk_category_id)
-          return {
-            risk_category_id: cd.risk_category_id,
-            risk_category_code: cat?.category_code ?? '',
-            category_name: cat?.category_name ?? '',
-            driven_by_risk_factors: (cd.driven_by_risk_factors ?? []).map((fid: string) => {
-              const factor = RISK_FACTORS.find((f) => f.factor_id === fid)
-              return { risk_factor_id: fid, factor_name: factor?.factor_name ?? fid }
-            }),
-          }
-        })
-
-        return {
-          risk_id: `RISK-${String(idx + 1).padStart(3, '0')}`,
-          title: risk.title,
-          phase: risk.phase,
-          description: descriptionLines,
-          category_drivers: categoryDrivers,
-          mitigation_handling: risk.mitigation_handling ?? [],
-          impact_statement: impactLines,
-        }
-      })
+      const risks = (data.risks ?? []).map((risk, idx) => ({
+        risk_id: `RISK-${String(idx + 1).padStart(3, '0')}`,
+        title: risk.title,
+        phase: risk.phase,
+        description: (risk.description ?? []).map((s) => s.trim()).filter(Boolean),
+        category_drivers: risk.category_drivers ?? [],
+        mitigation_handling: risk.mitigation_handling ?? [],
+        impact_statement: (risk.impact_statement ?? []).map((s) => s.trim()).filter(Boolean),
+      }))
 
       // Build the project data according to schema
       const projectData: any = {

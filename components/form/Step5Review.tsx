@@ -2,7 +2,7 @@ import { Control, useWatch } from 'react-hook-form'
 import { ProjectFormData } from '@/types/project'
 import { useLanguage } from '@/lib/LanguageContext'
 import { BUSINESS_GROUP_CODE_TO_DISPLAY_NAME } from '@/types/businessGroup'
-import { RISK_CATEGORIES, RISK_FACTORS, RISK_PHASE_OPTIONS } from '@/lib/riskConstants'
+import { RISK_PHASE_OPTIONS } from '@/lib/riskConstants'
 import { useEffect } from 'react'
 
 interface Step5ReviewProps {
@@ -15,7 +15,6 @@ export default function Step5Review({ control }: Step5ReviewProps) {
   // Watch all form values
   const formData = useWatch({ control })
 
-  // Console log the entire form data when user is in step 5
   useEffect(() => {
     console.log('Step 5 Review - Complete Form Data:', formData)
   }, [formData])
@@ -258,10 +257,16 @@ export default function Step5Review({ control }: Step5ReviewProps) {
                       {RISK_PHASE_OPTIONS.find((p) => p.value === risk.phase)?.label ?? (risk.phase || '—')}
                     </dd>
                   </div>
-                  {risk.description && (
+                  {risk.description && risk.description.length > 0 && (
                     <div>
                       <dt className="text-sm font-medium text-gray-500">รายละเอียด (Description)</dt>
-                      <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{risk.description}</dd>
+                      <dd className="mt-1 text-sm text-gray-900">
+                        <ul className="list-disc list-inside space-y-0.5">
+                          {risk.description.filter(Boolean).map((line, i) => (
+                            <li key={i}>{line}</li>
+                          ))}
+                        </ul>
+                      </dd>
                     </div>
                   )}
                   {risk.category_drivers && risk.category_drivers.length > 0 && (
@@ -269,19 +274,15 @@ export default function Step5Review({ control }: Step5ReviewProps) {
                       <dt className="text-sm font-medium text-gray-500">Risk Category Drivers</dt>
                       <dd className="mt-1 space-y-2">
                         {risk.category_drivers.map((cd, cdIndex) => {
-                          const categoryName = cd.risk_category_id
-                            ? RISK_CATEGORIES.find((c) => c.category_id === cd.risk_category_id)?.category_name ?? cd.risk_category_id
-                            : '—'
-                          const factorNames = (cd.driven_by_risk_factors ?? [])
-                            .map((fid) => RISK_FACTORS.find((f) => f.factor_id === fid)?.factor_name ?? fid)
-                            .filter(Boolean)
+                          const categoryLabel = cd.category_name || cd.risk_category_id || '—'
+                          const factors = (cd.driven_by_risk_factors ?? []).filter((f) => f.risk_factor_id)
                           return (
                             <div key={cdIndex} className="text-sm pl-2 border-l-2 border-gray-200">
-                              <span className="font-medium text-gray-700">{categoryName}</span>
-                              {factorNames.length > 0 && (
+                              <span className="font-medium text-gray-700">{categoryLabel}</span>
+                              {factors.length > 0 && (
                                 <ul className="mt-1 list-disc list-inside text-gray-600">
-                                  {factorNames.map((name, i) => (
-                                    <li key={i}>{name}</li>
+                                  {factors.map((f, i) => (
+                                    <li key={i}>{f.factor_name || f.risk_factor_id}</li>
                                   ))}
                                 </ul>
                               )}
@@ -306,10 +307,16 @@ export default function Step5Review({ control }: Step5ReviewProps) {
                       </dd>
                     </div>
                   )}
-                  {risk.impact_statement && (
+                  {risk.impact_statement && risk.impact_statement.length > 0 && (
                     <div>
                       <dt className="text-sm font-medium text-gray-500">ผลกระทบ (Impact Statement)</dt>
-                      <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{risk.impact_statement}</dd>
+                      <dd className="mt-1 text-sm text-gray-900">
+                        <ul className="list-disc list-inside space-y-0.5">
+                          {risk.impact_statement.filter(Boolean).map((line, i) => (
+                            <li key={i}>{line}</li>
+                          ))}
+                        </ul>
+                      </dd>
                     </div>
                   )}
                 </div>

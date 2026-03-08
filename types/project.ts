@@ -213,10 +213,16 @@ export interface RelatedProject {
   title: string;
 }
 
-/** One risk category driver entry (stores IDs in form; enriched with names at submit time) */
+export interface RiskFactorItem {
+  risk_factor_id: string;
+  factor_name: string;
+}
+
 export interface RiskCategoryDriver {
   risk_category_id: string;
-  driven_by_risk_factors: string[]; // array of factor_id values
+  risk_category_code: string;
+  category_name: string;
+  driven_by_risk_factors: RiskFactorItem[];
 }
 
 /** Single mitigation / handling action */
@@ -225,14 +231,15 @@ export interface RiskMitigationItem {
   status: string; // 'planned' | 'in_progress' | 'done_or_selected' | 'rejected'
 }
 
-/** Single risk item (form shape — description & impact_statement stored as newline-separated strings) */
+/** Single risk item */
 export interface Risk {
+  risk_id?: string;
   title: string;
-  phase: string; // 'pre-construction' | 'construction' | 'operation'
-  description: string;       // textarea — split to string[] at submit
+  phase: string;
+  description: string[];
   category_drivers: RiskCategoryDriver[];
   mitigation_handling: RiskMitigationItem[];
-  impact_statement: string;  // textarea — split to string[] at submit
+  impact_statement: string[];
 }
 
 /** @deprecated use RiskCategoryDriver */

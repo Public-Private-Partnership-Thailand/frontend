@@ -1,9 +1,10 @@
 'use client'
 
-import { UseFormRegister, Control, FieldErrors, useFieldArray, UseFormSetValue, useWatch } from 'react-hook-form'
-import { ProjectFormData, RiskCategoryDriver } from '@/types/project'
+import { UseFormRegister, Control, Controller, FieldErrors, useFieldArray, UseFormSetValue, useWatch } from 'react-hook-form'
+import { ProjectFormData, RiskCategoryDriver, RiskFactorItem } from '@/types/project'
 import { useState, useRef, useEffect } from 'react'
-import { RISK_CATEGORIES, RISK_FACTORS, RISK_PHASE_OPTIONS, MITIGATION_STATUS_OPTIONS } from '@/lib/riskConstants'
+import { RISK_PHASE_OPTIONS, MITIGATION_STATUS_OPTIONS } from '@/lib/riskConstants'
+import { useInfo, RiskCategory, RiskFactor } from '@/app/hooks/useInfo'
 
 /** Floating info tooltip triggered on hover */
 function InfoTooltip({ lines }: { lines: string[] }) {
@@ -49,14 +50,16 @@ interface Step5RiskProps {
   setValue: UseFormSetValue<ProjectFormData>
 }
 
-/** Searchable multi-select for risk factors (displays factor_name, stores factor_id) */
+/** Searchable multi-select for risk factors — stores { risk_factor_id, factor_name } objects */
 function RiskFactorSelect({
-  selectedFactorIds,
+  selectedFactors,
   onChange,
+  riskFactors,
   placeholder = 'ค้นหาและเลือก Risk Factor',
 }: {
-  selectedFactorIds: string[]
-  onChange: (factorIds: string[]) => void
+  selectedFactors: RiskFactorItem[]
+  onChange: (factors: RiskFactorItem[]) => void
+  riskFactors: RiskFactor[]
   placeholder?: string
 }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -73,44 +76,42 @@ function RiskFactorSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const sortedFactors = [...RISK_FACTORS].sort((a, b) =>
-    a.factor_id.localeCompare(b.factor_id, undefined, { numeric: true })
+  const sortedFactors = [...riskFactors].sort((a, b) =>
+    a.id.localeCompare(b.id, undefined, { numeric: true })
   )
 
   const filteredFactors = search.trim()
     ? sortedFactors.filter((f) =>
-        `${f.factor_id}: ${f.factor_name}`.toLowerCase().includes(search.toLowerCase())
+        `${f.id}: ${f.name}`.toLowerCase().includes(search.toLowerCase())
       )
     : sortedFactors
 
-  const toggleFactor = (factorId: string) => {
-    if (selectedFactorIds.includes(factorId)) {
-      onChange(selectedFactorIds.filter((id) => id !== factorId))
-    } else {
-      onChange([...selectedFactorIds, factorId])
-    }
-  }
+  const isSelected = (factorId: string) =>
+    selectedFactors.some((f) => f.risk_factor_id === factorId)
 
-  const getFactorLabel = (factorId: string) => {
-    const f = RISK_FACTORS.find((f) => f.factor_id === factorId)
-    return f ? `${f.factor_id}: ${f.factor_name}` : factorId
+  const toggleFactor = (factorId: string, factorName: string) => {
+    if (isSelected(factorId)) {
+      onChange(selectedFactors.filter((f) => f.risk_factor_id !== factorId))
+    } else {
+      onChange([...selectedFactors, { risk_factor_id: factorId, factor_name: factorName }])
+    }
   }
 
   return (
     <div className="relative" ref={dropdownRef}>
       <div className="flex flex-wrap gap-1.5 min-h-[38px] px-2 py-1.5 border border-gray-300 rounded-md bg-white text-left text-sm focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500">
-        {selectedFactorIds.length > 0
-          ? selectedFactorIds.map((id) => (
+        {selectedFactors.length > 0
+          ? selectedFactors.map((item) => (
               <span
-                key={id}
+                key={item.risk_factor_id}
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-theme-primary/10 text-theme-primary text-xs"
               >
-                {getFactorLabel(id)}
+                {item.risk_factor_id}: {item.factor_name}
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation()
-                    onChange(selectedFactorIds.filter((x) => x !== id))
+                    onChange(selectedFactors.filter((f) => f.risk_factor_id !== item.risk_factor_id))
                   }}
                   className="hover:text-red-600"
                 >
@@ -124,7 +125,7 @@ function RiskFactorSelect({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onFocus={() => setIsOpen(true)}
-          placeholder={selectedFactorIds.length === 0 ? placeholder : ''}
+          placeholder={selectedFactors.length === 0 ? placeholder : ''}
           className="flex-1 min-w-[120px] border-0 p-0 focus:ring-0 text-sm"
         />
       </div>
@@ -143,16 +144,16 @@ function RiskFactorSelect({
             ) : (
               filteredFactors.map((f) => (
                 <label
-                  key={f.factor_id}
+                  key={f.id}
                   className="flex items-center px-2 py-1.5 hover:bg-gray-50 cursor-pointer rounded"
                 >
                   <input
                     type="checkbox"
-                    checked={selectedFactorIds.includes(f.factor_id)}
-                    onChange={() => toggleFactor(f.factor_id)}
+                    checked={isSelected(f.id)}
+                    onChange={() => toggleFactor(f.id, f.name)}
                     className="mr-2 h-3.5 w-3.5 text-indigo-600 border-gray-300 rounded"
                   />
-                  <span className="text-xs text-gray-700">{f.factor_id}: {f.factor_name}</span>
+                  <span className="text-xs text-gray-700">{f.id}: {f.name}</span>
                 </label>
               ))
             )}
@@ -164,6 +165,10 @@ function RiskFactorSelect({
 }
 
 export default function Step5Risk({ register, control, errors, setValue }: Step5RiskProps) {
+  const { data: infoData } = useInfo()
+  const riskCategories: RiskCategory[] = infoData?.riskCategory ?? []
+  const riskFactors: RiskFactor[] = infoData?.riskFactor ?? []
+
   const {
     fields: riskFields,
     append: appendRisk,
@@ -185,10 +190,10 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
             appendRisk({
               title: '',
               phase: '',
-              description: '',
-              category_drivers: [{ risk_category_id: '', driven_by_risk_factors: [] }],
+              description: [],
+              category_drivers: [{ risk_category_id: '', risk_category_code: '', category_name: '', driven_by_risk_factors: [] }],
               mitigation_handling: [],
-              impact_statement: '',
+              impact_statement: [],
             })
           }
           className="btn-secondary text-sm whitespace-nowrap"
@@ -265,11 +270,19 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
             <div>
               <label className="form-label">รายละเอียดความเสี่ยง (Description)</label>
               <p className="text-xs text-gray-400 mb-1">แต่ละบรรทัดจะถูกบันทึกเป็นรายการแยก</p>
-              <textarea
-                {...register(`risks.${riskIndex}.description` as const)}
-                rows={4}
-                className="form-input w-full"
-                placeholder={"บรรทัดที่ 1: รายละเอียดแรก\nบรรทัดที่ 2: รายละเอียดที่สอง"}
+              <Controller
+                control={control}
+                name={`risks.${riskIndex}.description` as const}
+                render={({ field }) => (
+                  <textarea
+                    value={(field.value as string[]).join('\n')}
+                    onChange={(e) => field.onChange(e.target.value.split('\n'))}
+                    onBlur={field.onBlur}
+                    rows={4}
+                    className="form-input w-full"
+                    placeholder={"บรรทัดที่ 1: รายละเอียดแรก\nบรรทัดที่ 2: รายละเอียดที่สอง"}
+                  />
+                )}
               />
             </div>
 
@@ -280,6 +293,8 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
               control={control}
               errors={errors}
               setValue={setValue}
+              riskCategories={riskCategories}
+              riskFactors={riskFactors}
             />
 
             {/* mitigation_handling */}
@@ -294,11 +309,19 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
             <div>
               <label className="form-label">ผลกระทบ (Impact Statement)</label>
               <p className="text-xs text-gray-400 mb-1">แต่ละบรรทัดจะถูกบันทึกเป็นรายการแยก</p>
-              <textarea
-                {...register(`risks.${riskIndex}.impact_statement` as const)}
-                rows={3}
-                className="form-input w-full"
-                placeholder={"บรรทัดที่ 1: ผลกระทบแรก\nบรรทัดที่ 2: ผลกระทบที่สอง"}
+              <Controller
+                control={control}
+                name={`risks.${riskIndex}.impact_statement` as const}
+                render={({ field }) => (
+                  <textarea
+                    value={(field.value as string[]).join('\n')}
+                    onChange={(e) => field.onChange(e.target.value.split('\n'))}
+                    onBlur={field.onBlur}
+                    rows={3}
+                    className="form-input w-full"
+                    placeholder={"บรรทัดที่ 1: ผลกระทบแรก\nบรรทัดที่ 2: ผลกระทบที่สอง"}
+                  />
+                )}
               />
             </div>
           </div>
@@ -314,12 +337,16 @@ function RiskCategoryDriversBlock({
   control,
   errors,
   setValue,
+  riskCategories,
+  riskFactors,
 }: {
   riskIndex: number
   register: UseFormRegister<ProjectFormData>
   control: Control<ProjectFormData>
   errors: FieldErrors<ProjectFormData>
   setValue: UseFormSetValue<ProjectFormData>
+  riskCategories: RiskCategory[]
+  riskFactors: RiskFactor[]
 }) {
   const drivers = useWatch({
     control,
@@ -344,6 +371,8 @@ function RiskCategoryDriversBlock({
           onClick={() =>
             appendDriver({
               risk_category_id: '',
+              risk_category_code: '',
+              category_name: '',
               driven_by_risk_factors: [],
             } as RiskCategoryDriver)
           }
@@ -374,21 +403,28 @@ function RiskCategoryDriversBlock({
                 <InfoTooltip
                   lines={(() => {
                     const selId = Array.isArray(drivers) ? drivers[driverIndex]?.risk_category_id : ''
-                    const cat = RISK_CATEGORIES.find((c) => c.category_id === selId)
-                    return cat ? [`${cat.category_code}: ${cat.category_name}`, cat.description_th] : []
+                    const cat = riskCategories.find((c) => c.id === selId)
+                    return cat ? [`${cat.code}: ${cat.name}`, cat.description_th] : []
                   })()}
                 />
               </div>
               <select
                 {...register(`risks.${riskIndex}.category_drivers.${driverIndex}.risk_category_id` as const)}
+                onChange={(e) => {
+                  const id = e.target.value
+                  setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.risk_category_id` as const, id, { shouldValidate: true })
+                  const cat = riskCategories.find((c) => c.id === id)
+                  setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.risk_category_code` as const, cat?.code ?? '')
+                  setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.category_name` as const, cat?.name ?? '')
+                }}
                 className="form-input w-full text-sm"
               >
                 <option value="">-- เลือก Category --</option>
-                {[...RISK_CATEGORIES]
-                  .sort((a, b) => a.category_code.localeCompare(b.category_code))
+                {[...riskCategories]
+                  .sort((a, b) => a.code.localeCompare(b.code))
                   .map((c) => (
-                    <option key={c.category_id} value={c.category_id}>
-                      {c.category_code}: {c.category_name}
+                    <option key={c.id} value={c.id}>
+                      {c.code}: {c.name}
                     </option>
                   ))}
               </select>
@@ -400,25 +436,28 @@ function RiskCategoryDriversBlock({
                 </label>
                 <InfoTooltip
                   lines={(() => {
-                    const selIds = (Array.isArray(drivers) ? drivers[driverIndex]?.driven_by_risk_factors : undefined) ?? []
-                    return selIds.map((fid) => {
-                      const f = RISK_FACTORS.find((x) => x.factor_id === fid)
-                      return f ? `${f.factor_id}: ${f.factor_name} — ${f.description_th}` : fid
+                    const selFactors = (Array.isArray(drivers) ? drivers[driverIndex]?.driven_by_risk_factors : undefined) ?? []
+                    return selFactors.map((item) => {
+                      const f = riskFactors.find((x) => x.id === item.risk_factor_id)
+                      return f
+                        ? `${f.id}: ${f.name} — ${f.description_th}`
+                        : item.risk_factor_id
                     })
                   })()}
                 />
               </div>
               <RiskFactorSelect
-                selectedFactorIds={
+                selectedFactors={
                   (Array.isArray(drivers) ? drivers[driverIndex]?.driven_by_risk_factors : undefined) ?? []
                 }
-                onChange={(factorIds) => {
+                onChange={(factors) => {
                   setValue(
                     `risks.${riskIndex}.category_drivers.${driverIndex}.driven_by_risk_factors` as const,
-                    factorIds,
+                    factors,
                     { shouldValidate: true }
                   )
                 }}
+                riskFactors={riskFactors}
               />
             </div>
           </div>
