@@ -305,9 +305,11 @@ function MainContent({ children }: { children: React.ReactNode }) {
   }
   
   return (
-    <main className="flex-1 max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 pt-24">
+    <div className="flex justify-center">
+    <main className="flex-1 max-w-7xl py-6 sm:px-6 lg:px-8 pt-24">
       {children}
     </main>
+    </div>
   )
 }
 

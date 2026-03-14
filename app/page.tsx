@@ -12,6 +12,7 @@ import clsx from 'clsx'
 import Lucide from '@/components/Base/Lucide'
 import Tippy from '@/components/Base/Tippy'
 import ReportPieChart from '@/components/ReportPieChart'
+import RiskHeatmap from '@/components/RiskHeatmap'
 import dayjs from 'dayjs'
 import 'dayjs/locale/th'
 import { useInfo, type InfoData } from '@/app/hooks/useInfo'
@@ -208,7 +209,7 @@ export default function HomePage() {
   const error = summaryError ? 'ไม่สามารถโหลดข้อมูลสรุปได้' : (infoError ? 'ไม่สามารถโหลดข้อมูลได้' : null)
 
   // Fallback to empty data structure on error to prevent crashes
-  const safeInfoData = infoData || { sector: [], ministry: [], contractType: [], projectType: [], concessionForm: [] }
+  const safeInfoData = infoData || { sector: [], ministry: [], contractType: [], projectType: [], concessionForm: [], riskCategory: [], riskFactor: [] }
 
   // Filter conversion logic is now handled in useSummary hook
 
@@ -1379,6 +1380,22 @@ export default function HomePage() {
                 )}
               </div>
             </div>
+
+              {/* Risk heat map: risk category × phase × risk factor */}
+              {summaryData?.heatmapRisk?.length && safeInfoData?.riskCategory?.length && safeInfoData?.riskFactor?.length ? (
+                <div className="mt-8">
+                  <div className="mb-4">
+                    <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+                      Heat map แสดงจำนวนความเสี่ยงที่เกิดขึ้นของโครงการในแต่ Phase และ Factor
+                    </h2>
+                  </div>
+                  <RiskHeatmap
+                    heatmapRisk={summaryData.heatmapRisk}
+                    riskCategory={safeInfoData.riskCategory}
+                    riskFactor={safeInfoData.riskFactor}
+                  />
+                </div>
+              ) : null}
 
               {/* Right - 12 Sector Cards */}
               <div className="box p-4 sm:p-6 mt-8">

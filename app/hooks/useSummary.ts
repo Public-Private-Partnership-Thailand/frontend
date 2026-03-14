@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { parseThaiDateRangeToISO } from '@/lib/utils/dateUtils'
 import type { ProjectData } from '@/types/project'
 import { appConfig } from '@/app/configs/appConfig'
+import type { HeatmapRiskItem } from '@/lib/mockHeatmapData'
 
 export interface SummaryData {
   summary: {
@@ -55,6 +56,8 @@ export interface SummaryData {
     international: { count: number; investment: number }
   }
   latestProjects: ProjectData[]
+  /** Risk heat map: one map per risk category; x = phases, y = risk factors; value 0–5 for gradient. */
+  heatmapRisk?: HeatmapRiskItem[]
 }
 
 export interface SummaryFilters {
@@ -222,6 +225,42 @@ export const useSummary = (filters?: SummaryFilters, infoData?: {
   sector?: Array<{ id: number; value: string }>
   contractType?: Array<{ id: number; value: string }>
 }) => {
+  // Backend heatmapRisk schema uses numeric IDs; normalize to string codes
+  type HeatmapRiskApiItem = {
+    riskCategoryId: number | string
+    phaseList: Array<{
+      phase: string
+      riskFactors: Array<{
+        id: number | string
+        value: number
+      }>
+    }>
+  }
+
+  const toRiskCategoryCode = (id: number | string): string => {
+    if (typeof id === 'string') return id
+    return `C${String(id).padStart(2, '0')}`
+  }
+
+  const toRiskFactorCode = (id: number | string): string => {
+    if (typeof id === 'string') return id
+    return `F${String(id).padStart(2, '0')}`
+  }
+
+  const normalizeHeatmapRisk = (items: HeatmapRiskApiItem[] | undefined): HeatmapRiskItem[] | undefined => {
+    if (!items || !Array.isArray(items)) return undefined
+    return items.map(item => ({
+      riskCategoryId: toRiskCategoryCode(item.riskCategoryId),
+      phaseList: (item.phaseList || []).map(phase => ({
+        phase: phase.phase,
+        riskFactors: (phase.riskFactors || []).map(rf => ({
+          id: toRiskFactorCode(rf.id),
+          value: rf.value ?? 0,
+        })),
+      })),
+    }))
+  }
+
   return useQuery<SummaryData>({
     queryKey: ['get', 'summary', filters, infoData],
     queryFn: async () => {
@@ -248,8 +287,14 @@ export const useSummary = (filters?: SummaryFilters, infoData?: {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const data: SummaryData = await response.json()
-      // console.log('Fetched summary from /api/summary:', data)
+      const raw = await response.json()
+      const data: SummaryData = raw
+
+      // Normalize heatmapRisk IDs: numeric -> string codes ("C01", "F01")
+      if ((raw as any)?.heatmapRisk) {
+        data.heatmapRisk = normalizeHeatmapRisk((raw as any).heatmapRisk) || undefined
+      }
+
       return data
     },
     enabled: true,

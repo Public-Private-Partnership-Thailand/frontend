@@ -106,7 +106,7 @@ function RiskFactorSelect({
                 key={item.risk_factor_id}
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-theme-primary/10 text-theme-primary text-xs"
               >
-                {item.risk_factor_id}: {item.factor_name}
+                {item.factor_name}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -153,7 +153,7 @@ function RiskFactorSelect({
                     onChange={() => toggleFactor(f.id, f.name)}
                     className="mr-2 h-3.5 w-3.5 text-indigo-600 border-gray-300 rounded"
                   />
-                  <span className="text-xs text-gray-700">{f.id}: {f.name}</span>
+                  <span className="text-xs text-gray-700">{f.name}</span>
                 </label>
               ))
             )}
@@ -168,6 +168,12 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
   const { data: infoData } = useInfo()
   const riskCategories: RiskCategory[] = infoData?.riskCategory ?? []
   const riskFactors: RiskFactor[] = infoData?.riskFactor ?? []
+  const [collapsedIds, setCollapsedIds] = useState<string[]>([])
+  const risksValues = useWatch({
+    control,
+    name: 'risks',
+    defaultValue: [],
+  })
 
   const {
     fields: riskFields,
@@ -182,7 +188,7 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <p className="text-sm text-gray-600">
-          โครงการหนึ่งสามารถมีได้หลายความเสี่ยง คลิกเพิ่มความเสี่ยงเพื่อเพิ่มรายการ
+          หนึ่งโครงการสามารถมีได้หลายความเสี่ยง คลิกเพิ่มความเสี่ยงเพื่อเพิ่มรายการ
         </p>
         <button
           type="button"
@@ -213,119 +219,203 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
       )}
 
       {riskFields.map((riskField, riskIndex) => (
-        <div key={riskField.id} className="card border border-gray-200">
-          <div className="flex justify-between items-center mb-4">
-            <span className="font-medium text-gray-900">ความเสี่ยง #{riskIndex + 1}</span>
-            <button
-              type="button"
-              onClick={() => removeRisk(riskIndex)}
-              className="text-red-600 hover:text-red-800 text-sm px-2"
-            >
-              ลบ
-            </button>
-          </div>
+        (() => {
+          const isCollapsed = collapsedIds.includes(riskField.id)
+          const currentRisk =
+            Array.isArray(risksValues) && risksValues[riskIndex] ? risksValues[riskIndex] : {}
+          const phaseLabel =
+            RISK_PHASE_OPTIONS.find((opt) => opt.value === (currentRisk as any)?.phase)?.label || ''
+          const descriptionLines: string[] = Array.isArray((currentRisk as any)?.description)
+            ? ((currentRisk as any).description as string[])
+            : []
+          const firstDescription = descriptionLines[0] || ''
 
-          <div className="space-y-4">
-            {/* title */}
-            <div>
-              <label className="form-label">ชื่อความเสี่ยง (Title) *</label>
-              <input
-                {...register(`risks.${riskIndex}.title` as const, {
-                  required: 'กรุณากรอกชื่อความเสี่ยง',
-                })}
-                className={`form-input w-full ${errors.risks?.[riskIndex]?.title ? 'border-red-500' : ''}`}
-                placeholder="ชื่อหรือหัวข้อของความเสี่ยง"
-              />
-              {errors.risks?.[riskIndex]?.title && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.risks[riskIndex]?.title?.message}
-                </p>
-              )}
-            </div>
-
-            {/* phase */}
-            <div>
-              <label className="form-label">Phase (ระยะ) *</label>
-              <select
-                {...register(`risks.${riskIndex}.phase` as const, {
-                  required: 'กรุณาเลือก Phase',
-                })}
-                className={`form-input w-full ${errors.risks?.[riskIndex]?.phase ? 'border-red-500' : ''}`}
+          if (isCollapsed) {
+            return (
+              <div
+                key={riskField.id}
+                className="card border border-gray-200 bg-gray-50 flex flex-col md:flex-row md:items-start md:justify-between gap-4"
               >
-                <option value="">-- เลือก Phase --</option>
-                {RISK_PHASE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              {errors.risks?.[riskIndex]?.phase && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.risks[riskIndex]?.phase?.message}
-                </p>
-              )}
-            </div>
+                <div>
+                  <div className="text-xs text-gray-500 mb-1">ความเสี่ยง #{riskIndex + 1}</div>
+                  <h3 className="font-medium text-gray-900">
+                    {(currentRisk as any)?.title || `ยังไม่ตั้งชื่อความเสี่ยง`}
+                  </h3>
+                  {phaseLabel && (
+                    <p className="mt-1 text-sm text-gray-600">
+                      <span className="font-medium">Phase:</span> {phaseLabel}
+                    </p>
+                  )}
+                  {firstDescription && (
+                    <p className="mt-1 text-sm text-gray-600 line-clamp-2">
+                      {firstDescription}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-row md:flex-col gap-2 md:items-end">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCollapsedIds((prev) => prev.filter((id) => id !== riskField.id))
+                    }
+                    className="btn-secondary text-xs px-3 py-1 whitespace-nowrap"
+                  >
+                    แก้ไข
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      removeRisk(riskIndex)
+                      setCollapsedIds((prev) => prev.filter((id) => id !== riskField.id))
+                    }}
+                    className="btn-danger text-xs px-3 py-1 whitespace-nowrap"
+                  >
+                    ลบ
+                  </button>
+                </div>
+              </div>
+            )
+          }
 
-            {/* description */}
-            <div>
-              <label className="form-label">รายละเอียดความเสี่ยง (Description)</label>
-              <p className="text-xs text-gray-400 mb-1">แต่ละบรรทัดจะถูกบันทึกเป็นรายการแยก</p>
-              <Controller
-                control={control}
-                name={`risks.${riskIndex}.description` as const}
-                render={({ field }) => (
-                  <textarea
-                    value={(field.value as string[]).join('\n')}
-                    onChange={(e) => field.onChange(e.target.value.split('\n'))}
-                    onBlur={field.onBlur}
-                    rows={4}
-                    className="form-input w-full"
-                    placeholder={"บรรทัดที่ 1: รายละเอียดแรก\nบรรทัดที่ 2: รายละเอียดที่สอง"}
+          return (
+            <div key={riskField.id} className="card border border-gray-200">
+              <div className="flex justify-between items-center mb-4">
+                <span className="font-medium text-gray-900">ความเสี่ยง #{riskIndex + 1}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCollapsedIds((prev) =>
+                        prev.includes(riskField.id) ? prev : [...prev, riskField.id],
+                      )
+                    }
+                    className="btn-secondary text-xs px-3 py-1"
+                  >
+                    บันทึก
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeRisk(riskIndex)}
+                    className="text-red-600 hover:text-red-800 text-sm px-2"
+                  >
+                    ลบ
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* title + phase in left column, description on right */}
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="md:w-1/2 space-y-3">
+                    {/* title */}
+                    <div>
+                      <label className="form-label">ชื่อความเสี่ยง (Title) *</label>
+                      <input
+                        {...register(`risks.${riskIndex}.title` as const, {
+                          required: 'กรุณากรอกชื่อความเสี่ยง',
+                        })}
+                        className={`form-input w-full ${
+                          errors.risks?.[riskIndex]?.title ? 'border-red-500' : ''
+                        }`}
+                        placeholder="ชื่อหรือหัวข้อของความเสี่ยง"
+                      />
+                      {errors.risks?.[riskIndex]?.title && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.risks[riskIndex]?.title?.message}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* phase */}
+                    <div>
+                      <label className="form-label">เฟส (Phase) *</label>
+                      <select
+                        {...register(`risks.${riskIndex}.phase` as const, {
+                          required: 'กรุณาเลือก Phase',
+                        })}
+                        className={`form-input w-full ${
+                          errors.risks?.[riskIndex]?.phase ? 'border-red-500' : ''
+                        }`}
+                      >
+                        <option value="">-- เลือก Phase --</option>
+                        {RISK_PHASE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.risks?.[riskIndex]?.phase && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.risks[riskIndex]?.phase?.message}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="md:w-1/2">
+                    <label className="form-label">รายละเอียดความเสี่ยง (Description)</label>
+                    {/* <p className="text-xs text-gray-400 mb-1">แต่ละบรรทัดจะถูกบันทึกเป็นรายการแยก</p> */}
+                    <Controller
+                      control={control}
+                      name={`risks.${riskIndex}.description` as const}
+                      render={({ field }) => (
+                        <textarea
+                          value={(field.value as string[]).join('\n')}
+                          onChange={(e) => field.onChange(e.target.value.split('\n'))}
+                          onBlur={field.onBlur}
+                          rows={4}
+                          className="form-input w-full"
+                          placeholder={"บรรทัดที่ 1: รายละเอียดแรก\nบรรทัดที่ 2: รายละเอียดที่สอง"}
+                        />
+                      )}
+                    />
+                  </div>
+                </div>
+
+                {/* category_drivers */}
+                <RiskCategoryDriversBlock
+                  riskIndex={riskIndex}
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  setValue={setValue}
+                  riskCategories={riskCategories}
+                  riskFactors={riskFactors}
+                />
+
+                {/* mitigation_handling */}
+                <MitigationBlock
+                  riskIndex={riskIndex}
+                  register={register}
+                  control={control}
+                  errors={errors}
+                />
+
+                {/* impact_statement */}
+                <div>
+                  <label className="form-label">ผลกระทบ (Impact Statement)</label>
+                  <p className="text-xs text-gray-400 mb-1">
+                    แต่ละบรรทัดจะถูกบันทึกเป็นรายการแยก
+                  </p>
+                  <Controller
+                    control={control}
+                    name={`risks.${riskIndex}.impact_statement` as const}
+                    render={({ field }) => (
+                      <textarea
+                        value={(field.value as string[]).join('\n')}
+                        onChange={(e) => field.onChange(e.target.value.split('\n'))}
+                        onBlur={field.onBlur}
+                        rows={3}
+                        className="form-input w-full"
+                        placeholder={"บรรทัดที่ 1: ผลกระทบแรก\nบรรทัดที่ 2: ผลกระทบที่สอง"}
+                      />
+                    )}
                   />
-                )}
-              />
+                </div>
+              </div>
             </div>
-
-            {/* category_drivers */}
-            <RiskCategoryDriversBlock
-              riskIndex={riskIndex}
-              register={register}
-              control={control}
-              errors={errors}
-              setValue={setValue}
-              riskCategories={riskCategories}
-              riskFactors={riskFactors}
-            />
-
-            {/* mitigation_handling */}
-            <MitigationBlock
-              riskIndex={riskIndex}
-              register={register}
-              control={control}
-              errors={errors}
-            />
-
-            {/* impact_statement */}
-            <div>
-              <label className="form-label">ผลกระทบ (Impact Statement)</label>
-              <p className="text-xs text-gray-400 mb-1">แต่ละบรรทัดจะถูกบันทึกเป็นรายการแยก</p>
-              <Controller
-                control={control}
-                name={`risks.${riskIndex}.impact_statement` as const}
-                render={({ field }) => (
-                  <textarea
-                    value={(field.value as string[]).join('\n')}
-                    onChange={(e) => field.onChange(e.target.value.split('\n'))}
-                    onBlur={field.onBlur}
-                    rows={3}
-                    className="form-input w-full"
-                    placeholder={"บรรทัดที่ 1: ผลกระทบแรก\nบรรทัดที่ 2: ผลกระทบที่สอง"}
-                  />
-                )}
-              />
-            </div>
-          </div>
-        </div>
+          )
+        })()
       ))}
     </div>
   )
@@ -397,68 +487,102 @@ function RiskCategoryDriversBlock({
                 ลบ
               </button>
             </div>
-            <div>
-              <div className="flex items-center gap-1.5 mb-1">
-                <label className="block text-xs font-medium text-gray-600">Risk Category</label>
-                <InfoTooltip
-                  lines={(() => {
-                    const selId = Array.isArray(drivers) ? drivers[driverIndex]?.risk_category_id : ''
-                    const cat = riskCategories.find((c) => c.id === selId)
-                    return cat ? [`${cat.code}: ${cat.name}`, cat.description_th] : []
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="md:w-1/2">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <label className="block text-xs font-medium text-gray-600">Risk Category</label>
+                  <InfoTooltip
+                    lines={(() => {
+                      const selId = Array.isArray(drivers) ? drivers[driverIndex]?.risk_category_id : ''
+                      const cat = riskCategories.find((c) => c.id === selId)
+                      return cat ? [`${cat.code}: ${cat.name}`, cat.description_th] : []
+                    })()}
+                  />
+                </div>
+                <select
+                  {...register(`risks.${riskIndex}.category_drivers.${driverIndex}.risk_category_id` as const)}
+                  onChange={(e) => {
+                    const id = e.target.value
+                    setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.risk_category_id` as const, id, { shouldValidate: true })
+                    const cat = riskCategories.find((c) => c.id === id)
+                    setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.risk_category_code` as const, cat?.code ?? '')
+                    setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.category_name` as const, cat?.name ?? '')
+                  }}
+                  className="form-input w-full text-sm"
+                >
+                  <option value="">-- เลือก Category --</option>
+                  {(() => {
+                    const order = [
+                      'PROJECT_SELECTION',   // Project selected
+                      'PROCUREMENT',         // Procurement risks
+                      'LAND_SITE',           // Land availability, access & site
+                      'SOCIAL',              // Social
+                      'ENVIRONMENTAL',       // Environmental
+                      'DESIGN',              // Design
+                      'CONSTRUCTION',        // Construction
+                      'VARIATIONS',          // Variations
+                      'OPERATING',           // Operating
+                      'DEMAND',              // Demand
+                      'PROJECT_FINANCE',     // Project finance
+                      'FIN_MARKET',          // Financial markets
+                      'STRATEGIC',           // Strategic / Partnering
+                      'POLITICAL',           // Political
+                      'LAW',                 // Law
+                      'RELATIONSHIP',        // Relationship
+                      'DISRUPT_TECH',        // Disruptive technology
+                      'FORCE_MAJEURE',       // Force majeure
+                      'EARLY_TERMINATION',   // Early termination
+                      'HANDBACK_COND',       // Condition at handback
+                    ]
+
+                    return [...riskCategories]
+                      .sort((a, b) => {
+                        const ia = order.indexOf(a.code)
+                        const ib = order.indexOf(b.code)
+                        const aIdx = ia === -1 ? Number.MAX_SAFE_INTEGER : ia
+                        const bIdx = ib === -1 ? Number.MAX_SAFE_INTEGER : ib
+                        if (aIdx !== bIdx) return aIdx - bIdx
+                        return a.code.localeCompare(b.code)
+                      })
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.code}: {c.name}
+                        </option>
+                      ))
                   })()}
+                </select>
+              </div>
+              <div className="md:w-1/2">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <label className="block text-xs font-medium text-gray-600">
+                    Risk Factor (ค้นหาและเลือกได้หลายรายการ)
+                  </label>
+                  <InfoTooltip
+                    lines={(() => {
+                      const selFactors = (Array.isArray(drivers) ? drivers[driverIndex]?.driven_by_risk_factors : undefined) ?? []
+                      return selFactors.map((item) => {
+                        const f = riskFactors.find((x) => x.id === item.risk_factor_id)
+                        return f
+                          ? `${f.name} — ${f.description_th}`
+                          : item.risk_factor_id
+                      })
+                    })()}
+                  />
+                </div>
+                <RiskFactorSelect
+                  selectedFactors={
+                    (Array.isArray(drivers) ? drivers[driverIndex]?.driven_by_risk_factors : undefined) ?? []
+                  }
+                  onChange={(factors) => {
+                    setValue(
+                      `risks.${riskIndex}.category_drivers.${driverIndex}.driven_by_risk_factors` as const,
+                      factors,
+                      { shouldValidate: true }
+                    )
+                  }}
+                  riskFactors={riskFactors}
                 />
               </div>
-              <select
-                {...register(`risks.${riskIndex}.category_drivers.${driverIndex}.risk_category_id` as const)}
-                onChange={(e) => {
-                  const id = e.target.value
-                  setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.risk_category_id` as const, id, { shouldValidate: true })
-                  const cat = riskCategories.find((c) => c.id === id)
-                  setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.risk_category_code` as const, cat?.code ?? '')
-                  setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.category_name` as const, cat?.name ?? '')
-                }}
-                className="form-input w-full text-sm"
-              >
-                <option value="">-- เลือก Category --</option>
-                {[...riskCategories]
-                  .sort((a, b) => a.code.localeCompare(b.code))
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.code}: {c.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5 mb-1">
-                <label className="block text-xs font-medium text-gray-600">
-                  Risk Factor (ค้นหาและเลือกได้หลายรายการ)
-                </label>
-                <InfoTooltip
-                  lines={(() => {
-                    const selFactors = (Array.isArray(drivers) ? drivers[driverIndex]?.driven_by_risk_factors : undefined) ?? []
-                    return selFactors.map((item) => {
-                      const f = riskFactors.find((x) => x.id === item.risk_factor_id)
-                      return f
-                        ? `${f.id}: ${f.name} — ${f.description_th}`
-                        : item.risk_factor_id
-                    })
-                  })()}
-                />
-              </div>
-              <RiskFactorSelect
-                selectedFactors={
-                  (Array.isArray(drivers) ? drivers[driverIndex]?.driven_by_risk_factors : undefined) ?? []
-                }
-                onChange={(factors) => {
-                  setValue(
-                    `risks.${riskIndex}.category_drivers.${driverIndex}.driven_by_risk_factors` as const,
-                    factors,
-                    { shouldValidate: true }
-                  )
-                }}
-                riskFactors={riskFactors}
-              />
             </div>
           </div>
         ))}
@@ -515,26 +639,28 @@ function MitigationBlock({
                 ลบ
               </button>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">มาตรการรับมือ (Action)</label>
-              <input
-                {...register(`risks.${riskIndex}.mitigation_handling.${mIndex}.action` as const)}
-                className="form-input w-full text-sm"
-                placeholder="รายละเอียดมาตรการ"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">สถานะ (Status)</label>
-              <select
-                {...register(`risks.${riskIndex}.mitigation_handling.${mIndex}.status` as const)}
-                className="form-input w-full text-sm"
-              >
-                {MITIGATION_STATUS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="md:w-2/3">
+                <label className="block text-xs font-medium text-gray-600 mb-1">มาตรการรับมือ (Action)</label>
+                <input
+                  {...register(`risks.${riskIndex}.mitigation_handling.${mIndex}.action` as const)}
+                  className="form-input w-full text-sm"
+                  placeholder="รายละเอียดมาตรการ"
+                />
+              </div>
+              <div className="md:w-1/3">
+                <label className="block text-xs font-medium text-gray-600 mb-1">สถานะ (Status)</label>
+                <select
+                  {...register(`risks.${riskIndex}.mitigation_handling.${mIndex}.status` as const)}
+                  className="form-input w-full text-sm"
+                >
+                  {MITIGATION_STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         ))}

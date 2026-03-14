@@ -300,7 +300,7 @@ export default function CreateProjectPage() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-0">
-      <div className={`mx-auto ${currentStep === 4 || currentStep === 5 || currentStep === 6 ? 'max-w-[700px] md:w-[700px]' : 'max-w-[700px]'}`}>
+      <div className={``}>
         <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('pages.create.title')}</h1>
         <p className="mt-2 text-sm sm:text-base text-gray-600">
@@ -308,12 +308,14 @@ export default function CreateProjectPage() {
         </p>
         {/* Step Indicator */}
         <div className="mt-6">
-          <div className="flex items-center justify-between w-full">
+          <div className="flex items-start justify-between w-full">
             {[1, 2, 3, 4, 5, 6].map((step, index) => (
-              <div key={step} className="flex items-center flex-1">
-                <div className="flex flex-col items-center flex-1">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${currentStep >= step ? 'bg-theme-primary text-white' : 'bg-gray-200 text-gray-600'}`}>
-                    {step}
+              <div key={step} className="flex items-start flex-1 min-w-0">
+                <div className="flex flex-col items-center flex-1 min-w-0">
+                  <div className="py-2 flex justify-center flex-shrink-0">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${currentStep >= step ? 'bg-theme-primary text-white' : 'bg-gray-200 text-gray-600'}`}>
+                      {step}
+                    </div>
                   </div>
                   <span className={`mt-1 text-xs text-center px-1 ${currentStep >= step ? 'text-theme-primary font-medium' : 'text-gray-500'}`}>
                     {step === 1 && (t('pages.create.step1') || 'Essential')}
@@ -325,7 +327,9 @@ export default function CreateProjectPage() {
                   </span>
                 </div>
                 {index < 5 && (
-                  <div className={`flex-1 h-0.5 mx-1 ${currentStep > step ? 'bg-theme-primary' : 'bg-gray-300'}`}></div>
+                  <div className="flex-1 flex items-center min-w-[8px] mx-1 h-10">
+                    <div className={`w-full h-0.5 ${currentStep > step ? 'bg-theme-primary' : 'bg-gray-300'}`} />
+                  </div>
                 )}
               </div>
             ))}
@@ -367,7 +371,7 @@ export default function CreateProjectPage() {
           </div>
         ) : currentStep === 5 ? (
           <div className="card">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Risk ความเสี่ยง</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">ความเสี่ยง</h2>
             <Step5Risk register={register} control={control} errors={errors} setValue={setValue} />
           </div>
         ) : (

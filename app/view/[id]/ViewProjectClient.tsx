@@ -21,6 +21,7 @@ export default function ViewProjectClient() {
   const [project, setProject] = useState<ProjectData | null>(null)
   const [showAdditionalInfo, setShowAdditionalInfo] = useState(false)
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null)
+  const [expandedRiskIndices, setExpandedRiskIndices] = useState<Set<number>>(new Set())
 
   const { data: infoData } = useInfo()
   const riskCategories = infoData?.riskCategory ?? []
@@ -35,22 +36,12 @@ export default function ViewProjectClient() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (selectedImageIndex === null) return
       
-      // Get project images for length check
-      const images = project ? (() => {
-        const imageUrls: string[] = []
-        if (project.documents) {
-          project.documents.forEach(doc => {
-            if (doc.url && (doc.format?.toLowerCase().includes('image') || 
-                doc.url.match(/\.(jpg|jpeg|png|gif|webp)$/i))) {
-              imageUrls.push(doc.url)
-            }
-          })
-        }
-        return imageUrls.length > 0 ? imageUrls : [
-          'https://ppp.sepo.go.th/uploads/images/eaec8cd7f22e580e0abf952212b29801.jpg',
-          'https://ppp.sepo.go.th/uploads/images/6e61041f1444b08dbb633ccacc323c28.jpg'
-        ]
-      })() : []
+      // Get project images from documents where documentType === 'image'
+      const images = project?.documents
+        ? project.documents
+            .filter((doc: any) => doc.documentType === 'image' && doc.url)
+            .map((doc: any) => doc.url)
+        : []
       
       if (e.key === 'Escape') {
         setSelectedImageIndex(null)
@@ -288,29 +279,12 @@ export default function ViewProjectClient() {
 
   const investmentScopeName = getInvestmentScope()
 
-  // Extract image URLs from project data or use example URLs
+  // Image URLs from documents where documentType === 'image'
   const getProjectImages = (): string[] => {
-    // Try to get images from documents with image formats
-    const imageUrls: string[] = []
-    
-    if (project.documents) {
-      project.documents.forEach(doc => {
-        if (doc.url && (doc.format?.toLowerCase().includes('image') || 
-            doc.url.match(/\.(jpg|jpeg|png|gif|webp)$/i))) {
-          imageUrls.push(doc.url)
-        }
-      })
-    }
-    
-    // If no images found, use example URLs as fallback
-    if (imageUrls.length === 0) {
-      return [
-        'https://ppp.sepo.go.th/uploads/images/eaec8cd7f22e580e0abf952212b29801.jpg',
-        'https://ppp.sepo.go.th/uploads/images/6e61041f1444b08dbb633ccacc323c28.jpg'
-      ]
-    }
-    
-    return imageUrls
+    if (!project?.documents) return []
+    return project.documents
+      .filter((doc: any) => doc.documentType === 'image' && doc.url)
+      .map((doc: any) => doc.url)
   }
 
   const projectImages = getProjectImages()
@@ -601,6 +575,15 @@ export default function ViewProjectClient() {
               rejected:         { label: 'ไม่ดำเนินการ',     icon: '✕', cls: 'bg-red-50 text-red-700 border-red-200' },
             }
 
+            const toggleRiskExpand = (index: number) => {
+              setExpandedRiskIndices(prev => {
+                const next = new Set(prev)
+                if (next.has(index)) next.delete(index)
+                else next.add(index)
+                return next
+              })
+            }
+
             return (
               <div className="bg-white shadow rounded-lg p-4 sm:p-6 w-full">
                 <div className="flex items-center justify-between mb-5">
@@ -611,12 +594,23 @@ export default function ViewProjectClient() {
                 <div className="space-y-6">
                   {risks.map((risk, riskIndex) => {
                     const phaseMeta = PHASE_META[risk.phase] ?? { label: risk.phase, cls: 'bg-gray-100 text-gray-600' }
+                    const isExpanded = expandedRiskIndices.has(riskIndex)
+                    const hasDetails = Boolean(
+                      (risk.description?.length) ||
+                      (risk.category_drivers?.length) ||
+                      (risk.mitigation_handling?.length) ||
+                      (risk.impact_statement?.length)
+                    )
 
                     return (
                       <div key={risk.risk_id ?? riskIndex} className="rounded-xl border border-gray-200 overflow-hidden">
 
-                        {/* ── Header ── */}
-                        <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                        {/* ── Header: number, title, phase (always visible); click to expand ── */}
+                        <button
+                          type="button"
+                          onClick={() => hasDetails && toggleRiskExpand(riskIndex)}
+                          className={`w-full text-left bg-gray-50 px-4 py-3 border-b border-gray-200 ${hasDetails ? 'cursor-pointer hover:bg-gray-100 transition-colors' : 'cursor-default'}`}
+                        >
                           <div className="flex items-start gap-3">
                             <span className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full bg-theme-primary/10 text-theme-primary text-xs font-bold flex items-center justify-center">
                               {riskIndex + 1}
@@ -629,9 +623,17 @@ export default function ViewProjectClient() {
                                 {phaseMeta.label}
                               </span>
                             </div>
+                            {hasDetails && (
+                              <span className="flex-shrink-0 mt-0.5 text-gray-400 transition-transform duration-200" style={{ transform: isExpanded ? 'rotate(180deg)' : undefined }}>
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </span>
+                            )}
                           </div>
-                        </div>
+                        </button>
 
+                        {isExpanded && (
                         <div className="divide-y divide-gray-100">
 
                           {/* ── Description ── */}
@@ -743,6 +745,7 @@ export default function ViewProjectClient() {
                           )}
 
                         </div>
+                        )}
                       </div>
                     )
                   })}
