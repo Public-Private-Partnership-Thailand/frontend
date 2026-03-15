@@ -681,7 +681,7 @@ export default function ProjectsPage() {
           {t('home.search')} & {t('home.filters')}
         </h3>
         
-        {/* First row: Search only */}
+        {/* First row: Search only - 100% width */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             {t('home.search')}
@@ -689,16 +689,16 @@ export default function ProjectsPage() {
           <input
             type="text"
             placeholder={t('home.searchProjects')}
-            className="w-full max-w-md px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary"
+            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary"
             value={tempFilters.search}
             onChange={(e) => handleFilterChange('search', e.target.value)}
           />
         </div>
 
-        {/* Second row: Other filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 mb-3">
-          {/* Business Group Filter */}
-          <div className="lg:col-span-2">
+        {/* Second row: กลุ่มกิจการ 30%, กระทรวง 30%, startDate 20%, endDate 20% */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+          {/* Business Group Filter - 30% */}
+          <div className="min-w-0">
             <MultiSelectDropdown
               label={t('dashboard.businessGroup')}
               options={businessGroupOptions}
@@ -711,8 +711,8 @@ export default function ProjectsPage() {
             />
           </div>
 
-          {/* Ministry Filter */}
-          <div className="lg:col-span-2">
+          {/* Ministry Filter - 30% */}
+          <div className="min-w-0">
             <MultiSelectDropdown
               label={t('dashboard.ministry')}
               options={ministryOptions}
@@ -724,39 +724,38 @@ export default function ProjectsPage() {
             />
           </div>
 
-          {/* Year Range Filter - ช่วงปีที่ลงนามในสัญญา (same as home page: start year / end year dropdowns) */}
-          <div className="lg:col-span-3">
+          {/* Start Year - 20% */}
+          <div className="min-w-0">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('home.yearRange')}
+              {t('home.startYear') || 'ปีเริ่มต้น'}
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="sr-only">{t('home.startYear') || 'ปีเริ่มต้น'}</label>
-                <select
-                  value={tempFilters.startYear}
-                  onChange={(e) => handleFilterChange('startYear', e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary"
-                >
-                  <option value="">{t('home.allYears') || 'ทั้งหมด'}</option>
-                  {availableYears.map((y) => (
-                    <option key={y} value={String(y)}>{y}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="sr-only">{t('home.endYear') || 'ปีสิ้นสุด'}</label>
-                <select
-                  value={tempFilters.endYear}
-                  onChange={(e) => handleFilterChange('endYear', e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary"
-                >
-                  <option value="">{t('home.allYears') || 'ทั้งหมด'}</option>
-                  {availableYears.map((y) => (
-                    <option key={y} value={String(y)}>{y}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <select
+              value={tempFilters.startYear}
+              onChange={(e) => handleFilterChange('startYear', e.target.value)}
+              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary"
+            >
+              <option value="">{t('home.allYears') || 'ทั้งหมด'}</option>
+              {availableYears.map((y) => (
+                <option key={y} value={String(y)}>{y}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* End Year - 20% */}
+          <div className="min-w-0">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('home.endYear') || 'ปีสิ้นสุด'}
+            </label>
+            <select
+              value={tempFilters.endYear}
+              onChange={(e) => handleFilterChange('endYear', e.target.value)}
+              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary"
+            >
+              <option value="">{t('home.allYears') || 'ทั้งหมด'}</option>
+              {availableYears.map((y) => (
+                <option key={y} value={String(y)}>{y}</option>
+              ))}
+            </select>
             {filterValidationError && (
               <div className="mt-1.5 p-1.5 bg-red-50 border border-red-200 rounded-md">
                 <p className="text-sm text-red-600">{filterValidationError}</p>
@@ -765,10 +764,10 @@ export default function ProjectsPage() {
           </div>
         </div>
 
-        {/* Third row: รูปแบบการจัดสรรกรรมสิทธิ์ and รูปแบบสัมปทานหรือค่าตอบแทน */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 mb-3">
-          {/* Contract Type Filter - รูปแบบการจัดสรรกรรมสิทธิ์ */}
-          <div className="lg:col-span-3">
+        {/* Third row: รูปแบบการจัดสรรกรรมสิทธิ์ 50%, รูปแบบสัมปทานหรือค่าตอบแทน 50% */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+          {/* Contract Type Filter - รูปแบบการจัดสรรกรรมสิทธิ์ - 50% */}
+          <div className="min-w-0">
             <MultiSelectDropdown
               label={t('home.contractType')}
               options={contractTypeOptions}
@@ -780,9 +779,9 @@ export default function ProjectsPage() {
             />
           </div>
 
-          {/* Concession Form Filter - รูปแบบสัมปทานหรือค่าตอบแทน */}
+          {/* Concession Form Filter - รูปแบบสัมปทานหรือค่าตอบแทน - 50% */}
           {concessionForms.length > 0 && (
-            <div className="lg:col-span-3">
+            <div className="min-w-0">
               <MultiSelectDropdown
                 label="รูปแบบสัมปทานหรือค่าตอบแทน"
                 options={concessionFormOptions}
@@ -908,10 +907,10 @@ export default function ProjectsPage() {
                     />
                   </label>
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider min-w-[18rem]">
                   {t('projects.projectName')}
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider w-52 min-w-[13rem]">
+                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider w-40 min-w-[9rem]">
                   {t('projects.ministry')}
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider w-52 min-w-[13rem]">
@@ -963,12 +962,12 @@ export default function ProjectsPage() {
                       />
                     </label>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 min-w-[18rem]">
                     <div className="text-sm font-medium text-gray-900">
                       {formatProjectTitle(project.title)}
                     </div>
                   </td>
-                  <td className="px-6 py-4 w-52 min-w-[13rem]">
+                  <td className="px-6 py-4 w-40 min-w-[9rem]">
                     <div className="text-sm text-gray-900">
                       {formatMinistry(project.additionalClassifications?.filter(c => c.scheme === 'TH-MINISTRY').map(c => c.description).filter(Boolean).join(', '))}
                     </div>

@@ -299,7 +299,7 @@ export default function CreateProjectPage() {
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-0">
+    <div className="px-4 sm:px-6 lg:px-32">
       <div className={``}>
         <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('pages.create.title')}</h1>

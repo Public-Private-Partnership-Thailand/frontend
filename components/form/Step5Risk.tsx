@@ -184,29 +184,39 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
     name: 'risks' as 'risks',
   })
 
+  const addRiskButton = (
+    <button
+      type="button"
+      onClick={() =>
+        appendRisk({
+          title: '',
+          phase: '',
+          description: [],
+          category_drivers: [{ risk_category_id: '', risk_category_code: '', category_name: '', driven_by_risk_factors: [] }],
+          mitigation_handling: [],
+          impact_statement: [],
+        })
+      }
+      className="btn-secondary text-sm whitespace-nowrap"
+    >
+      + เพิ่มความเสี่ยง
+    </button>
+  )
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {riskFields.length === 0 ? (
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <p className="text-sm text-gray-600">
+            หนึ่งโครงการสามารถมีได้หลายความเสี่ยง
+          </p>
+          {addRiskButton}
+        </div>
+      ) : (
         <p className="text-sm text-gray-600">
-          หนึ่งโครงการสามารถมีได้หลายความเสี่ยง คลิกเพิ่มความเสี่ยงเพื่อเพิ่มรายการ
+          หนึ่งโครงการสามารถมีได้หลายความเสี่ยง เลื่อนลงด้านล่างเพื่อคลิกเพิ่มความเสี่ยง
         </p>
-        <button
-          type="button"
-          onClick={() =>
-            appendRisk({
-              title: '',
-              phase: '',
-              description: [],
-              category_drivers: [{ risk_category_id: '', risk_category_code: '', category_name: '', driven_by_risk_factors: [] }],
-              mitigation_handling: [],
-              impact_statement: [],
-            })
-          }
-          className="btn-secondary text-sm whitespace-nowrap"
-        >
-          + เพิ่มความเสี่ยง
-        </button>
-      </div>
+      )}
 
       {riskFields.length === 0 && (
         <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed border-gray-300 rounded-lg bg-gray-50">
@@ -214,7 +224,7 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
           </svg>
           <p className="text-sm text-gray-500">ยังไม่มีความเสี่ยง</p>
-          <p className="text-xs text-gray-400 mt-1">คลิก &quot;+ เพิ่มความเสี่ยง&quot; เพื่อเพิ่มรายการ (ไม่บังคับ)</p>
+          <p className="text-xs text-gray-400 mt-1">คลิก &quot;+ เพิ่มความเสี่ยง&quot; เพื่อเพิ่มรายการ</p>
         </div>
       )}
 
@@ -260,7 +270,7 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
                     }
                     className="btn-secondary text-xs px-3 py-1 whitespace-nowrap"
                   >
-                    แก้ไข
+                    แสดงรายละเอียด
                   </button>
                   <button
                     type="button"
@@ -291,7 +301,7 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
                     }
                     className="btn-secondary text-xs px-3 py-1"
                   >
-                    บันทึก
+                    ซ่อนรายละเอียด
                   </button>
                   <button
                     type="button"
@@ -417,6 +427,12 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
           )
         })()
       ))}
+
+      {riskFields.length >= 1 && (
+        <div className="flex justify-end pt-4 border-t border-gray-200">
+          {addRiskButton}
+        </div>
+      )}
     </div>
   )
 }

@@ -28,8 +28,8 @@ function getPhaseLabel(phase: string): string {
   return labels[phase] ?? phase
 }
 
-/** Risk factor column label: id 1 → "F01", "F01" → "F01". */
-function getFactorCode(id: string): string {
+/** Normalize factor id from API (numeric 1, 2, ... or string "F01") to "F01" for lookup in riskFactor. */
+function normalizeFactorId(id: string | number): string {
   const s = String(id)
   if (/^F\d+$/i.test(s)) return s
   const n = parseInt(s, 10)
@@ -58,139 +58,107 @@ function HeatMapTable({
   maxValue: number
   onCellClick?: () => void
 }) {
-  const category = categoryById.get(item.riskCategoryId)
-  const title = category?.name ?? item.riskCategoryId
-  const phases = item.phaseList
-  const allFactorIds = Array.from(
-    new Set(phases.flatMap((p) => p.riskFactors.map((r) => r.id)))
-  ).filter((id) => factorById.has(id))
+  const categoryIdKey = String(item.riskCategoryId)
+  const category = categoryById.get(item.riskCategoryId as string) ?? categoryById.get(categoryIdKey)
+  const title = category?.name ?? categoryIdKey
+  const phases = item.phaseList ?? []
+  const allFactorIdsRaw = Array.from(
+    new Set(phases.flatMap((p) => (p.riskFactors ?? []).map((r) => r.id)))
+  )
+  const allFactorIds = allFactorIdsRaw
+    .map((id) => normalizeFactorId(id))
+    .filter((id) => factorById.has(id))
   const valueByKey = new Map<string, number>()
   phases.forEach((phase) => {
-    phase.riskFactors.forEach((rf) => {
-      valueByKey.set(`${phase.phase}:${rf.id}`, rf.value)
+    (phase.riskFactors ?? []).forEach((rf) => {
+      valueByKey.set(`${phase.phase}:${normalizeFactorId(rf.id)}`, rf.value)
     })
   })
 
   const factorIds = compact ? allFactorIds.slice(0, 15) : allFactorIds
 
-  // Compact table: rows = phases, columns = risk factors (small squares, no numbers)
-  const compactTable = (
-    <table className="w-full border-collapse text-xs">
-      <thead>
-        <tr>
-          <th className="border border-gray-300 bg-gray-50 px-2 py-1 text-left font-medium text-gray-700 w-32 align-bottom">
-            Phase
-          </th>
-          {factorIds.map((factorId) => (
-            <th
-              key={factorId}
-              className="border border-gray-300 bg-gray-50 px-0.5 py-1 text-center font-medium text-gray-700 text-[10px] min-w-[28px]"
-              title={factorById.get(factorId)?.name ?? factorId}
-            >
-              {getFactorCode(factorId)}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {phases.map((p) => (
-          <tr key={p.phase}>
-            <td className="border border-gray-300 px-2 py-1 text-gray-800 bg-white whitespace-nowrap">
-              {getPhaseLabel(p.phase)}
-            </td>
-            {factorIds.map((factorId) => {
-              const factor = factorById.get(factorId)
-              const name = factor?.name ?? factorId
-              const value = valueByKey.get(`${p.phase}:${factorId}`) ?? 0
-              const bg = getGradientColor(value, maxValue)
-              return (
-                <td
-                  key={factorId}
-                  className="border border-gray-300 p-0 align-middle w-[10px] h-[10px]"
-                >
-                  <Tippy content={`${name} · ${getPhaseLabel(p.phase)}: ${value}`}>
-                    <div
-                      className="w-full h-full"
-                      style={{ backgroundColor: bg }}
-                    />
-                  </Tippy>
-                </td>
-              )
-            })}
-          </tr>
-        ))}
-      </tbody>
-    </table>
+  // Lite/compact: overview per phase — "Found in N projects" only
+  const phaseOverview = phases.map((p) => {
+    const factorsInPhase = (p.riskFactors ?? [])
+      .map((rf) => ({ id: normalizeFactorId(rf.id), value: rf.value }))
+      .filter(({ id }) => factorById.has(id))
+    const totalInPhase = factorsInPhase.reduce((sum, { value }) => sum + value, 0)
+    return { phase: p.phase, totalInPhase }
+  })
+
+  const compactOverview = (
+    <div className="space-y-1 text-xs">
+      {phaseOverview.map(({ phase, totalInPhase }) => (
+        <div key={phase} className="border-b border-gray-100 py-1 last:border-0 last:pb-0">
+          <p className="font-medium text-gray-800 leading-tight">
+            {getPhaseLabel(phase)}: found in {totalInPhase} project{totalInPhase !== 1 ? 's' : ''}
+          </p>
+        </div>
+      ))}
+    </div>
   )
 
-  // Full table: same layout as compact; square cells sized similarly to compact headers
+  // Full table: rows = risk factors (full name), columns = phases
   const fullCellPx = 28
   const fullTable = (
-    <table className="border-collapse text-sm table-fixed">
+    <table className="border-collapse text-sm">
       <colgroup>
-        <col style={{ width: 120 }} />
-        {factorIds.map((factorId) => (
-          <col key={factorId} style={{ width: fullCellPx }} />
+        <col style={{ minWidth: 200, maxWidth: 320 }} />
+        {phases.map((p) => (
+          <col key={p.phase} style={{ width: fullCellPx }} />
         ))}
       </colgroup>
       <thead>
         <tr>
           <th className="border border-gray-300 bg-gray-50 px-2 py-2 text-left text-gray-700 text-xs">
-            Phase
+            Risk factor
           </th>
-          {factorIds.map((factorId) => {
-            const factor = factorById.get(factorId)
-            const name = factor?.name ?? factorId
-            return (
-              <th
-                key={factorId}
-                className="border border-gray-300 bg-gray-50"
-                style={{ width: fullCellPx, minWidth: fullCellPx }}
-              >
-                <span
-                  className="inline-block text-gray-700 text-[10px]"
-                  style={{
-                    maxWidth: 30,
-                  }}
-                  title={name}
-                >
-                  {getFactorCode(factorId)}
-                </span>
-              </th>
-            )
-          })}
+          {phases.map((p) => (
+            <th
+              key={p.phase}
+              className="border border-gray-300 bg-gray-50 px-2 py-2 text-center text-gray-700 text-xs"
+              style={{ width: fullCellPx, minWidth: fullCellPx }}
+            >
+              {getPhaseLabel(p.phase)}
+            </th>
+          ))}
         </tr>
       </thead>
       <tbody>
-        {phases.map((p) => (
-          <tr key={p.phase}>
-            <td className="border border-gray-300 px-2 py-1.5 text-gray-800 bg-white whitespace-nowrap text-xs">
-              {getPhaseLabel(p.phase)}
-            </td>
-            {factorIds.map((factorId) => {
-              const factor = factorById.get(factorId)
-              const name = factor?.name ?? factorId
-              const value = valueByKey.get(`${p.phase}:${factorId}`) ?? 0
-              const bg = getGradientColor(value, maxValue)
-              return (
-                <td
-                  key={factorId}
-                  className="border border-gray-300 p-0 align-middle"
-                  style={{ width: fullCellPx, height: fullCellPx }}
-                >
-                  <Tippy content={`${name} · ${getPhaseLabel(p.phase)}: ${value}`}>
-                    <div
-                      className="w-full h-full flex items-center justify-center font-medium text-gray-800 text-xs"
-                      style={{ backgroundColor: bg }}
-                    >
-                      {value > 0 ? value : ''}
-                    </div>
-                  </Tippy>
-                </td>
-              )
-            })}
-          </tr>
-        ))}
+        {factorIds.map((factorId) => {
+          const factor = factorById.get(factorId)
+          const factorName = factor?.name ?? factorId
+          return (
+            <tr key={factorId}>
+              <td
+                className="border border-gray-300 px-2 py-1.5 text-gray-800 bg-white text-xs max-w-[320px]"
+                title={factorName}
+              >
+                {factorName}
+              </td>
+              {phases.map((p) => {
+                const value = valueByKey.get(`${p.phase}:${factorId}`) ?? 0
+                const bg = getGradientColor(value, maxValue)
+                return (
+                  <td
+                    key={p.phase}
+                    className="border border-gray-300 p-0 align-middle"
+                    style={{ width: fullCellPx, height: fullCellPx }}
+                  >
+                    <Tippy content={`${factorName} · ${getPhaseLabel(p.phase)}: ${value}`}>
+                      <div
+                        className="w-full h-full flex items-center justify-center font-medium text-gray-800 text-xs"
+                        style={{ backgroundColor: bg }}
+                      >
+                        {value > 0 ? value : ''}
+                      </div>
+                    </Tippy>
+                  </td>
+                )
+              })}
+            </tr>
+          )
+        })}
       </tbody>
     </table>
   )
@@ -205,7 +173,7 @@ function HeatMapTable({
         <h3 className="text-sm font-semibold text-gray-900 mb-2 truncate pr-6 flex-shrink-0" title={title}>
           {title}
         </h3>
-        <div className="overflow-hidden flex-1 min-h-0">{compactTable}</div>
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">{compactOverview}</div>
         <p className="mt-2 text-xs text-gray-500 flex items-center gap-1 flex-shrink-0">
           <Lucide icon="Expand" className="w-3.5 h-3.5" />
           Click to view full heat map
@@ -243,7 +211,11 @@ function HeatMapTable({
 
 export default function RiskHeatmap({ heatmapRisk, riskCategory, riskFactor }: RiskHeatmapProps) {
   const [selectedItem, setSelectedItem] = useState<HeatmapRiskItem | null>(null)
-  const categoryById = new Map(riskCategory.map((c) => [c.id, c]))
+  const categoryById = new Map<string, RiskCategory>()
+  riskCategory.forEach((c, i) => {
+    categoryById.set(c.id, c)
+    categoryById.set(String(i + 1), c)
+  })
   const factorById = new Map(riskFactor.map((f) => [f.id, f]))
 
   // Find global max value across all cells to drive gradient intensity
@@ -262,7 +234,7 @@ export default function RiskHeatmap({ heatmapRisk, riskCategory, riskFactor }: R
   return (
     <>
       {/* Compact grid: 2 heat maps per row; equal height cards, title stuck at top */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {heatmapRisk.map((item) => (
           <HeatMapTable
             key={item.riskCategoryId}
@@ -287,7 +259,7 @@ export default function RiskHeatmap({ heatmapRisk, riskCategory, riskFactor }: R
           <div className="bg-white rounded-xl shadow-xl w-max max-w-[90vw] max-h-[90vh] overflow-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
               <h2 id="risk-heatmap-modal-title" className="text-lg font-semibold text-gray-900">
-                {categoryById.get(selectedItem.riskCategoryId)?.name ?? selectedItem.riskCategoryId}
+                {categoryById.get(String(selectedItem.riskCategoryId))?.name ?? categoryById.get(selectedItem.riskCategoryId as string)?.name ?? String(selectedItem.riskCategoryId)}
               </h2>
               <button
                 type="button"
