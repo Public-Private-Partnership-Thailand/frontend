@@ -214,12 +214,14 @@ export interface RelatedProject {
 }
 
 export interface RiskFactorItem {
-  risk_factor_id: string;
+  /** Numeric ID referencing InfoData.riskFactor.id */
+  risk_factor_id: number;
   factor_name: string;
 }
 
 export interface RiskCategoryDriver {
-  risk_category_id: string;
+  /** Numeric ID referencing InfoData.riskCategory.id */
+  risk_category_id: number;
   risk_category_code: string;
   category_name: string;
   driven_by_risk_factors: RiskFactorItem[];

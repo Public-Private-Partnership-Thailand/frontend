@@ -12,10 +12,11 @@ import clsx from 'clsx'
 import Lucide from '@/components/Base/Lucide'
 import Tippy from '@/components/Base/Tippy'
 import ReportPieChart from '@/components/ReportPieChart'
-import RiskHeatmap from '@/components/RiskHeatmap'
+import RiskHeatmap, { HeatMapTable } from '@/components/RiskHeatmap'
+import type { HeatmapRiskItem } from '@/lib/mockHeatmapData'
 import dayjs from 'dayjs'
 import 'dayjs/locale/th'
-import { useInfo, type InfoData } from '@/app/hooks/useInfo'
+import { useInfo, type InfoData, type RiskCategory, type RiskFactor } from '@/app/hooks/useInfo'
 import { useSummary, type SummaryData, type SummaryFilters, getIconNameByGroupName } from '@/app/hooks/useSummary'
 
 import {
@@ -40,8 +41,8 @@ import {
   getMockRiskCategoryProjectCounts,
   getMockRiskByPhaseStacked,
   getMockSectorRiskFactorHeatmap,
-  getMockRiskCategoryMatrix,
 } from '@/lib/dashboardMockData';
+import { MOCK_RISK_FACTORS } from '@/lib/riskFactorsMock';
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -183,6 +184,8 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<HomeTab>('overview')
   const [filterValidationError, setFilterValidationError] = useState<string | null>(null)
   const [showFilters, setShowFilters] = useState(false)
+  const [sectorRiskHeatmapExpanded, setSectorRiskHeatmapExpanded] = useState(false)
+  const [selectedHeatmapItem, setSelectedHeatmapItem] = useState<HeatmapRiskItem | null>(null)
   const [filters, setFilters] = useState({
     sector: '',
     search: '',
@@ -203,6 +206,17 @@ export default function HomePage() {
   })
   const { t } = useLanguage()
   const router = useRouter()
+
+  // Helper: convert numeric risk IDs to canonical codes ("C01", "F01") used by summary heatmap & mock data
+  const toRiskCategoryCode = (id: number | string): string => {
+    if (typeof id === 'string') return id
+    return `C${String(id).padStart(2, '0')}`
+  }
+
+  const toRiskFactorCode = (id: number | string): string => {
+    if (typeof id === 'string') return id
+    return `F${String(id).padStart(2, '0')}`
+  }
 
   // Set Thai locale for dayjs
   useEffect(() => {
@@ -917,11 +931,6 @@ export default function HomePage() {
     }
   }, [projectScales, t])
 
-  // Total risk factors count (จำนวนปัจจัยความเสี่ยง) - from info API
-  const totalRiskFactorCount = useMemo(() => {
-    return safeInfoData?.riskFactor?.length ?? 0
-  }, [safeInfoData])
-
   // จำนวนหน่วยงานรัฐเจ้าของโครงการ - mock until API provides
   const publicAuthorityBarData = useMemo(() => {
     const mock = getMockPublicAuthorityProjectCounts()
@@ -1070,9 +1079,55 @@ export default function HomePage() {
   // Resolve risk category ID to display name (from api/v1/info riskCategory)
   const riskCategoryNameById = useMemo(() => {
     const map = new Map<string, string>()
-    safeInfoData?.riskCategory?.forEach((c) => map.set(c.id, c.name))
+    const displayName = (c: RiskCategory) => (c as any).value ?? c.name ?? ''
+    safeInfoData?.riskCategory?.forEach((c) => {
+      const name = displayName(c)
+      // Key by canonical code ("C01"), numeric string ("1"), and code ("LAND_SITE") so lookups always resolve
+      map.set(toRiskCategoryCode(c.id), name)
+      map.set(String(c.id), name)
+      if (c.code) {
+        map.set(c.code, name)
+      }
+    })
     return map
   }, [safeInfoData?.riskCategory])
+
+  // Risk heatmap popup (from Matrix): use heatmapRiskPhase (Fxx -> phases); build HeatmapRiskItem for popup
+  const riskHeatmapForMatrix = useMemo(() => {
+    const riskCategory: RiskCategory[] = safeInfoData?.riskCategory ?? []
+    const riskFactor: RiskFactor[] = safeInfoData?.riskFactor ?? []
+    const heatmapRiskPhase = summaryData?.heatmapRiskPhase ?? {}
+    const categoryById = new Map<string, RiskCategory>()
+    riskCategory.forEach((c, i) => {
+      // Key by canonical "Cxx", numeric string "1", and code so Matrix/summary lookups resolve
+      categoryById.set(toRiskCategoryCode(c.id), c)
+      categoryById.set(String(c.id), c)
+      if (c.code) {
+        categoryById.set(c.code, c)
+      }
+      categoryById.set(String(i + 1), c)
+    })
+    // Key factors by canonical "Fxx" code so they match heatmapRiskPhase factor IDs
+    const factorById = new Map<string, RiskFactor>(
+      riskFactor.map((f) => [toRiskFactorCode(f.id), f])
+    )
+    const phaseOrder = ['pre-construction', 'construction', 'operation'] as const
+
+    /** Build HeatmapRiskItem from heatmapRiskPhase[categoryId]: factorId -> list of phases. Cell value = 1 if factor in phase. */
+    const getHeatmapItemByCategoryId = (categoryId: string): HeatmapRiskItem | null => {
+      const factorPhases = heatmapRiskPhase[categoryId]
+      if (!factorPhases || typeof factorPhases !== 'object') return null
+      const phaseList = phaseOrder.map((phase) => ({
+        phase,
+        riskFactors: Object.entries(factorPhases)
+          .filter(([, phases]) => Array.isArray(phases) && phases.includes(phase))
+          .map(([factorId]) => ({ id: factorId, value: 1 })),
+      }))
+      return { riskCategoryId: categoryId, phaseList }
+    }
+    const maxValue = 1
+    return { categoryById, factorById, maxValue, getHeatmapItemByCategoryId }
+  }, [summaryData?.heatmapRiskPhase, safeInfoData?.riskCategory, safeInfoData?.riskFactor])
 
   // Mock data for Risk tab; labels resolved from risk category
   const riskCategoryBarData = useMemo(() => {
@@ -1115,7 +1170,21 @@ export default function HomePage() {
   }), [])
 
   const sectorRiskFactorHeatmapData = useMemo(() => getMockSectorRiskFactorHeatmap(), [])
-  const riskCategoryMatrixData = useMemo(() => getMockRiskCategoryMatrix(), [])
+
+  // Matrix ประเภทความเสี่ยง × ระยะโครงการ: from API heatmapRiskPhase (categoryId -> factorId -> phases[])
+  const riskCategoryMatrixData = useMemo(() => {
+    const h = summaryData?.heatmapRiskPhase
+    if (!h || typeof h !== 'object') return []
+    return Object.entries(h)
+      .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+      .map(([categoryId, factorPhases]) => {
+        const phasesList = Object.values(factorPhases) as string[][]
+        const preConstruction = phasesList.filter((phases) => phases.includes('pre-construction')).length
+        const construction = phasesList.filter((phases) => phases.includes('construction')).length
+        const operation = phasesList.filter((phases) => phases.includes('operation')).length
+        return { categoryId, preConstruction, construction, operation }
+      })
+  }, [summaryData?.heatmapRiskPhase])
 
   if (loading) {
     return <HomePageSkeleton />
@@ -1363,89 +1432,6 @@ export default function HomePage() {
   ) : activeTab === 'sector' ? (
     <div className="contents">
       <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Heat map: กลุ่มกิจการ × หน่วยงานรัฐเจ้าของโครงการ</h2>
-        <div className="box p-4 overflow-x-auto">
-          <table className="w-full border-collapse text-sm table-fixed">
-              <colgroup>
-                <col style={{ width: '12rem' }} />
-                {sectorAuthorityHeatmapData.rows.map((row) => (
-                  <col key={row} style={{ width: '4rem' }} />
-                ))}
-              </colgroup>
-              <thead>
-                <tr>
-                  <th className="border border-gray-300 bg-gray-50 px-2 py-2 text-left font-medium text-gray-700">หน่วยงานรัฐเจ้าของโครงการ</th>
-                  {sectorAuthorityHeatmapData.rows.map((row) => {
-                    const icon = getIconNameByGroupName(row)
-                    const mappedIcon = mapIconName(icon)
-                    const iconPath = `/assets/icons/${mappedIcon}`
-                    const displayName = getBusinessGroupDisplayName(row)
-                    return (
-                      <th key={row} className="border border-gray-300 bg-gray-50 px-2 py-2 text-center font-medium text-gray-700 w-16 align-middle" title={displayName}>
-                        <div className="w-8 h-8 mx-auto rounded overflow-hidden flex items-center justify-center bg-gray-50">
-                          <img
-                            src={iconPath}
-                            alt=""
-                            width={32}
-                            height={32}
-                            className="w-full h-full object-contain"
-                            loading="lazy"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.style.display = 'none'
-                            }}
-                          />
-                        </div>
-                      </th>
-                    )
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {(() => {
-                  const maxVal = Math.max(...sectorAuthorityHeatmapData.data.flat(), 1)
-                  return sectorAuthorityHeatmapData.cols.map((auth, j) => (
-                    <tr key={auth}>
-                      <td className="border border-gray-300 px-2 py-1.5 text-gray-800 bg-white whitespace-nowrap align-middle text-left">
-                        {auth}
-                      </td>
-                      {sectorAuthorityHeatmapData.rows.map((_, i) => {
-                        const val = sectorAuthorityHeatmapData.data[i][j]
-                        const bg = getHeatmapCellColor(val, maxVal)
-                        return (
-                          <td key={i} className="border border-gray-300 p-1 text-center align-middle w-16" style={{ backgroundColor: bg }}>
-                            <span className={val > 0 ? 'inline-flex items-center justify-center w-8 h-6 rounded text-gray-800 font-medium' : 'text-gray-400'}>{val}</span>
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))
-                })()}
-              </tbody>
-          </table>
-          <div className="mt-3 flex items-center gap-3 flex-wrap text-xs text-gray-600">
-            <span className="text-gray-600">พบโครงการน้อย</span>
-            <span className="inline-flex items-center gap-0.5">
-              {(() => {
-                const maxVal = Math.max(...sectorAuthorityHeatmapData.data.flat(), 1)
-                return [0, 0.25, 0.5, 0.75, 1].map((f) => {
-                  const v = Math.round(maxVal * f)
-                  return (
-                    <span
-                      key={v}
-                      className="w-5 h-4 rounded border border-gray-300 flex-shrink-0"
-                      style={{ backgroundColor: getHeatmapCellColor(v, maxVal) }}
-                      title={String(v)}
-                    />
-                  )
-                })
-              })()}
-            </span>
-            <span className="text-gray-600">พบโครงการมาก</span>
-          </div>
-        </div>
-      </div>
-      <div className="mb-8">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Bubble chart: จำนวนโครงการ vs มูลค่าโครงการ (ขนาดฟอง = จำนวนหน่วยงาน)</h2>
         <div className="box p-6">
           <div className="h-96">
@@ -1522,92 +1508,20 @@ export default function HomePage() {
           })}
         </div>
       </div>
-    </div>
-  ) : (
-    <div className="contents">
-      {summaryData?.heatmapRisk?.length && safeInfoData?.riskCategory?.length && safeInfoData?.riskFactor?.length ? (
-        <div className="mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Heat map แสดงจำนวนความเสี่ยงที่เกิดขึ้นของโครงการในแต่ Phase และ Factor</h2>
-          <RiskHeatmap heatmapRisk={summaryData.heatmapRisk} riskCategory={safeInfoData.riskCategory} riskFactor={safeInfoData.riskFactor} />
-        </div>
-      ) : null}
-      <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900 mb-4">ภาพรวมประเภทความเสี่ยง</h2>
-          <div className="box p-6">
-            <div className="h-80">
-              <Bar data={riskCategoryBarData} options={riskCategoryBarOptions} />
-            </div>
-          </div>
-        </div>
-        <div>
-          <h2 className="text-xl font-bold text-gray-900 mb-4">ความเสี่ยงตามระยะโครงการ</h2>
-          <div className="box p-6">
-            <div className="h-80">
-              <Bar data={riskByPhaseStackedData} options={riskByPhaseStackedOptions} />
-            </div>
-          </div>
-        </div>
-      </div>
       <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Matrix ประเภทความเสี่ยง × ระยะโครงการ</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Heat map: กลุ่มกิจการ × หน่วยงานรัฐเจ้าของโครงการ</h2>
         <div className="box p-4 overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr>
-                <th className="border border-gray-300 bg-gray-50 px-3 py-2 text-left font-medium text-gray-700">ประเภทความเสี่ยง</th>
-                <th className="border border-gray-300 bg-gray-50 px-3 py-2 text-center font-medium text-gray-700">Pre-construction</th>
-                <th className="border border-gray-300 bg-gray-50 px-3 py-2 text-center font-medium text-gray-700">Construction</th>
-                <th className="border border-gray-300 bg-gray-50 px-3 py-2 text-center font-medium text-gray-700">Operation</th>
-              </tr>
-            </thead>
-            <tbody>
-              {riskCategoryMatrixData.map((row) => {
-                const maxCell = Math.max(row.preConstruction, row.construction, row.operation, 1)
-                return (
-                  <tr key={row.categoryId}>
-                    <td className="border border-gray-300 px-3 py-2 text-gray-800 bg-white">{riskCategoryNameById.get(row.categoryId) ?? row.categoryId}</td>
-                    <td className="border border-gray-300 px-3 py-2 text-center align-middle">
-                      <Tippy content={`Pre-construction: ${row.preConstruction}`}>
-                        <span className="inline-block rounded-full border border-gray-300" style={{ width: 12 + (row.preConstruction / maxCell) * 24, height: 12 + (row.preConstruction / maxCell) * 24, backgroundColor: '#1e3a8a', minWidth: 12, minHeight: 12 }} />
-                      </Tippy>
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-center align-middle">
-                      <Tippy content={`Construction: ${row.construction}`}>
-                        <span className="inline-block rounded-full border border-gray-300" style={{ width: 12 + (row.construction / maxCell) * 24, height: 12 + (row.construction / maxCell) * 24, backgroundColor: '#f97316', minWidth: 12, minHeight: 12 }} />
-                      </Tippy>
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-center align-middle">
-                      <Tippy content={`Operation: ${row.operation}`}>
-                        <span className="inline-block rounded-full border border-gray-300" style={{ width: 12 + (row.operation / maxCell) * 24, height: 12 + (row.operation / maxCell) * 24, backgroundColor: '#84cc16', minWidth: 12, minHeight: 12 }} />
-                      </Tippy>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          <div className="mt-4 pt-3 border-t border-gray-200 flex flex-wrap gap-4 text-xs text-gray-600">
-            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-full bg-[#1e3a8a]" /> Pre-construction</span>
-            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-full bg-[#f97316]" /> Construction</span>
-            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-full bg-[#84cc16]" /> Operation</span>
-          </div>
-        </div>
-      </div>
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Heat map: กลุ่มกิจการ × ปัจจัยความเสี่ยง</h2>
-          <div className="box p-4 overflow-x-auto">
-            <table className="w-full border-collapse text-sm table-fixed">
+          <table className="w-full border-collapse text-sm table-fixed">
               <colgroup>
-                <col style={{ minWidth: '12rem' }} />
-                {sectorRiskFactorHeatmapData.rows.map((row) => (
+                <col style={{ width: '12rem' }} />
+                {sectorAuthorityHeatmapData.rows.map((row) => (
                   <col key={row} style={{ width: '4rem' }} />
                 ))}
               </colgroup>
               <thead>
                 <tr>
-                  <th className="border border-gray-300 bg-gray-50 px-2 py-2 text-left font-medium text-gray-700">ปัจจัยความเสี่ยง</th>
-                  {sectorRiskFactorHeatmapData.rows.map((row) => {
+                  <th className="border border-gray-300 bg-gray-50 px-2 py-2 text-left font-medium text-gray-700">หน่วยงานรัฐเจ้าของโครงการ</th>
+                  {sectorAuthorityHeatmapData.rows.map((row) => {
                     const icon = getIconNameByGroupName(row)
                     const mappedIcon = mapIconName(icon)
                     const iconPath = `/assets/icons/${mappedIcon}`
@@ -1635,21 +1549,25 @@ export default function HomePage() {
               </thead>
               <tbody>
                 {(() => {
-                  const maxVal = Math.max(...sectorRiskFactorHeatmapData.data.flat(), 1)
-                  return sectorRiskFactorHeatmapData.cols.map((factorId, j) => {
-                    const factorName = safeInfoData?.riskFactor?.find((f: { id: string }) => f.id === factorId)?.name ?? factorId
+                  const { rows: sectorRows, cols: authCols, data: heatmapData } = sectorAuthorityHeatmapData
+                  const rowSums = authCols.map((_, j) => sectorRows.reduce((s, _, i) => s + heatmapData[i][j], 0))
+                  const sortedColIndices = authCols
+                    .map((_, j) => j)
+                    .sort((a, b) => rowSums[b] - rowSums[a])
+                  const maxVal = Math.max(...heatmapData.flat(), 1)
+                  return sortedColIndices.map((j) => {
+                    const auth = authCols[j]
                     return (
-                      <tr key={factorId}>
-                        <td className="border border-gray-300 px-2 py-1.5 text-gray-800 bg-white text-left align-middle text-xs max-w-[20rem] truncate" title={factorName}>
-                          {factorName}
+                      <tr key={auth}>
+                        <td className="border border-gray-300 px-2 py-1.5 text-gray-800 bg-white align-middle text-left text-xs break-words" style={{ minWidth: '8rem', maxWidth: '12rem' }}>
+                          {auth}
                         </td>
-                        {sectorRiskFactorHeatmapData.rows.map((_, i) => {
-                          const val = sectorRiskFactorHeatmapData.data[i][j]
-                          const intensity = maxVal > 0 ? val / maxVal : 0
-                          const bg = intensity <= 0 ? 'transparent' : `rgb(30 58 138 / ${0.2 + intensity * 0.8})`
+                        {sectorRows.map((_, i) => {
+                          const val = heatmapData[i][j]
+                          const bg = getHeatmapCellColor(val, maxVal)
                           return (
-                            <td key={i} className="border border-gray-300 p-0 align-middle w-16" style={{ minWidth: 32 }}>
-                              <div className="w-full h-6 flex items-center justify-center text-xs font-medium text-gray-800" style={{ backgroundColor: bg }}>{val}</div>
+                            <td key={i} className="border border-gray-300 p-1 text-center align-middle w-16" style={{ backgroundColor: bg }}>
+                              <span className={val > 0 ? 'inline-flex items-center justify-center w-8 h-6 rounded text-gray-800 font-medium' : 'text-gray-400'}>{val}</span>
                             </td>
                           )
                         })}
@@ -1658,9 +1576,287 @@ export default function HomePage() {
                   })
                 })()}
               </tbody>
-            </table>
+          </table>
+          <div className="mt-3 flex items-center gap-3 flex-wrap text-xs text-gray-600">
+            <span className="text-gray-600">พบโครงการน้อย</span>
+            <span className="inline-flex items-center gap-0.5">
+              {(() => {
+                const maxVal = Math.max(...sectorAuthorityHeatmapData.data.flat(), 1)
+                return [0, 0.25, 0.5, 0.75, 1].map((f) => {
+                  const v = Math.round(maxVal * f)
+                  return (
+                    <span
+                      key={v}
+                      className="w-5 h-4 rounded border border-gray-300 flex-shrink-0"
+                      style={{ backgroundColor: getHeatmapCellColor(v, maxVal) }}
+                      title={String(v)}
+                    />
+                  )
+                })
+              })()}
+            </span>
+            <span className="text-gray-600">พบโครงการมาก</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div className="contents">
+      <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">ภาพรวมประเภทความเสี่ยง</h2>
+          <div className="box p-6">
+            <div className="h-80">
+              <Bar data={riskCategoryBarData} options={riskCategoryBarOptions} />
+            </div>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">ประเภทความเสี่ยงตามระยะโครงการ</h2>
+          <div className="box p-6">
+            <div className="h-80">
+              <Bar data={riskByPhaseStackedData} options={riskByPhaseStackedOptions} />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="mb-8">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-gray-900">Matrix ประเภทความเสี่ยง × ระยะโครงการ</h2>
+          <p className="mt-1 text-sm text-gray-500">คลิกชื่อประเภทความเสี่ยงเพื่อเปิด heat map ปัจจัยความเสี่ยงในแต่ละระยะ</p>
+        </div>
+        <div className="box p-4 overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className="border border-gray-300 bg-gray-50 px-3 py-2 text-left font-medium text-gray-700">ประเภทความเสี่ยง</th>
+                <th className="border border-gray-300 bg-gray-50 px-3 py-2 text-center font-medium text-gray-700">Pre-construction</th>
+                <th className="border border-gray-300 bg-gray-50 px-3 py-2 text-center font-medium text-gray-700">Construction</th>
+                <th className="border border-gray-300 bg-gray-50 px-3 py-2 text-center font-medium text-gray-700">Operation</th>
+              </tr>
+            </thead>
+            <tbody>
+              {riskCategoryMatrixData.map((row) => {
+                const maxCell = Math.max(row.preConstruction, row.construction, row.operation, 1)
+                const heatmapItem = riskHeatmapForMatrix.getHeatmapItemByCategoryId(row.categoryId)
+                const fullName = riskCategoryNameById.get(row.categoryId) ?? row.categoryId
+                return (
+                  <tr key={row.categoryId}>
+                    <td className="border border-gray-300 px-3 py-2 text-gray-800 bg-white">
+                      {heatmapItem ? (
+                        <Tippy content="คลิกเพื่อเปิด heat map ปัจจัยความเสี่ยง">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedHeatmapItem(heatmapItem)}
+                            className="inline-flex items-center gap-1.5 text-left text-blue-600 hover:text-blue-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded py-0.5 pr-1 group"
+                            aria-label={`เปิด heat map: ${fullName}`}
+                          >
+                            <span className="group-hover:underline">{fullName}</span>
+                            <Lucide icon="Expand" className="w-4 h-4 flex-shrink-0 opacity-70" aria-hidden />
+                          </button>
+                        </Tippy>
+                      ) : (
+                        fullName
+                      )}
+                    </td>
+                    <td className="border border-gray-300 px-3 py-2 text-center align-middle">
+                      {row.preConstruction > 0 ? (
+                        <Tippy content={`Pre-construction: ${row.preConstruction}`}>
+                          <span className="inline-block rounded-full border border-gray-300" style={{ width: 12 + (row.preConstruction / maxCell) * 24, height: 12 + (row.preConstruction / maxCell) * 24, backgroundColor: '#1e3a8a', minWidth: 12, minHeight: 12 }} />
+                        </Tippy>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="border border-gray-300 px-3 py-2 text-center align-middle">
+                      {row.construction > 0 ? (
+                        <Tippy content={`Construction: ${row.construction}`}>
+                          <span className="inline-block rounded-full border border-gray-300" style={{ width: 12 + (row.construction / maxCell) * 24, height: 12 + (row.construction / maxCell) * 24, backgroundColor: '#f97316', minWidth: 12, minHeight: 12 }} />
+                        </Tippy>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="border border-gray-300 px-3 py-2 text-center align-middle">
+                      {row.operation > 0 ? (
+                        <Tippy content={`Operation: ${row.operation}`}>
+                          <span className="inline-block rounded-full border border-gray-300" style={{ width: 12 + (row.operation / maxCell) * 24, height: 12 + (row.operation / maxCell) * 24, backgroundColor: '#84cc16', minWidth: 12, minHeight: 12 }} />
+                        </Tippy>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          <div className="mt-4 pt-3 border-t border-gray-200 flex flex-wrap gap-4 text-xs text-gray-600">
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-full bg-[#1e3a8a]" /> Pre-construction</span>
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-full bg-[#f97316]" /> Construction</span>
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-full bg-[#84cc16]" /> Operation</span>
+          </div>
+        </div>
+      </div>
+      <div className="mb-8">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Heat map: กลุ่มกิจการ × ปัจจัยความเสี่ยง</h2>
+          <div className="box p-4 overflow-x-auto">
+            {(() => {
+              const { rows: sectorRows, cols: factorCols, data: heatmapData } = sectorRiskFactorHeatmapData
+              const numFactors = factorCols.length
+              const rowSums = factorCols.map((_, j) => sectorRows.reduce((s, _, i) => s + heatmapData[i][j], 0))
+              const sortedFactorIndices = factorCols
+                .map((_, j) => j)
+                .sort((a, b) => rowSums[b] - rowSums[a])
+              const topN = 20
+              const displayedIndices = sectorRiskHeatmapExpanded ? sortedFactorIndices : sortedFactorIndices.slice(0, topN)
+              const hasMore = numFactors > topN
+              const riskFactorsForHeatmap: { id: string; name: string }[] =
+                safeInfoData?.riskFactor?.length
+                  ? safeInfoData.riskFactor.map((f) => ({
+                      id: toRiskFactorCode(f.id),
+                      name: (f as any).value ?? f.name ?? String(f.id),
+                    }))
+                  : MOCK_RISK_FACTORS
+              const maxVal = Math.max(...heatmapData.flat(), 1)
+              return (
+                <>
+                  <div className="mb-3 flex items-center gap-3 flex-wrap text-xs text-gray-600">
+                    <span className="text-gray-600">พบความเสี่ยงน้อย</span>
+                    <span className="inline-flex items-center gap-0.5">
+                      {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+                        const v = Math.round(maxVal * f)
+                        return (
+                          <span
+                            key={v}
+                            className="w-5 h-4 rounded border border-gray-300 flex-shrink-0"
+                            style={{ backgroundColor: getHeatmapCellColor(v, maxVal) }}
+                            title={String(v)}
+                          />
+                        )
+                      })}
+                    </span>
+                    <span className="text-gray-600">พบความเสี่ยงมาก</span>
+                  </div>
+                  <table className="w-full border-collapse text-sm table-fixed">
+                    <colgroup>
+                      <col style={{ minWidth: '12rem' }} />
+                      {sectorRows.map((row) => (
+                        <col key={row} style={{ width: '4rem' }} />
+                      ))}
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th className="border border-gray-300 bg-gray-50 px-2 py-2 text-left font-medium text-gray-700">ปัจจัยความเสี่ยง</th>
+                        {sectorRows.map((row) => {
+                          const icon = getIconNameByGroupName(row)
+                          const mappedIcon = mapIconName(icon)
+                          const iconPath = `/assets/icons/${mappedIcon}`
+                          const displayName = getBusinessGroupDisplayName(row)
+                          return (
+                            <th key={row} className="border border-gray-300 bg-gray-50 px-2 py-2 text-center font-medium text-gray-700 w-16 align-middle" title={displayName}>
+                              <div className="w-8 h-8 mx-auto rounded overflow-hidden flex items-center justify-center bg-gray-50">
+                                <img
+                                  src={iconPath}
+                                  alt=""
+                                  width={32}
+                                  height={32}
+                                  className="w-full h-full object-contain"
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement
+                                    target.style.display = 'none'
+                                  }}
+                                />
+                              </div>
+                            </th>
+                          )
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayedIndices.map((j) => {
+                        const factorId = factorCols[j]
+                        const factorName = riskFactorsForHeatmap.find((f) => f.id === factorId)?.name ?? factorId
+                        return (
+                          <tr key={factorId}>
+                            <td className="border border-gray-300 px-2 py-1.5 text-gray-800 bg-white text-left align-middle text-xs max-w-[20rem] truncate" title={factorName}>
+                              {factorName}
+                            </td>
+                            {sectorRows.map((_, i) => {
+                              const val = heatmapData[i][j]
+                              const bg = getHeatmapCellColor(val, maxVal)
+                              return (
+                                <td key={i} className="border border-gray-300 p-1 text-center align-middle w-16 min-h-[2rem]" style={{ minWidth: 32, backgroundColor: bg }}>
+                                  <span className={val > 0 ? 'inline-flex items-center justify-center w-8 h-6 rounded text-gray-800 font-medium text-xs' : 'text-gray-400 text-xs'}>{val}</span>
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                  {hasMore && (
+                    <div className="mt-3 flex justify-center">
+                      <button
+                        type="button"
+                        onClick={() => setSectorRiskHeatmapExpanded((v) => !v)}
+                        className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        {sectorRiskHeatmapExpanded ? `ย่อ (แสดง ${numFactors} ปัจจัย)` : `แสดงเพิ่ม (อีก ${numFactors - topN} ปัจจัย)`}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
           </div>
       </div>
+      {selectedHeatmapItem && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="risk-heatmap-modal-title"
+        >
+          <div className="bg-white rounded-xl shadow-xl w-max max-w-[90vw] max-h-[90vh] overflow-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+              <h2 id="risk-heatmap-modal-title" className="text-lg font-semibold text-gray-900">
+                {(() => {
+                const c = riskHeatmapForMatrix.categoryById.get(String(selectedHeatmapItem.riskCategoryId)) ?? riskHeatmapForMatrix.categoryById.get(selectedHeatmapItem.riskCategoryId as string)
+                return c ? ((c as any).value ?? c.name) : String(selectedHeatmapItem.riskCategoryId)
+              })()}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setSelectedHeatmapItem(null)}
+                className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                aria-label="Close"
+              >
+                <Lucide icon="X" className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4" onClick={(e) => e.stopPropagation()}>
+              <HeatMapTable
+                item={selectedHeatmapItem}
+                categoryById={riskHeatmapForMatrix.categoryById}
+                factorById={riskHeatmapForMatrix.factorById}
+                compact={false}
+                maxValue={riskHeatmapForMatrix.maxValue}
+                showCellValue={false}
+                showColorLegend={false}
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            className="absolute inset-0 -z-10"
+            aria-label="Close overlay"
+            onClick={() => setSelectedHeatmapItem(null)}
+          />
+        </div>
+      )}
     </div>
   )
 
@@ -1946,23 +2142,6 @@ export default function HomePage() {
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                       โครงการกำลังดำเนินการ
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Total Risk Factor Card - จำนวนปัจจัยความเสี่ยง */}
-              <div className="col-span-12 sm:col-span-6 xl:col-span-3 intro-y">
-                <div className="relative zoom-in h-full">
-                  <div className="p-5 box h-full">
-                    <div className="flex">
-                      <Lucide icon="AlertTriangle" className="w-[28px] h-[28px] text-primary" />
-                    </div>
-                    <div className="mt-6 text-3xl font-medium leading-8">
-                      {totalRiskFactorCount.toLocaleString()}
-                    </div>
-                    <div className="mt-1 text-base text-slate-500">
-                      จำนวนปัจจัยความเสี่ยง
                     </div>
                   </div>
                 </div>

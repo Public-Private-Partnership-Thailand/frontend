@@ -76,20 +76,18 @@ function RiskFactorSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const sortedFactors = [...riskFactors].sort((a, b) =>
-    a.id.localeCompare(b.id, undefined, { numeric: true })
-  )
+  const sortedFactors = [...riskFactors].sort((a, b) => a.id - b.id)
 
   const filteredFactors = search.trim()
     ? sortedFactors.filter((f) =>
-        `${f.id}: ${f.name}`.toLowerCase().includes(search.toLowerCase())
+        `${f.id}: ${f.value}`.toLowerCase().includes(search.toLowerCase())
       )
     : sortedFactors
 
-  const isSelected = (factorId: string) =>
+  const isSelected = (factorId: number) =>
     selectedFactors.some((f) => f.risk_factor_id === factorId)
 
-  const toggleFactor = (factorId: string, factorName: string) => {
+  const toggleFactor = (factorId: number, factorName: string) => {
     if (isSelected(factorId)) {
       onChange(selectedFactors.filter((f) => f.risk_factor_id !== factorId))
     } else {
@@ -150,10 +148,10 @@ function RiskFactorSelect({
                   <input
                     type="checkbox"
                     checked={isSelected(f.id)}
-                    onChange={() => toggleFactor(f.id, f.name)}
+                    onChange={() => toggleFactor(f.id, f.value)}
                     className="mr-2 h-3.5 w-3.5 text-indigo-600 border-gray-300 rounded"
                   />
-                  <span className="text-xs text-gray-700">{f.name}</span>
+                  <span className="text-xs text-gray-700">{f.value}</span>
                 </label>
               ))
             )}
@@ -192,7 +190,7 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
           title: '',
           phase: '',
           description: [],
-          category_drivers: [{ risk_category_id: '', risk_category_code: '', category_name: '', driven_by_risk_factors: [] }],
+          category_drivers: [{ risk_category_id: 0, risk_category_code: '', category_name: '', driven_by_risk_factors: [] }],
           mitigation_handling: [],
           impact_statement: [],
         })
@@ -476,7 +474,7 @@ function RiskCategoryDriversBlock({
           type="button"
           onClick={() =>
             appendDriver({
-              risk_category_id: '',
+              risk_category_id: 0,
               risk_category_code: '',
               category_name: '',
               driven_by_risk_factors: [],
@@ -509,20 +507,20 @@ function RiskCategoryDriversBlock({
                   <label className="block text-xs font-medium text-gray-600">Risk Category</label>
                   <InfoTooltip
                     lines={(() => {
-                      const selId = Array.isArray(drivers) ? drivers[driverIndex]?.risk_category_id : ''
-                      const cat = riskCategories.find((c) => c.id === selId)
-                      return cat ? [`${cat.code}: ${cat.name}`, cat.description_th] : []
+                      const selId = Array.isArray(drivers) ? drivers[driverIndex]?.risk_category_id : undefined
+                      const cat = typeof selId === 'number' ? riskCategories.find((c) => c.id === selId) : undefined
+                      return cat ? [`${cat.code}: ${cat.value}`, cat.description_th] : []
                     })()}
                   />
                 </div>
                 <select
                   {...register(`risks.${riskIndex}.category_drivers.${driverIndex}.risk_category_id` as const)}
                   onChange={(e) => {
-                    const id = e.target.value
+                    const id = Number(e.target.value) || 0
                     setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.risk_category_id` as const, id, { shouldValidate: true })
                     const cat = riskCategories.find((c) => c.id === id)
                     setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.risk_category_code` as const, cat?.code ?? '')
-                    setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.category_name` as const, cat?.name ?? '')
+                    setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.category_name` as const, cat?.value ?? '')
                   }}
                   className="form-input w-full text-sm"
                 >
@@ -562,7 +560,7 @@ function RiskCategoryDriversBlock({
                       })
                       .map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.code}: {c.name}
+                          {c.code}: {c.value}
                         </option>
                       ))
                   })()}
@@ -575,12 +573,15 @@ function RiskCategoryDriversBlock({
                   </label>
                   <InfoTooltip
                     lines={(() => {
-                      const selFactors = (Array.isArray(drivers) ? drivers[driverIndex]?.driven_by_risk_factors : undefined) ?? []
-                      return selFactors.map((item) => {
+                      const selFactors =
+                        (Array.isArray(drivers)
+                          ? drivers[driverIndex]?.driven_by_risk_factors
+                          : undefined) ?? []
+                      return selFactors.map((item: RiskFactorItem) => {
                         const f = riskFactors.find((x) => x.id === item.risk_factor_id)
                         return f
-                          ? `${f.name} — ${f.description_th}`
-                          : item.risk_factor_id
+                          ? `${f.value} — ${f.description_th}`
+                          : String(item.risk_factor_id)
                       })
                     })()}
                   />

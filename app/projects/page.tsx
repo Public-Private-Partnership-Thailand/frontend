@@ -907,17 +907,8 @@ export default function ProjectsPage() {
                     />
                   </label>
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider min-w-[18rem]">
+                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider min-w-[12rem]">
                   {t('projects.projectName')}
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider w-40 min-w-[9rem]">
-                  {t('projects.ministry')}
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider w-52 min-w-[13rem]">
-                  {t('projects.publicAuthority')}
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
-                  {t('projects.privateContractor')}
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
                   <span className="inline-flex items-center gap-1">
@@ -936,6 +927,15 @@ export default function ProjectsPage() {
                       </span>
                     </Tippy>
                   </span>
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider w-40 min-w-[9rem]">
+                  {t('projects.ministry')}
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider w-52 min-w-[13rem]">
+                  {t('projects.publicAuthority')}
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
+                  {t('projects.privateContractor')}
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
                   กรรมสิทธิ์
@@ -962,28 +962,9 @@ export default function ProjectsPage() {
                       />
                     </label>
                   </td>
-                  <td className="px-6 py-4 min-w-[18rem]">
+                  <td className="px-6 py-4 min-w-[12rem]">
                     <div className="text-sm font-medium text-gray-900">
                       {formatProjectTitle(project.title)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 w-40 min-w-[9rem]">
-                    <div className="text-sm text-gray-900">
-                      {formatMinistry(project.additionalClassifications?.filter(c => c.scheme === 'TH-MINISTRY').map(c => c.description).filter(Boolean).join(', '))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 w-52 min-w-[13rem]">
-                    <div className="text-sm text-gray-900">
-                      {project.publicAuthority?.name || 'N/A'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">
-                      {project.parties
-                        ?.filter(party => party.roles && party.roles.includes('contractor'))
-                        .map(party => formatContractorName(party.name))
-                        .filter(Boolean)
-                        .join(', ') || 'N/A'}
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -1013,6 +994,25 @@ export default function ProjectsPage() {
                       ) : (
                         <span className="text-sm text-gray-500">N/A</span>
                       )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 w-40 min-w-[9rem]">
+                    <div className="text-sm text-gray-900">
+                      {formatMinistry(project.additionalClassifications?.filter(c => c.scheme === 'TH-MINISTRY').map(c => c.description).filter(Boolean).join(', '))}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 w-52 min-w-[13rem]">
+                    <div className="text-sm text-gray-900">
+                      {project.publicAuthority?.name || 'N/A'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-900">
+                      {project.parties
+                        ?.filter(party => party.roles && party.roles.includes('contractor'))
+                        .map(party => formatContractorName(party.name))
+                        .filter(Boolean)
+                        .join(', ') || 'N/A'}
                     </div>
                   </td>
                   <td className="px-6 py-4">

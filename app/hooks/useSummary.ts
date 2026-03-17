@@ -58,6 +58,8 @@ export interface SummaryData {
   latestProjects: ProjectData[]
   /** Risk heat map: one map per risk category; x = phases, y = risk factors; value 0–5 for gradient. */
   heatmapRisk?: HeatmapRiskItem[]
+  /** Matrix data: categoryId (e.g. C01) -> factorId (e.g. F104) -> list of phases. Used for Matrix ประเภทความเสี่ยง × ระยะโครงการ. */
+  heatmapRiskPhase?: Record<string, Record<string, string[]>>
 }
 
 export interface SummaryFilters {
@@ -293,6 +295,9 @@ export const useSummary = (filters?: SummaryFilters, infoData?: {
       // Normalize heatmapRisk IDs: numeric -> string codes ("C01", "F01")
       if ((raw as any)?.heatmapRisk) {
         data.heatmapRisk = normalizeHeatmapRisk((raw as any).heatmapRisk) || undefined
+      }
+      if ((raw as any)?.heatmapRiskPhase) {
+        data.heatmapRiskPhase = (raw as any).heatmapRiskPhase
       }
 
       return data

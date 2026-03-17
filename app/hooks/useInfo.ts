@@ -2,17 +2,25 @@ import { useQuery } from '@tanstack/react-query'
 import { appConfig } from '@/app/configs/appConfig'
 
 export interface RiskCategory {
-  id: string
+  /** Numeric ID from /api/v1/info (e.g. 1, 2, 3, ...) */
+  id: number
   code: string
-  name: string
+  /** Display name from API (field is "value" in JSON). Use this for UI labels. */
+  value: string
   description_en: string
   description_th: string
+  /** @deprecated Prefer value. Kept for backward compat. */
+  name?: string
 }
 
 export interface RiskFactor {
-  id: string
-  name: string
+  /** Numeric ID from /api/v1/info (e.g. 1, 2, 3, ...) */
+  id: number
+  /** Display name from API (field is "value" in JSON). Use this for UI labels. */
+  value: string
   description_th: string
+  /** @deprecated Prefer value. Kept for backward compat. */
+  name?: string
 }
 
 export interface InfoData {
@@ -40,11 +48,22 @@ export const useInfo = () => {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const data: InfoData = await response.json()
-      // console.log('Fetched info from /api/info:', data)
+      const data = await response.json() as InfoData
+      // API uses "value" for display text; normalize so .name is always set for UI
+      if (data.riskCategory?.length) {
+        data.riskCategory = data.riskCategory.map((c) => ({
+          ...c,
+          name: (c as any).name ?? (c as any).value ?? '',
+        }))
+      }
+      if (data.riskFactor?.length) {
+        data.riskFactor = data.riskFactor.map((f) => ({
+          ...f,
+          name: (f as any).name ?? (f as any).value ?? '',
+        }))
+      }
       return data
     },
-    // Return empty data structure on error to prevent crashes
     retry: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes
   })

@@ -28,12 +28,17 @@ function getPhaseLabel(phase: string): string {
   return labels[phase] ?? phase
 }
 
-/** Normalize factor id from API (numeric 1, 2, ... or string "F01") to "F01" for lookup in riskFactor. */
+/** Convert numeric factor ID to canonical code ("F01", "F02", ...) */
+function toRiskFactorCode(id: number | string): string {
+  if (typeof id === 'string' && /^F\d+$/i.test(id)) return id
+  const n = typeof id === 'number' ? id : parseInt(id, 10)
+  if (Number.isNaN(n)) return String(id)
+  return `F${String(n).padStart(2, '0')}`
+}
+
+/** Normalize factor id from API (numeric or "F01") to "F01" for lookup in riskFactor. */
 function normalizeFactorId(id: string | number): string {
-  const s = String(id)
-  if (/^F\d+$/i.test(s)) return s
-  const n = parseInt(s, 10)
-  return Number.isNaN(n) ? s : `F${String(n).padStart(2, '0')}`
+  return toRiskFactorCode(id)
 }
 
 interface RiskHeatmapProps {
@@ -42,14 +47,16 @@ interface RiskHeatmapProps {
   riskFactor: RiskFactor[]
 }
 
-/** Single heat map table - compact (small) or full size */
-function HeatMapTable({
+/** Single heat map table - compact (small) or full size. Exported for use in Matrix category popup. */
+export function HeatMapTable({
   item,
   categoryById,
   factorById,
   compact,
   maxValue,
   onCellClick,
+  showCellValue = true,
+  showColorLegend = true,
 }: {
   item: HeatmapRiskItem
   categoryById: Map<string, RiskCategory>
@@ -57,10 +64,13 @@ function HeatMapTable({
   compact: boolean
   maxValue: number
   onCellClick?: () => void
+  showCellValue?: boolean
+  showColorLegend?: boolean
 }) {
   const categoryIdKey = String(item.riskCategoryId)
   const category = categoryById.get(item.riskCategoryId as string) ?? categoryById.get(categoryIdKey)
-  const title = category?.name ?? categoryIdKey
+  const categoryDisplayName = category ? ((category as any).value ?? category.name) : ''
+  const title = categoryDisplayName || categoryIdKey
   const phases = item.phaseList ?? []
   const allFactorIdsRaw = Array.from(
     new Set(phases.flatMap((p) => (p.riskFactors ?? []).map((r) => r.id)))
@@ -91,7 +101,7 @@ function HeatMapTable({
       {phaseOverview.map(({ phase, totalInPhase }) => (
         <div key={phase} className="border-b border-gray-100 py-1 last:border-0 last:pb-0">
           <p className="font-medium text-gray-800 leading-tight">
-            {getPhaseLabel(phase)}: found in {totalInPhase} project{totalInPhase !== 1 ? 's' : ''}
+            {getPhaseLabel(phase)}: พบความเสี่ยง {totalInPhase} source{totalInPhase > 1 ? 's' : ''}
           </p>
         </div>
       ))}
@@ -127,7 +137,7 @@ function HeatMapTable({
       <tbody>
         {factorIds.map((factorId) => {
           const factor = factorById.get(factorId)
-          const factorName = factor?.name ?? factorId
+          const factorName = factor ? ((factor as any).value ?? factor.name) : factorId
           return (
             <tr key={factorId}>
               <td
@@ -150,7 +160,7 @@ function HeatMapTable({
                         className="w-full h-full flex items-center justify-center font-medium text-gray-800 text-xs"
                         style={{ backgroundColor: bg }}
                       >
-                        {value > 0 ? value : ''}
+                        {showCellValue && value > 0 ? value : ''}
                       </div>
                     </Tippy>
                   </td>
@@ -184,27 +194,28 @@ function HeatMapTable({
 
   return (
     <div className="p-4 sm:p-6">
-      {/* <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">{title}</h3> */}
       <div className="overflow-x-auto">
         <div className="inline-block min-w-full">{fullTable}</div>
       </div>
-      <div className="mt-3 flex items-center gap-3 flex-wrap text-xs text-gray-600">
-        <span className="text-gray-600">พบความเสี่ยงน้อย</span>
-        <span className="inline-flex items-center gap-0.5">
-          {[0, 0.25, 0.5, 0.75, 1].map((f) => {
-            const v = Math.round(maxValue * f)
-            return (
-              <span
-                key={v}
-                className="w-5 h-4 rounded border border-gray-300 flex-shrink-0"
-                style={{ backgroundColor: getGradientColor(v, maxValue) }}
-                title={String(v)}
-              />
-            )
-          })}
-        </span>
-        <span className="text-gray-600">พบความเสี่ยงมาก</span>
-      </div>
+      {showColorLegend && (
+        <div className="mt-3 flex items-center gap-3 flex-wrap text-xs text-gray-600">
+          <span className="text-gray-600">พบความเสี่ยงน้อย</span>
+          <span className="inline-flex items-center gap-0.5">
+            {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+              const v = Math.round(maxValue * f)
+              return (
+                <span
+                  key={v}
+                  className="w-5 h-4 rounded border border-gray-300 flex-shrink-0"
+                  style={{ backgroundColor: getGradientColor(v, maxValue) }}
+                  title={String(v)}
+                />
+              )
+            })}
+          </span>
+          <span className="text-gray-600">พบความเสี่ยงมาก</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -213,10 +224,18 @@ export default function RiskHeatmap({ heatmapRisk, riskCategory, riskFactor }: R
   const [selectedItem, setSelectedItem] = useState<HeatmapRiskItem | null>(null)
   const categoryById = new Map<string, RiskCategory>()
   riskCategory.forEach((c, i) => {
-    categoryById.set(c.id, c)
+    // Map by canonical risk category code ("C01", "C02", ...) and by numeric index as fallback
+    const codeKey = `C${String(c.id).padStart(2, '0')}`
+    categoryById.set(codeKey, c)
+    if (c.code) {
+      categoryById.set(c.code, c)
+    }
     categoryById.set(String(i + 1), c)
   })
-  const factorById = new Map(riskFactor.map((f) => [f.id, f]))
+  // Map factors by canonical code ("F01", "F02", ...) so they match heatmapRisk IDs
+  const factorById = new Map<string, RiskFactor>(
+    riskFactor.map((f) => [toRiskFactorCode(f.id), f])
+  )
 
   // Find global max value across all cells to drive gradient intensity
   const allValues: number[] = []
@@ -259,7 +278,10 @@ export default function RiskHeatmap({ heatmapRisk, riskCategory, riskFactor }: R
           <div className="bg-white rounded-xl shadow-xl w-max max-w-[90vw] max-h-[90vh] overflow-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
               <h2 id="risk-heatmap-modal-title" className="text-lg font-semibold text-gray-900">
-                {categoryById.get(String(selectedItem.riskCategoryId))?.name ?? categoryById.get(selectedItem.riskCategoryId as string)?.name ?? String(selectedItem.riskCategoryId)}
+                {(() => {
+                const c = categoryById.get(String(selectedItem.riskCategoryId)) ?? categoryById.get(selectedItem.riskCategoryId as string)
+                return c ? ((c as any).value ?? c.name) : String(selectedItem.riskCategoryId)
+              })()}
               </h2>
               <button
                 type="button"

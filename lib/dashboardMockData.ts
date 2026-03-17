@@ -3,6 +3,8 @@
  * Replace with real API data when available.
  */
 
+import { ALL_RISK_FACTOR_IDS } from '@/lib/riskFactorsMock'
+
 export interface PublicAuthorityProjectCount {
   name: string
   count: number
@@ -74,7 +76,7 @@ export function getMockPublicAuthorityProjectCounts(): PublicAuthorityProjectCou
 /** Sector x หน่วยงานรัฐ heatmap (mock). Rows = all sectors, Cols = authorities. */
 export function getMockSectorAuthorityHeatmap(): { rows: string[]; cols: string[]; data: number[][] } {
   const rows = [...ALL_SECTORS]
-  const cols = ['กทพ.', 'กทม.', 'กรมทางหลวง', 'รฟม.', 'กทท.']
+  const cols = ['การทางพิเศษแห่งประเทศไทย (กทพ.)', 'กรุงเทพมหานคร (กทม.)', 'กรมทางหลวง', 'การรถไฟฟ้าขนส่งมวลชนแห่งประเทศไทย (รฟม.)', 'การท่าเรือแห่งประเทศไทย (กทท.)']
   const numCols = cols.length
   // First 3 sectors have mock counts; rest are 0
   const dataWithValues: number[][] = [
@@ -160,28 +162,51 @@ export function getMockRiskByPhaseStacked(): {
   }
 }
 
-/** Sector x Risk factor heatmap (mock). All 12 sectors; first 3 have data, rest are 0. */
+/** Sector x Risk factor heatmap (mock). All 12 sectors × all 141 risk factors (F01–F141). Sparse mock values. */
 export function getMockSectorRiskFactorHeatmap(): { rows: string[]; cols: string[]; data: number[][] } {
   const rows = [...ALL_SECTORS]
-  const cols = ['F01', 'F02', 'F03', 'F04', 'F05', 'F06', 'F07', 'F08']
+  const cols = [...ALL_RISK_FACTOR_IDS]
   const numCols = cols.length
-  const dataWithValues: number[][] = [
-    [5, 8, 3, 12, 2, 6, 0, 4],   // transport.road
-    [4, 6, 10, 7, 5, 3, 2, 8],   // transport.rail
-    [2, 3, 1, 4, 1, 2, 1, 2],   // transport.water
-  ]
-  const emptyRow = Array(numCols).fill(0)
-  const data = rows.map((_, i) => (i < dataWithValues.length ? dataWithValues[i] : emptyRow))
+  // Deterministic sparse mock: some sectors have counts for a subset of factors (first ~20 get more data, rest scattered)
+  const data: number[][] = rows.map((_, i) => {
+    return cols.map((_, j) => {
+      const seed = (i * 31 + j * 7) % 97
+      if (seed < 15) return (seed % 5) + 1
+      if (seed < 25 && j < 40) return (seed % 3) + 1
+      return 0
+    })
+  })
   return { rows, cols, data }
 }
 
-/** Risk category matrix: categoryId x phase counts (mock). Resolve categoryId to name via api/v1/info riskCategory. */
+/** Risk category matrix: category name x phase counts (mock). categoryId holds display name. */
 export function getMockRiskCategoryMatrix(): RiskCategoryMatrixRow[] {
-  return [
-    { categoryId: 'C09', preConstruction: 12, construction: 10, operation: 14 },  // Financial markets
-    { categoryId: 'C05', preConstruction: 8, construction: 15, operation: 6 },   // Construction
-    { categoryId: 'C07', preConstruction: 6, construction: 9, operation: 13 },   // Operating
-    { categoryId: 'C10', preConstruction: 5, construction: 7, operation: 4 },    // Strategic / Partnering
-    { categoryId: 'C03', preConstruction: 2, construction: 3, operation: 2 },     // Environmental
-  ]
+  const data: Record<string, { 'pre-construction': number; construction: number; operation: number }> = {
+    'Land availability, access & site': { 'pre-construction': 11, construction: 12, operation: 5 },
+    'Social Risk': { 'pre-construction': 3, construction: 4, operation: 3 },
+    'Environmental Risk': { 'pre-construction': 4, construction: 5, operation: 6 },
+    'Design Risk': { 'pre-construction': 2, construction: 3, operation: 1 },
+    'Construction Risk': { 'pre-construction': 1, construction: 18, operation: 0 },
+    'Variations Risk': { 'pre-construction': 0, construction: 1, operation: 1 },
+    'Operating Risk': { 'pre-construction': 0, construction: 0, operation: 19 },
+    'Demand Risk': { 'pre-construction': 5, construction: 0, operation: 5 },
+    'Financial Markets Risk': { 'pre-construction': 7, construction: 6, operation: 10 },
+    'Strategic/ Partnering Risk': { 'pre-construction': 3, construction: 5, operation: 6 },
+    'Disruptive Technology Risk': { 'pre-construction': 0, construction: 0, operation: 1 },
+    'Force Majeure Risk': { 'pre-construction': 0, construction: 2, operation: 2 },
+    'Political Risk': { 'pre-construction': 6, construction: 5, operation: 5 },
+    'Law Risk': { 'pre-construction': 4, construction: 4, operation: 4 },
+    'Early Termination Risk': { 'pre-construction': 1, construction: 6, operation: 6 },
+    'Condition At Handback Risk': { 'pre-construction': 0, construction: 0, operation: 2 },
+    'Project selection': { 'pre-construction': 4, construction: 0, operation: 0 },
+    'Relationship': { 'pre-construction': 7, construction: 6, operation: 6 },
+    'Project finance': { 'pre-construction': 8, construction: 1, operation: 2 },
+    'Procurement risks': { 'pre-construction': 6, construction: 0, operation: 0 },
+  }
+  return Object.entries(data).map(([name, phases]) => ({
+    categoryId: name,
+    preConstruction: phases['pre-construction'],
+    construction: phases.construction,
+    operation: phases.operation,
+  }))
 }
