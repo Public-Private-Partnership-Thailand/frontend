@@ -1228,7 +1228,7 @@ export default function HomePage() {
       <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="box p-6">
           <div className="mb-4">
-            <h2 className="text-xl font-bold text-gray-900">จำนวนหน่วยงานรัฐเจ้าของโครงการ</h2>
+            <h2 className="text-xl font-bold text-gray-900">จำนวนโครงการแยกตามหน่วยงานรัฐเจ้าของโครงการ</h2>
           </div>
           <div className="h-80">
             <Bar data={publicAuthorityBarData} options={publicAuthorityBarOptions} />
@@ -2039,6 +2039,26 @@ export default function HomePage() {
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                       {t('home.totalProjects')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* จำนวนหน่วยงานเจ้าของโครงการ */}
+              <div className="col-span-12 sm:col-span-6 xl:col-span-3 intro-y">
+                <div className="relative zoom-in h-full">
+                  <div className="p-5 box h-full">
+                    <div className="flex">
+                      <Lucide
+                        icon="Building2"
+                        className="w-[28px] h-[28px] text-primary"
+                      />
+                    </div>
+                    <div className="mt-6 text-3xl font-medium leading-8">
+                      {(publicAuthorityBarData.fullLabels?.length ?? 0).toLocaleString()}
+                    </div>
+                    <div className="mt-1 text-base text-slate-500">
+                      จำนวนหน่วยงานรัฐเจ้าของโครงการ
                     </div>
                   </div>
                 </div>
