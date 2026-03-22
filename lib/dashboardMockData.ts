@@ -4,10 +4,12 @@
  */
 
 import { ALL_RISK_FACTOR_IDS } from '@/lib/riskFactorsMock'
+import { getColor, CHART } from '@/lib/utils/colors'
 
-export interface PublicAuthorityProjectCount {
-  name: string
-  count: number
+/** Row from `GET /api/v1/summary` → `countProjectGroupByPublicAuthority[]` (home horizontal bar). */
+export type CountProjectGroupByPublicAuthorityRow = {
+  publicAuthorityName: string
+  projectCount: number
 }
 
 /** Heatmap: rows = sectors, cols = public authorities (หน่วยงานรัฐเจ้าของโครงการ). Value = project count. */
@@ -61,46 +63,8 @@ export interface RiskCategoryMatrixRow {
   operation: number
 }
 
-/** จำนวนหน่วยงานรัฐเจ้าของโครงการ - project count per public authority (mock). */
-export function getMockPublicAuthorityProjectCounts(): PublicAuthorityProjectCount[] {
-  return [
-    { name: 'การทางพิเศษแห่งประเทศไทย (กทพ.)', count: 1 },
-    { name: 'กรุงเทพมหานคร (กทม.)', count: 1 },
-    { name: 'กรมทางหลวง', count: 1 },
-    { name: 'การรถไฟฟ้าขนส่งมวลชนแห่งประเทศไทย (รฟม.)', count: 1 },
-    { name: 'การท่าเรือแห่งประเทศไทย (กทท.)', count: 1 },
-    { name: 'กรมเจ้าท่า', count: 1 },
-  ]
-}
-
-/** Sector x หน่วยงานรัฐ heatmap (mock). Rows = all sectors, Cols = authorities. */
-export function getMockSectorAuthorityHeatmap(): { rows: string[]; cols: string[]; data: number[][] } {
-  const rows = [...ALL_SECTORS]
-  const cols = ['การทางพิเศษแห่งประเทศไทย (กทพ.)', 'กรุงเทพมหานคร (กทม.)', 'กรมทางหลวง', 'การรถไฟฟ้าขนส่งมวลชนแห่งประเทศไทย (รฟม.)', 'การท่าเรือแห่งประเทศไทย (กทท.)']
-  const numCols = cols.length
-  // First 3 sectors have mock counts; rest are 0
-  const dataWithValues: number[][] = [
-    [1, 0, 1, 0, 0],
-    [0, 1, 0, 1, 0],
-    [0, 0, 0, 0, 0],   // transport.air
-    [0, 0, 0, 0, 2],   // transport.water
-  ]
-  const emptyRow = Array(numCols).fill(0)
-  const data: number[][] = rows.map((_, i) => (i < dataWithValues.length ? dataWithValues[i] : emptyRow))
-  return { rows, cols, data }
-}
-
-/** Bubble chart: x = จำนวนโครงการ, y = มูลค่าโครงการ, size = จำนวนหน่วยงาน (mock). */
-export function getMockSectorBubbleData(): SectorBubblePoint[] {
-  return [
-    { sector: 'transport.road', projectCount: 2, totalValue: 26950000000, authorityCount: 2 },
-    { sector: 'transport.rail', projectCount: 2, totalValue: 138794450000, authorityCount: 2 },
-    { sector: 'transport.water', projectCount: 2, totalValue: 1000000, authorityCount: 1 },
-  ]
-}
-
 /** All 12 business group sectors (match api/v1/summary businessGroupStats order). */
-const ALL_SECTORS = [
+export const ALL_SECTORS = [
   'transport.road',
   'transport.rail',
   'transport.air',
@@ -114,6 +78,67 @@ const ALL_SECTORS = [
   'cultureSportsAndRecreation',
   'others',
 ] as const
+
+/** One row from `GET /api/v1/summary` → `sectorMinistryHeatmap[]`. */
+export type SectorMinistryHeatmapSummaryRow = {
+  sector: string
+  ministryList: Array<{ id: number; value: number }>
+}
+
+/**
+ * Build matrix [sectorIndex][ministryIndex] for the home heat map.
+ * `sectorOrder` should match column order (e.g. `ALL_SECTORS`); `ministriesSorted` matches Y-axis rows (info.ministry by id).
+ */
+export function buildSectorMinistryHeatmapFromSummaryApi(
+  apiRows: SectorMinistryHeatmapSummaryRow[] | undefined | null,
+  sectorOrder: readonly string[],
+  ministriesSorted: Array<{ id: number; value: string }>
+): number[][] {
+  const bySector = new Map<string, Map<number, number>>()
+  for (const row of apiRows ?? []) {
+    const m = new Map<number, number>()
+    for (const c of row.ministryList ?? []) {
+      const v = typeof c.value === 'number' && Number.isFinite(c.value) ? c.value : 0
+      m.set(c.id, v)
+    }
+    bySector.set(row.sector, m)
+  }
+  return sectorOrder.map((sector) =>
+    ministriesSorted.map((min) => bySector.get(sector)?.get(min.id) ?? 0)
+  )
+}
+
+/** Demo matrix until summary returns `sectorMinistryHeatmap`. */
+export function buildSectorMinistryHeatmapMatrix(numSectors: number, numMinistries: number): number[][] {
+  const MOCK_CORNER: number[][] = [
+    [1, 0, 1, 0, 0],
+    [0, 1, 0, 1, 0],
+    [0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 2],
+  ]
+  return Array.from({ length: numSectors }, (_, i) =>
+    Array.from({ length: numMinistries }, (_, j) => {
+      if (i < MOCK_CORNER.length && j < MOCK_CORNER[i].length) return MOCK_CORNER[i][j]
+      return 0
+    })
+  )
+}
+
+/** @deprecated Prefer ALL_SECTORS + buildSectorMinistryHeatmapMatrix with api/v1/info ministry. */
+export function getMockSectorAuthorityHeatmap(): { rows: string[]; cols: string[]; data: number[][] } {
+  const rows = [...ALL_SECTORS]
+  const cols = ['การทางพิเศษแห่งประเทศไทย (กทพ.)', 'กรุงเทพมหานคร (กทม.)', 'กรมทางหลวง', 'การรถไฟฟ้าขนส่งมวลชนแห่งประเทศไทย (รฟม.)', 'การท่าเรือแห่งประเทศไทย (กทท.)']
+  const numCols = cols.length
+  const dataWithValues: number[][] = [
+    [1, 0, 1, 0, 0],
+    [0, 1, 0, 1, 0],
+    [0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 2],
+  ]
+  const emptyRow = Array(numCols).fill(0)
+  const data: number[][] = rows.map((_, i) => (i < dataWithValues.length ? dataWithValues[i] : emptyRow))
+  return { rows, cols, data }
+}
 
 /** Sector cards with project count, value, and related risk category IDs (mock). All sectors included; others have 0. Use riskCategory from api/v1/info to resolve names. */
 export function getMockSectorCardsWithRisks(): SectorCardWithRisks[] {
@@ -153,11 +178,11 @@ export function getMockRiskByPhaseStacked(): {
     phases,
     labels: phases,
     datasets: [
-      { categoryId: 'C09', data: [12, 10, 14], backgroundColor: '#1e3a8a' },  // Financial markets
-      { categoryId: 'C05', data: [8, 15, 6], backgroundColor: '#f97316' },   // Construction
-      { categoryId: 'C07', data: [6, 9, 13], backgroundColor: '#84cc16' },   // Operating
-      { categoryId: 'C10', data: [5, 7, 4], backgroundColor: '#06b6d4' },   // Strategic / Partnering
-      { categoryId: 'C03', data: [2, 3, 2], backgroundColor: '#64748b' },      // Environmental
+      { categoryId: 'C09', data: [12, 10, 14], backgroundColor: getColor('primary', CHART.barFill) },
+      { categoryId: 'C05', data: [8, 15, 6], backgroundColor: getColor('pending', CHART.barFill) },
+      { categoryId: 'C07', data: [6, 9, 13], backgroundColor: getColor('success', CHART.barFill) },
+      { categoryId: 'C10', data: [5, 7, 4], backgroundColor: getColor('info', CHART.barFill) },
+      { categoryId: 'C03', data: [2, 3, 2], backgroundColor: getColor('slate.500', CHART.barFill) },
     ],
   }
 }
@@ -209,4 +234,34 @@ export function getMockRiskCategoryMatrix(): RiskCategoryMatrixRow[] {
     construction: phases.construction,
     operation: phases.operation,
   }))
+}
+
+/**
+ * ภาพรวมความเสี่ยงทั่วไป — ข้อความต่อการ์ด (mock).
+ * จำนวนแหล่งอ้างอิงมาจาก `GET /api/v1/info` → `riskSource.global` / `riskSource.thailand` (ความยาวอาร์เรย์).
+ */
+export interface GeneralRiskOverviewRegionMock {
+  key: 'foreign' | 'thailand'
+  headline: string
+  summary: string
+}
+
+export function getMockGeneralRiskOverview(): {
+  foreign: GeneralRiskOverviewRegionMock
+  thailand: GeneralRiskOverviewRegionMock
+} {
+  return {
+    foreign: {
+      key: 'foreign',
+      headline: 'ต่างประเทศ',
+      summary:
+        'อ้างอิงแนวปฏิบัติและกรอบมาตรฐานนานาชาติเป็นหลัก',
+    },
+    thailand: {
+      key: 'thailand',
+      headline: 'ประเทศไทย',
+      summary:
+        'อ้างอิงประกาศ ระเบียบ และแนวปฏิบัติในประเทศไทย',
+    },
+  }
 }

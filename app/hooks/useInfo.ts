@@ -23,6 +23,11 @@ export interface RiskFactor {
   name?: string
 }
 
+export interface RiskSourceEntry {
+  id: number
+  value: string
+}
+
 export interface InfoData {
   sector: Array<{ id: number; value: string }>
   ministry: Array<{ id: number; value: string }>
@@ -31,6 +36,11 @@ export interface InfoData {
   concessionForm: Array<{ id: number; value: string }>
   riskCategory: RiskCategory[]
   riskFactor: RiskFactor[]
+  /** Maps source IDs in heatmapRiskPhase to display labels */
+  riskSource?: {
+    global: RiskSourceEntry[]
+    thailand: RiskSourceEntry[]
+  }
 }
 
 export const useInfo = () => {

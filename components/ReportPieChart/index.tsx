@@ -1,6 +1,10 @@
 import Chart from "@/components/Base/Chart";
 import { ChartData, ChartOptions } from "chart.js/auto";
-import { getColor } from "@/lib/utils/colors";
+import {
+  getColor,
+  chartPieBackgroundColors,
+  chartPieHoverBackgroundColors,
+} from "@/lib/utils/colors";
 import { selectColorScheme } from "@/lib/stores/colorSchemeSlice";
 import { selectDarkMode } from "@/lib/stores/darkModeSlice";
 import { useAppSelector } from "@/lib/stores/hooks";
@@ -35,35 +39,23 @@ function Main({
   const darkMode = useAppSelector(selectDarkMode);
 
   const chartData = propData || [15, 10, 65];
-  const chartColors = () => {
-    if (propColors && propColors.length > 0) {
-      return propColors.map(color => getColor(color, 0.9));
-    }
-    // Primary color first so largest value (at index 0 when sorted descending) gets blue
-    return [
-      getColor("primary", 0.9),
-      getColor("pending", 0.9),
-      getColor("warning", 0.9),
-      getColor("success", 0.9),
-      getColor("danger", 0.9),
-      getColor("info", 0.9),
-    ];
-  };
-  
   const data: ChartData = useMemo(() => {
+    const keys = propColors && propColors.length > 0 ? propColors : undefined
+    const bg = chartPieBackgroundColors(keys)
+    const hover = chartPieHoverBackgroundColors(keys)
     return {
       labels: propLabels || ["Yellow", "Dark"],
       datasets: [
         {
           data: chartData,
-          backgroundColor: chartColors(),
-          hoverBackgroundColor: chartColors(),
-          borderWidth: 5,
+          backgroundColor: bg,
+          hoverBackgroundColor: hover,
+          borderWidth: 3,
           borderColor: darkMode ? getColor("darkmode.700") : getColor("white"),
         },
       ],
     };
-  }, [colorScheme, darkMode, chartData, propLabels]);
+  }, [colorScheme, darkMode, chartData, propLabels, propColors]);
 
   const options: ChartOptions = useMemo(() => {
     const defaultOptions: ChartOptions = {

@@ -5,17 +5,41 @@ import Tippy from '@/components/Base/Tippy'
 import Lucide from '@/components/Base/Lucide'
 import type { HeatmapRiskItem } from '@/lib/mockHeatmapData'
 import type { RiskCategory, RiskFactor } from '@/app/hooks/useInfo'
+import {
+  buildThailandOtpTooltipHtml,
+  formatRiskSourcePlainText,
+  THAILAND_RISK_SOURCE_OTP_ID,
+  type RiskSourceMaps,
+  type ThailandOtpProjectRef,
+} from '@/lib/heatmapRiskPhaseUtils'
 
-/** Value 0 = transparent; value > 0 = gradient from light to dark (blue scale). */
-function getGradientColor(value: number, maxValue: number): string {
-  if (value <= 0) return 'transparent'
-  const safeMax = maxValue > 0 ? maxValue : 1
-  const clamped = Math.min(value, safeMax)
-  const t = clamped / safeMax // 0..1: lightest at smallest positive, darkest at max
-  const r = Math.round(219 + (30 - 219) * t)
-  const g = Math.round(234 + (64 - 234) * t)
-  const b = Math.round(254 + (175 - 254) * t)
-  return `rgb(${r},${g},${b})`
+/** Shared by Matrix ประเภทความเสี่ยง × เฟส and heat-map popup: check = risk in phase; no mark when none (no fill). */
+export function PhaseMatrixRiskMark({ present }: { present: boolean }) {
+  if (!present) {
+    return null
+  }
+  return (
+    <Lucide
+      icon="Check"
+      className="w-4 h-4 text-gray-900 shrink-0"
+      aria-label="พบความเสี่ยงในระยะนี้"
+    />
+  )
+}
+
+const PHASE_TABLE_HEADER_TH_CLASS =
+  'border border-gray-300 bg-gray-50 px-2 py-2 text-center text-xs font-medium text-gray-700'
+
+/** Same as ภาพรวมความเสี่ยงทั่วไป / matrix legend */
+const THAI_FLAG_ICON_SRC = '/assets/icons/thai_flag.png'
+
+/** Stable reference so Tippy is not torn down every render (see Base/Tippy) */
+const THAILAND_OTP_TIPPY_OPTIONS = {
+  allowHTML: true,
+  /** Wide enough for titles; height grows with content (no inner scroll in tooltip HTML). */
+  maxWidth: 'min(calc(100vw - 24px), 22rem)',
+  placement: 'top-start' as const,
+  interactive: true,
 }
 
 function getPhaseLabel(phase: string): string {
@@ -45,6 +69,83 @@ interface RiskHeatmapProps {
   heatmapRisk: HeatmapRiskItem[]
   riskCategory: RiskCategory[]
   riskFactor: RiskFactor[]
+  riskSourceMaps?: RiskSourceMaps
+}
+
+function SourceBadgesRow({
+  globalIds,
+  thailandIds,
+  thailandOtpProjects,
+  maps,
+}: {
+  globalIds: number[]
+  thailandIds: number[]
+  /** Present when Thailand source OTP (id 2) lists concrete projects — hover shows links to `/view/:id` */
+  thailandOtpProjects?: ThailandOtpProjectRef[]
+  maps: RiskSourceMaps
+}) {
+  if (!globalIds.length && !thailandIds.length) return null
+  const shortLabel = (s: string) => (s.length > 16 ? `${s.slice(0, 16)}…` : s)
+
+  return (
+    <div className="mt-1 flex flex-wrap gap-0.5">
+      {globalIds.map((id) => {
+        const name = maps.global.get(id) ?? `#${id}`
+        return (
+          <Tippy key={`g-${id}`} content={`นานาชาติ: ${name}`}>
+            <span className="inline-flex max-w-[7rem] items-center gap-1 cursor-default truncate py-0.5 text-[10px] font-medium text-gray-800">
+              <Lucide icon="Globe" className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+              <span className="min-w-0 truncate">{shortLabel(name)}</span>
+            </span>
+          </Tippy>
+        )
+      })}
+      {thailandIds.map((id) => {
+        const name = maps.thailand.get(id) ?? `#${id}`
+        const otp =
+          id === THAILAND_RISK_SOURCE_OTP_ID && thailandOtpProjects && thailandOtpProjects.length > 0
+            ? thailandOtpProjects
+            : undefined
+        if (otp) {
+          const html = buildThailandOtpTooltipHtml(otp, `ไทย: ${name}`)
+          return (
+            <Tippy
+              key={`t-${id}`}
+              as="span"
+              content={html}
+              className="inline-flex max-w-[7rem] cursor-default"
+              options={THAILAND_OTP_TIPPY_OPTIONS}
+            >
+              <span className="inline-flex max-w-[7rem] items-center gap-0.5 cursor-default truncate rounded border border-emerald-200/80 bg-emerald-50 pl-0.5 pr-1 py-0.5 text-[10px] font-medium text-emerald-900">
+                <img
+                  src={THAI_FLAG_ICON_SRC}
+                  alt=""
+                  width={12}
+                  height={12}
+                  className="h-3 w-3 shrink-0 object-contain"
+                />
+                <span className="min-w-0 truncate">{shortLabel(name)}</span>
+              </span>
+            </Tippy>
+          )
+        }
+        return (
+          <Tippy key={`t-${id}`} content={`ไทย: ${name}`}>
+            <span className="inline-flex max-w-[7rem] items-center gap-0.5 cursor-default truncate rounded border border-emerald-200/80 bg-emerald-50 pl-0.5 pr-1 py-0.5 text-[10px] font-medium text-emerald-900">
+              <img
+                src={THAI_FLAG_ICON_SRC}
+                alt=""
+                width={12}
+                height={12}
+                className="h-3 w-3 shrink-0 object-contain"
+              />
+              <span className="min-w-0 truncate">{shortLabel(name)}</span>
+            </span>
+          </Tippy>
+        )
+      })}
+    </div>
+  )
 }
 
 /** Single heat map table - compact (small) or full size. Exported for use in Matrix category popup. */
@@ -53,10 +154,10 @@ export function HeatMapTable({
   categoryById,
   factorById,
   compact,
-  maxValue,
+  maxValue: _maxValue,
   onCellClick,
-  showCellValue = true,
-  showColorLegend = true,
+  showColorLegend = false,
+  riskSourceMaps,
 }: {
   item: HeatmapRiskItem
   categoryById: Map<string, RiskCategory>
@@ -64,8 +165,9 @@ export function HeatMapTable({
   compact: boolean
   maxValue: number
   onCellClick?: () => void
-  showCellValue?: boolean
+  /** When true and `riskSourceMaps` is set, shows G/T tag legend under the table. */
   showColorLegend?: boolean
+  riskSourceMaps?: RiskSourceMaps
 }) {
   const categoryIdKey = String(item.riskCategoryId)
   const category = categoryById.get(item.riskCategoryId as string) ?? categoryById.get(categoryIdKey)
@@ -75,9 +177,40 @@ export function HeatMapTable({
   const allFactorIdsRaw = Array.from(
     new Set(phases.flatMap((p) => (p.riskFactors ?? []).map((r) => r.id)))
   )
-  const allFactorIds = allFactorIdsRaw
-    .map((id) => normalizeFactorId(id))
-    .filter((id) => factorById.has(id))
+  const allFactorIds = Array.from(new Set(allFactorIdsRaw.map((id) => normalizeFactorId(id)))).sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true })
+  )
+  const sourceByFactorId = new Map<
+    string,
+    { global: number[]; thailand: number[]; thailandOtpProjects?: ThailandOtpProjectRef[] }
+  >()
+  phases.forEach((phase) => {
+    phase.riskFactors?.forEach((rf) => {
+      const id = normalizeFactorId(rf.id)
+      const g = rf.sourceGlobal ?? []
+      const th = rf.sourceThailand ?? []
+      const otp = rf.thailandOtpProjects
+      const hasAny = g.length > 0 || th.length > 0 || (otp?.length ?? 0) > 0
+      if (!hasAny) return
+
+      const prev = sourceByFactorId.get(id)
+      if (!prev) {
+        sourceByFactorId.set(id, {
+          global: [...g],
+          thailand: [...th],
+          thailandOtpProjects: otp?.length ? [...otp] : undefined,
+        })
+        return
+      }
+      const prevOtpLen = prev.thailandOtpProjects?.length ?? 0
+      if ((otp?.length ?? 0) > prevOtpLen) {
+        sourceByFactorId.set(id, {
+          ...prev,
+          thailandOtpProjects: otp?.length ? [...otp] : prev.thailandOtpProjects,
+        })
+      }
+    })
+  })
   const valueByKey = new Map<string, number>()
   phases.forEach((phase) => {
     (phase.riskFactors ?? []).forEach((rf) => {
@@ -89,10 +222,11 @@ export function HeatMapTable({
 
   // Lite/compact: overview per phase — "Found in N projects" only
   const phaseOverview = phases.map((p) => {
-    const factorsInPhase = (p.riskFactors ?? [])
-      .map((rf) => ({ id: normalizeFactorId(rf.id), value: rf.value }))
-      .filter(({ id }) => factorById.has(id))
-    const totalInPhase = factorsInPhase.reduce((sum, { value }) => sum + value, 0)
+    const factorsInPhase = (p.riskFactors ?? []).map((rf) => ({
+      id: normalizeFactorId(rf.id),
+      value: rf.value,
+    }))
+    const totalInPhase = factorsInPhase.length
     return { phase: p.phase, totalInPhase }
   })
 
@@ -101,7 +235,7 @@ export function HeatMapTable({
       {phaseOverview.map(({ phase, totalInPhase }) => (
         <div key={phase} className="border-b border-gray-100 py-1 last:border-0 last:pb-0">
           <p className="font-medium text-gray-800 leading-tight">
-            {getPhaseLabel(phase)}: พบความเสี่ยง {totalInPhase} source{totalInPhase > 1 ? 's' : ''}
+            {getPhaseLabel(phase)}: {totalInPhase} ปัจจัย
           </p>
         </div>
       ))}
@@ -113,7 +247,7 @@ export function HeatMapTable({
   const fullTable = (
     <table className="border-collapse text-sm">
       <colgroup>
-        <col style={{ minWidth: 200, maxWidth: 320 }} />
+        <col style={{ minWidth: 240, maxWidth: 360 }} />
         {phases.map((p) => (
           <col key={p.phase} style={{ width: fullCellPx }} />
         ))}
@@ -121,12 +255,12 @@ export function HeatMapTable({
       <thead>
         <tr>
           <th className="border border-gray-300 bg-gray-50 px-2 py-2 text-left text-gray-700 text-xs">
-            Risk factor
+            ปัจจัยความเสี่ยง
           </th>
           {phases.map((p) => (
             <th
               key={p.phase}
-              className="border border-gray-300 bg-gray-50 px-2 py-2 text-center text-gray-700 text-xs"
+              className={PHASE_TABLE_HEADER_TH_CLASS}
               style={{ width: fullCellPx, minWidth: fullCellPx }}
             >
               {getPhaseLabel(p.phase)}
@@ -138,29 +272,60 @@ export function HeatMapTable({
         {factorIds.map((factorId) => {
           const factor = factorById.get(factorId)
           const factorName = factor ? ((factor as any).value ?? factor.name) : factorId
+          const src = sourceByFactorId.get(factorId)
           return (
             <tr key={factorId}>
               <td
-                className="border border-gray-300 px-2 py-1.5 text-gray-800 bg-white text-xs max-w-[320px]"
+                className="border border-gray-300 px-2 py-1.5 text-gray-800 bg-white text-xs max-w-[360px] align-top"
+                style={{ minWidth: 240 }}
                 title={factorName}
               >
-                {factorName}
+                <div className="font-medium text-gray-900 leading-snug">{factorName}</div>
+                {riskSourceMaps &&
+                  src &&
+                  (src.global.length > 0 || src.thailand.length > 0 || (src.thailandOtpProjects?.length ?? 0) > 0) && (
+                    <SourceBadgesRow
+                      globalIds={src.global}
+                      thailandIds={src.thailand}
+                      thailandOtpProjects={src.thailandOtpProjects}
+                      maps={riskSourceMaps}
+                    />
+                  )}
               </td>
               {phases.map((p) => {
                 const value = valueByKey.get(`${p.phase}:${factorId}`) ?? 0
-                const bg = getGradientColor(value, maxValue)
+                const present = value > 0
+                const rfForCell = p.riskFactors?.find((r) => normalizeFactorId(r.id) === factorId)
+                let cellTip = `${factorName} · ${getPhaseLabel(p.phase)}`
+                if (present) {
+                  cellTip += `\nการอ้างอิง (จำนวนแหล่งรวม): ${value}`
+                  if (
+                    riskSourceMaps &&
+                    rfForCell &&
+                    (rfForCell.sourceGlobal?.length || rfForCell.sourceThailand?.length)
+                  ) {
+                    const srcTxt = formatRiskSourcePlainText(
+                      rfForCell.sourceGlobal ?? [],
+                      rfForCell.sourceThailand ?? [],
+                      riskSourceMaps
+                    )
+                    if (srcTxt) cellTip += `\n\n${srcTxt}`
+                  }
+                  if (rfForCell?.thailandOtpProjects?.length) {
+                    cellTip += `\n\nโครงการ (แหล่งไทย OTP):\n${rfForCell.thailandOtpProjects.map((p) => p.title).join('\n')}`
+                  }
+                } else {
+                  cellTip += ': ไม่มี'
+                }
                 return (
                   <td
                     key={p.phase}
-                    className="border border-gray-300 p-0 align-middle"
+                    className="border border-gray-300 p-0 align-middle bg-white"
                     style={{ width: fullCellPx, height: fullCellPx }}
                   >
-                    <Tippy content={`${factorName} · ${getPhaseLabel(p.phase)}: ${value}`}>
-                      <div
-                        className="w-full h-full flex items-center justify-center font-medium text-gray-800 text-xs"
-                        style={{ backgroundColor: bg }}
-                      >
-                        {showCellValue && value > 0 ? value : ''}
+                    <Tippy content={cellTip}>
+                      <div className="w-full h-full flex items-center justify-center text-xs">
+                        <PhaseMatrixRiskMark present={present} />
                       </div>
                     </Tippy>
                   </td>
@@ -197,30 +362,33 @@ export function HeatMapTable({
       <div className="overflow-x-auto">
         <div className="inline-block min-w-full">{fullTable}</div>
       </div>
-      {showColorLegend && (
-        <div className="mt-3 flex items-center gap-3 flex-wrap text-xs text-gray-600">
-          <span className="text-gray-600">พบความเสี่ยงน้อย</span>
-          <span className="inline-flex items-center gap-0.5">
-            {[0, 0.25, 0.5, 0.75, 1].map((f) => {
-              const v = Math.round(maxValue * f)
-              return (
-                <span
-                  key={v}
-                  className="w-5 h-4 rounded border border-gray-300 flex-shrink-0"
-                  style={{ backgroundColor: getGradientColor(v, maxValue) }}
-                  title={String(v)}
-                />
-              )
-            })}
-          </span>
-          <span className="text-gray-600">พบความเสี่ยงมาก</span>
+      {showColorLegend && riskSourceMaps && (
+        <div className="mt-3 text-xs text-gray-500">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>แท็กแหล่งอ้างอิงใต้ชื่อปัจจัย:</span>
+            <span className="inline-flex items-center gap-1">
+              <Lucide icon="Globe" className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+              นานาชาติ
+            </span>
+            <span className="text-gray-400">·</span>
+            <span className="inline-flex items-center gap-1">
+              <img
+                src={THAI_FLAG_ICON_SRC}
+                alt=""
+                width={16}
+                height={16}
+                className="h-4 w-4 shrink-0 object-contain"
+              />
+              ไทย
+            </span>
+          </p>
         </div>
       )}
     </div>
   )
 }
 
-export default function RiskHeatmap({ heatmapRisk, riskCategory, riskFactor }: RiskHeatmapProps) {
+export default function RiskHeatmap({ heatmapRisk, riskCategory, riskFactor, riskSourceMaps }: RiskHeatmapProps) {
   const [selectedItem, setSelectedItem] = useState<HeatmapRiskItem | null>(null)
   const categoryById = new Map<string, RiskCategory>()
   riskCategory.forEach((c, i) => {
@@ -263,6 +431,7 @@ export default function RiskHeatmap({ heatmapRisk, riskCategory, riskFactor }: R
             compact
             maxValue={maxValue}
             onCellClick={() => setSelectedItem(item)}
+            riskSourceMaps={riskSourceMaps}
           />
         ))}
       </div>
@@ -299,6 +468,8 @@ export default function RiskHeatmap({ heatmapRisk, riskCategory, riskFactor }: R
                 factorById={factorById}
                 compact={false}
                 maxValue={maxValue}
+                showColorLegend={Boolean(riskSourceMaps)}
+                riskSourceMaps={riskSourceMaps}
               />
             </div>
           </div>

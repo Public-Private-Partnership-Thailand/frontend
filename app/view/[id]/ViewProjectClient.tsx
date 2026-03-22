@@ -290,6 +290,11 @@ export default function ViewProjectClient() {
   const projectImages = getProjectImages()
   const hasMultipleImages = projectImages.length > 1
 
+  // Only show "reference" documents in the "แหล่งข้อมูล" section.
+  const referenceDocuments = (project.documents ?? []).filter(
+    (doc: any) => doc.documentType === 'reference' && doc.url
+  )
+
   const handleImageClick = (index: number) => {
     setSelectedImageIndex(index)
   }
@@ -811,11 +816,11 @@ export default function ViewProjectClient() {
           )}
 
           {/* Data Source */}
-          {project.documents && project.documents.length > 0 && (
+          {referenceDocuments.length > 0 && (
           <div className="bg-white shadow rounded-lg p-4 sm:p-6 w-full">
             <h2 className="text-lg font-medium text-gray-900 mb-4">{t('pages.view.dataSource')}</h2>
             <div className="space-y-2">
-              {project.documents.map((doc, index) => (
+              {referenceDocuments.map((doc, index) => (
                 <a
                   key={index}
                   href={doc.url}

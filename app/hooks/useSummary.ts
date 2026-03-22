@@ -3,11 +3,19 @@ import { parseThaiDateRangeToISO } from '@/lib/utils/dateUtils'
 import type { ProjectData } from '@/types/project'
 import { appConfig } from '@/app/configs/appConfig'
 import type { HeatmapRiskItem } from '@/lib/mockHeatmapData'
+import type {
+  CountProjectGroupByPublicAuthorityRow,
+  SectorBubblePoint,
+  SectorMinistryHeatmapSummaryRow,
+} from '@/lib/dashboardMockData'
+import { normalizeHeatmapRisk } from '@/lib/normalizeHeatmapRisk'
 
 export interface SummaryData {
   summary: {
     totalProjects: number
     uniqueContractors: number
+    /** จำนวนหน่วยงานรัฐเจ้าของโครงการ (distinct owning authorities) */
+    uniquePublicAuthority?: number
     totalInvestment: number
     maxBudget: number
     inprogressProjects?: number
@@ -58,8 +66,17 @@ export interface SummaryData {
   latestProjects: ProjectData[]
   /** Risk heat map: one map per risk category; x = phases, y = risk factors; value 0–5 for gradient. */
   heatmapRisk?: HeatmapRiskItem[]
-  /** Matrix data: categoryId (e.g. C01) -> factorId (e.g. F104) -> list of phases. Used for Matrix ประเภทความเสี่ยง × ระยะโครงการ. */
-  heatmapRiskPhase?: Record<string, Record<string, string[]>>
+  /**
+   * Matrix / phase detail: categoryId -> factorId -> legacy string[] phases, or
+   * { phase: string[], source: { global: number[], thailand: number[] } }.
+   */
+  heatmapRiskPhase?: Record<string, Record<string, unknown>>
+  /** กลุ่มกิจการ × กระทรวง: per-sector counts per ministry id (home heat map). */
+  sectorMinistryHeatmap?: SectorMinistryHeatmapSummaryRow[]
+  /** จำนวนโครงการแยกตามหน่วยงานรัฐเจ้าของโครงการ (home horizontal bar). */
+  countProjectGroupByPublicAuthority?: CountProjectGroupByPublicAuthorityRow[]
+  /** Bubble chart: x = project count, y = value (baht), r ∝ authority count. */
+  sectorProjectValueBubble?: SectorBubblePoint[]
 }
 
 export interface SummaryFilters {
@@ -110,8 +127,8 @@ export function getIconNameByGroupName(groupName: string): string {
   return '12_others.png'
 }
 
-// Helper function to convert filter values to IDs (needs infoData for conversion)
-const buildSummaryQueryParams = (
+/** Shared by useSummary and useRisk for identical query-string filter encoding. */
+export const buildSummaryQueryParams = (
   filters: SummaryFilters,
   infoData?: {
     ministry?: Array<{ id: number; value: string }>
@@ -227,42 +244,6 @@ export const useSummary = (filters?: SummaryFilters, infoData?: {
   sector?: Array<{ id: number; value: string }>
   contractType?: Array<{ id: number; value: string }>
 }) => {
-  // Backend heatmapRisk schema uses numeric IDs; normalize to string codes
-  type HeatmapRiskApiItem = {
-    riskCategoryId: number | string
-    phaseList: Array<{
-      phase: string
-      riskFactors: Array<{
-        id: number | string
-        value: number
-      }>
-    }>
-  }
-
-  const toRiskCategoryCode = (id: number | string): string => {
-    if (typeof id === 'string') return id
-    return `C${String(id).padStart(2, '0')}`
-  }
-
-  const toRiskFactorCode = (id: number | string): string => {
-    if (typeof id === 'string') return id
-    return `F${String(id).padStart(2, '0')}`
-  }
-
-  const normalizeHeatmapRisk = (items: HeatmapRiskApiItem[] | undefined): HeatmapRiskItem[] | undefined => {
-    if (!items || !Array.isArray(items)) return undefined
-    return items.map(item => ({
-      riskCategoryId: toRiskCategoryCode(item.riskCategoryId),
-      phaseList: (item.phaseList || []).map(phase => ({
-        phase: phase.phase,
-        riskFactors: (phase.riskFactors || []).map(rf => ({
-          id: toRiskFactorCode(rf.id),
-          value: rf.value ?? 0,
-        })),
-      })),
-    }))
-  }
-
   return useQuery<SummaryData>({
     queryKey: ['get', 'summary', filters, infoData],
     queryFn: async () => {
@@ -298,6 +279,15 @@ export const useSummary = (filters?: SummaryFilters, infoData?: {
       }
       if ((raw as any)?.heatmapRiskPhase) {
         data.heatmapRiskPhase = (raw as any).heatmapRiskPhase
+      }
+      if (Array.isArray((raw as any)?.sectorMinistryHeatmap)) {
+        data.sectorMinistryHeatmap = (raw as any).sectorMinistryHeatmap
+      }
+      if (Array.isArray((raw as any)?.countProjectGroupByPublicAuthority)) {
+        data.countProjectGroupByPublicAuthority = (raw as any).countProjectGroupByPublicAuthority
+      }
+      if (Array.isArray((raw as any)?.sectorProjectValueBubble)) {
+        data.sectorProjectValueBubble = (raw as any).sectorProjectValueBubble
       }
 
       return data

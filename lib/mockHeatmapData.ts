@@ -20,6 +20,12 @@ export interface RiskFactorItem {
 export interface HeatmapPhaseRiskFactor {
   id: string
   value: number
+  /** Risk source IDs from /api/v1/info riskSource.global */
+  sourceGlobal?: number[]
+  /** Risk source IDs from /api/v1/info riskSource.thailand */
+  sourceThailand?: number[]
+  /** Per-project refs when `source["thailand-otp"]` is present (Thailand source id 2 — OTP) */
+  thailandOtpProjects?: Array<{ projectId: string; title: string }>
 }
 
 export interface HeatmapPhase {
