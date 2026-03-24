@@ -16,14 +16,25 @@ export function toRiskCategoryCode(id: number | string): string {
   return `C${String(id).padStart(2, '0')}`
 }
 
+const FACTOR_ID_PAD = 3
+
+/** Canonical heatmap / lookup key: F + zero-padded numeric id (e.g. F001). Normalizes "F1"/"F01" from API. */
 export function toRiskFactorCode(id: number | string): string {
-  if (typeof id === 'string' && /^F\d+$/i.test(id)) return id
-  const n = typeof id === 'number' ? id : parseInt(String(id), 10)
-  if (Number.isNaN(n)) return String(id)
-  return `F${String(n).padStart(2, '0')}`
+  if (typeof id === 'string') {
+    const trimmed = id.trim()
+    const m = /^F(\d+)$/i.exec(trimmed)
+    if (m) {
+      const n = parseInt(m[1], 10)
+      if (!Number.isNaN(n)) return `F${String(n).padStart(FACTOR_ID_PAD, '0')}`
+    }
+    const n = parseInt(trimmed, 10)
+    if (!Number.isNaN(n)) return `F${String(n).padStart(FACTOR_ID_PAD, '0')}`
+    return trimmed
+  }
+  return `F${String(id).padStart(FACTOR_ID_PAD, '0')}`
 }
 
-/** Backend uses numeric risk category / factor ids; normalize to C01 / F01 codes. */
+/** Backend uses numeric risk category / factor ids; normalize to C01 / F001-style codes. */
 export function normalizeHeatmapRisk(items: HeatmapRiskApiItem[] | undefined): HeatmapRiskItem[] | undefined {
   if (!items || !Array.isArray(items)) return undefined
   return items.map((item) => ({

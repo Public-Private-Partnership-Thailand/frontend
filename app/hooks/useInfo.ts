@@ -7,6 +7,8 @@ export interface RiskCategory {
   code: string
   /** Display name from API (field is "value" in JSON). Use this for UI labels. */
   value: string
+  /** Short label from API (e.g. CON, LAN). Shown as "CON: Construction" in risk UI. */
+  short_code?: string
   description_en: string
   description_th: string
   /** @deprecated Prefer value. Kept for backward compat. */
@@ -21,6 +23,25 @@ export interface RiskFactor {
   description_th: string
   /** @deprecated Prefer value. Kept for backward compat. */
   name?: string
+}
+
+/** e.g. "CON: Construction" when API sends short_code; otherwise the display name only. */
+export function formatRiskCategoryLabel(
+  c: Pick<RiskCategory, 'value' | 'name'> & { short_code?: string }
+): string {
+  const name = c.value ?? c.name ?? ''
+  const sc = c.short_code?.trim()
+  if (sc) return `${sc}: ${name}`
+  return name
+}
+
+/** e.g. "F001: Access to the site…" from numeric id + value */
+export function formatRiskFactorLabel(
+  f: Pick<RiskFactor, 'id' | 'value' | 'name'>
+): string {
+  const name = f.value ?? f.name ?? ''
+  const code = `F${String(f.id).padStart(3, '0')}`
+  return `${code}: ${name}`
 }
 
 export interface RiskSourceEntry {

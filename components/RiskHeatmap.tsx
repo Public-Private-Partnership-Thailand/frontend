@@ -4,10 +4,17 @@ import { useState } from 'react'
 import Tippy from '@/components/Base/Tippy'
 import Lucide from '@/components/Base/Lucide'
 import type { HeatmapRiskItem } from '@/lib/mockHeatmapData'
-import type { RiskCategory, RiskFactor } from '@/app/hooks/useInfo'
+import {
+  type RiskCategory,
+  type RiskFactor,
+  formatRiskCategoryLabel,
+  formatRiskFactorLabel,
+} from '@/app/hooks/useInfo'
+import { toRiskFactorCode } from '@/lib/normalizeHeatmapRisk'
 import {
   buildThailandOtpTooltipHtml,
   formatRiskSourcePlainText,
+  riskSourceFilterKey,
   THAILAND_RISK_SOURCE_OTP_ID,
   type RiskSourceMaps,
   type ThailandOtpProjectRef,
@@ -52,15 +59,7 @@ function getPhaseLabel(phase: string): string {
   return labels[phase] ?? phase
 }
 
-/** Convert numeric factor ID to canonical code ("F01", "F02", ...) */
-function toRiskFactorCode(id: number | string): string {
-  if (typeof id === 'string' && /^F\d+$/i.test(id)) return id
-  const n = typeof id === 'number' ? id : parseInt(id, 10)
-  if (Number.isNaN(n)) return String(id)
-  return `F${String(n).padStart(2, '0')}`
-}
-
-/** Normalize factor id from API (numeric or "F01") to "F01" for lookup in riskFactor. */
+/** Normalize factor id from API (numeric or "F01") to canonical F001 for lookup in riskFactor. */
 function normalizeFactorId(id: string | number): string {
   return toRiskFactorCode(id)
 }
@@ -77,24 +76,43 @@ function SourceBadgesRow({
   thailandIds,
   thailandOtpProjects,
   maps,
+  /** When set (partial matrix filter), badges whose key is not in this set are faded. */
+  activeSourceFilterKeys,
 }: {
   globalIds: number[]
   thailandIds: number[]
   /** Present when Thailand source OTP (id 2) lists concrete projects — hover shows links to `/view/:id` */
   thailandOtpProjects?: ThailandOtpProjectRef[]
   maps: RiskSourceMaps
+  activeSourceFilterKeys?: ReadonlySet<string> | null
 }) {
   if (!globalIds.length && !thailandIds.length) return null
   const shortLabel = (s: string) => (s.length > 16 ? `${s.slice(0, 16)}…` : s)
+
+  const isKeyActive = (kind: 'global' | 'thailand', id: number) => {
+    if (activeSourceFilterKeys == null) return true
+    return activeSourceFilterKeys.has(riskSourceFilterKey(kind, id))
+  }
 
   return (
     <div className="mt-1 flex flex-wrap gap-0.5">
       {globalIds.map((id) => {
         const name = maps.global.get(id) ?? `#${id}`
+        const active = isKeyActive('global', id)
         return (
           <Tippy key={`g-${id}`} content={`นานาชาติ: ${name}`}>
-            <span className="inline-flex max-w-[7rem] items-center gap-1 cursor-default truncate py-0.5 text-[10px] font-medium text-gray-800">
-              <Lucide icon="Globe" className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+            <span
+              className={`inline-flex max-w-[7rem] items-center gap-1 cursor-default truncate py-0.5 text-[10px] font-medium transition-opacity ${
+                active
+                  ? 'text-gray-800'
+                  : 'text-gray-400 opacity-50 saturate-50'
+              }`}
+            >
+              <Lucide
+                icon="Globe"
+                className={`h-3.5 w-3.5 shrink-0 ${active ? 'text-primary' : 'text-gray-300'}`}
+                aria-hidden
+              />
               <span className="min-w-0 truncate">{shortLabel(name)}</span>
             </span>
           </Tippy>
@@ -102,10 +120,14 @@ function SourceBadgesRow({
       })}
       {thailandIds.map((id) => {
         const name = maps.thailand.get(id) ?? `#${id}`
+        const active = isKeyActive('thailand', id)
         const otp =
           id === THAILAND_RISK_SOURCE_OTP_ID && thailandOtpProjects && thailandOtpProjects.length > 0
             ? thailandOtpProjects
             : undefined
+        const thaiChipClass = active
+          ? 'border-emerald-200/80 bg-emerald-50 text-emerald-900'
+          : 'border-gray-200 bg-gray-100 text-gray-400 opacity-50'
         if (otp) {
           const html = buildThailandOtpTooltipHtml(otp, `ไทย: ${name}`)
           return (
@@ -116,13 +138,15 @@ function SourceBadgesRow({
               className="inline-flex max-w-[7rem] cursor-default"
               options={THAILAND_OTP_TIPPY_OPTIONS}
             >
-              <span className="inline-flex max-w-[7rem] items-center gap-0.5 cursor-default truncate rounded border border-emerald-200/80 bg-emerald-50 pl-0.5 pr-1 py-0.5 text-[10px] font-medium text-emerald-900">
+              <span
+                className={`inline-flex max-w-[7rem] items-center gap-0.5 cursor-default truncate rounded border pl-0.5 pr-1 py-0.5 text-[10px] font-medium transition-opacity ${thaiChipClass}`}
+              >
                 <img
                   src={THAI_FLAG_ICON_SRC}
                   alt=""
                   width={12}
                   height={12}
-                  className="h-3 w-3 shrink-0 object-contain"
+                  className={`h-3 w-3 shrink-0 object-contain ${active ? '' : 'opacity-50 grayscale'}`}
                 />
                 <span className="min-w-0 truncate">{shortLabel(name)}</span>
               </span>
@@ -131,13 +155,15 @@ function SourceBadgesRow({
         }
         return (
           <Tippy key={`t-${id}`} content={`ไทย: ${name}`}>
-            <span className="inline-flex max-w-[7rem] items-center gap-0.5 cursor-default truncate rounded border border-emerald-200/80 bg-emerald-50 pl-0.5 pr-1 py-0.5 text-[10px] font-medium text-emerald-900">
+            <span
+              className={`inline-flex max-w-[7rem] items-center gap-0.5 cursor-default truncate rounded border pl-0.5 pr-1 py-0.5 text-[10px] font-medium transition-opacity ${thaiChipClass}`}
+            >
               <img
                 src={THAI_FLAG_ICON_SRC}
                 alt=""
                 width={12}
                 height={12}
-                className="h-3 w-3 shrink-0 object-contain"
+                className={`h-3 w-3 shrink-0 object-contain ${active ? '' : 'opacity-50 grayscale'}`}
               />
               <span className="min-w-0 truncate">{shortLabel(name)}</span>
             </span>
@@ -158,6 +184,8 @@ export function HeatMapTable({
   onCellClick,
   showColorLegend = false,
   riskSourceMaps,
+  /** Partial matrix source filter: fade tags under factors that are not in this set. Omit when all sources selected. */
+  activeSourceFilterKeys,
 }: {
   item: HeatmapRiskItem
   categoryById: Map<string, RiskCategory>
@@ -168,10 +196,11 @@ export function HeatMapTable({
   /** When true and `riskSourceMaps` is set, shows G/T tag legend under the table. */
   showColorLegend?: boolean
   riskSourceMaps?: RiskSourceMaps
+  activeSourceFilterKeys?: ReadonlySet<string> | null
 }) {
   const categoryIdKey = String(item.riskCategoryId)
   const category = categoryById.get(item.riskCategoryId as string) ?? categoryById.get(categoryIdKey)
-  const categoryDisplayName = category ? ((category as any).value ?? category.name) : ''
+  const categoryDisplayName = category ? formatRiskCategoryLabel(category) : ''
   const title = categoryDisplayName || categoryIdKey
   const phases = item.phaseList ?? []
   const allFactorIdsRaw = Array.from(
@@ -271,7 +300,9 @@ export function HeatMapTable({
       <tbody>
         {factorIds.map((factorId) => {
           const factor = factorById.get(factorId)
-          const factorName = factor ? ((factor as any).value ?? factor.name) : factorId
+          const factorName = factor
+            ? formatRiskFactorLabel(factor)
+            : toRiskFactorCode(factorId)
           const src = sourceByFactorId.get(factorId)
           return (
             <tr key={factorId}>
@@ -289,6 +320,7 @@ export function HeatMapTable({
                       thailandIds={src.thailand}
                       thailandOtpProjects={src.thailandOtpProjects}
                       maps={riskSourceMaps}
+                      activeSourceFilterKeys={activeSourceFilterKeys}
                     />
                   )}
               </td>
@@ -400,7 +432,7 @@ export default function RiskHeatmap({ heatmapRisk, riskCategory, riskFactor, ris
     }
     categoryById.set(String(i + 1), c)
   })
-  // Map factors by canonical code ("F01", "F02", ...) so they match heatmapRisk IDs
+  // Map factors by canonical code (F001, …) so they match heatmapRisk IDs
   const factorById = new Map<string, RiskFactor>(
     riskFactor.map((f) => [toRiskFactorCode(f.id), f])
   )
@@ -448,9 +480,11 @@ export default function RiskHeatmap({ heatmapRisk, riskCategory, riskFactor, ris
             <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
               <h2 id="risk-heatmap-modal-title" className="text-lg font-semibold text-gray-900">
                 {(() => {
-                const c = categoryById.get(String(selectedItem.riskCategoryId)) ?? categoryById.get(selectedItem.riskCategoryId as string)
-                return c ? ((c as any).value ?? c.name) : String(selectedItem.riskCategoryId)
-              })()}
+                  const c =
+                    categoryById.get(String(selectedItem.riskCategoryId)) ??
+                    categoryById.get(selectedItem.riskCategoryId as string)
+                  return c ? formatRiskCategoryLabel(c) : String(selectedItem.riskCategoryId)
+                })()}
               </h2>
               <button
                 type="button"

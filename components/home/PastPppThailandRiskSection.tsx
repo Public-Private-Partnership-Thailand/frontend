@@ -52,7 +52,7 @@ export default function PastPppThailandRiskSection() {
   return (
     <div className="mb-8">
       <div className="mb-4">
-        <h2 className="text-xl font-bold text-gray-900">ความเสี่ยงจากโครงการ PPP ในอดีตของประเทศไทย</h2>
+        <h2 className="text-xl font-bold text-gray-900">ความเสี่ยงจากโครงการ PPP ในอดีตของประเทศไทย (เฉพาะโครงการที่พบความเสี่ยง)</h2>
         <p className="mt-1 text-sm text-gray-500 max-w-4xl">
           แบ่งตามกลุ่มกิจการ 12 กลุ่มของประเทศไทย — สามารถคลิกกลุ่มกิจการเพื่อดูความเสี่ยงที่เคยเกิดขึ้น
         </p>
@@ -93,11 +93,11 @@ export default function PastPppThailandRiskSection() {
                   </p>
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
                     <span>
-                      ความเสี่ยงที่บันทึก:{' '}
+                      ความเสี่ยงที่บันทึกไว้:{' '}
                       <strong className="text-gray-700 tabular-nums">{nIncidents}</strong>
                     </span>
                     <span>
-                      โครงการ:{' '}
+                      จำนวนโครงการที่พบความเสี่ยง:{' '}
                       <strong className="text-gray-700 tabular-nums">{nProjects}</strong>
                     </span>
                   </div>

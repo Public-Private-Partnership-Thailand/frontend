@@ -24,7 +24,13 @@ import {
 } from '@/lib/dashboardMockData'
 import { MOCK_RISK_FACTORS } from '@/lib/riskFactorsMock'
 import { getBusinessGroupDisplayName } from '@/types/businessGroup'
-import type { InfoData, RiskCategory, RiskFactor } from '@/app/hooks/useInfo'
+import {
+  type InfoData,
+  type RiskCategory,
+  type RiskFactor,
+  formatRiskCategoryLabel,
+} from '@/app/hooks/useInfo'
+import { toRiskFactorCode } from '@/lib/normalizeHeatmapRisk'
 import { getIconNameByGroupName } from '@/app/hooks/useSummary'
 import type { RiskApiData } from '@/app/hooks/useRisk'
 import {
@@ -184,11 +190,6 @@ function MatrixRiskSourceFilterPanel({
 const toRiskCategoryCode = (id: number | string): string => {
   if (typeof id === 'string') return id
   return `C${String(id).padStart(2, '0')}`
-}
-
-const toRiskFactorCode = (id: number | string): string => {
-  if (typeof id === 'string') return id
-  return `F${String(id).padStart(2, '0')}`
 }
 
 function mapIconName(iconName: string): string {
@@ -414,13 +415,12 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
 
   const riskCategoryNameById = useMemo(() => {
     const map = new Map<string, string>()
-    const displayName = (c: RiskCategory) => (c as { value?: string }).value ?? c.name ?? ''
     safeInfoData.riskCategory?.forEach((c) => {
-      const name = displayName(c)
-      map.set(toRiskCategoryCode(c.id), name)
-      map.set(String(c.id), name)
+      const label = formatRiskCategoryLabel(c)
+      map.set(toRiskCategoryCode(c.id), label)
+      map.set(String(c.id), label)
       if (c.code) {
-        map.set(c.code, name)
+        map.set(c.code, label)
       }
     })
     return map
@@ -970,12 +970,9 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
         (() => {
           const matrixModalItem = riskHeatmapForMatrix.getHeatmapItemByCategoryId(selectedMatrixCategoryId)
           if (!matrixModalItem) return null
-          const modalTitleCat =
-            riskHeatmapForMatrix.categoryById.get(String(selectedMatrixCategoryId)) ??
-            riskHeatmapForMatrix.categoryById.get(selectedMatrixCategoryId)
-          const modalTitle = modalTitleCat
-            ? ((modalTitleCat as { value?: string }).value ?? modalTitleCat.name)
-            : String(selectedMatrixCategoryId)
+          const modalTitle =
+            riskCategoryNameById.get(selectedMatrixCategoryId) ??
+            String(selectedMatrixCategoryId)
           return (
             <div
               className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
@@ -1027,6 +1024,11 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
                     maxValue={riskHeatmapForMatrix.maxValue}
                     showColorLegend={Boolean(riskSourceMaps)}
                     riskSourceMaps={riskSourceMaps}
+                    activeSourceFilterKeys={
+                      matrixSourceFilterMode.kind === 'partial'
+                        ? matrixSourceFilterMode.keys
+                        : null
+                    }
                   />
                 </div>
               </div>
