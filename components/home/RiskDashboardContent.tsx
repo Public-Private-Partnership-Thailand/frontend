@@ -12,18 +12,11 @@ import {
 } from 'chart.js'
 import ChartDataLabels from 'chartjs-plugin-datalabels'
 import { Bar } from 'react-chartjs-2'
-import { getColor, chartBarDataset, chartHeatmapCellColor } from '@/lib/utils/colors'
+import { CHART, getColor, chartBarDataset, chartHeatmapCellColor } from '@/lib/utils/colors'
 import Lucide from '@/components/Base/Lucide'
 import Tippy from '@/components/Base/Tippy'
 import { HeatMapTable, PhaseMatrixRiskMark } from '@/components/RiskHeatmap'
 import type { HeatmapPhaseRiskFactor, HeatmapRiskItem } from '@/lib/mockHeatmapData'
-import {
-  getMockRiskCategoryProjectCounts,
-  getMockRiskByPhaseStacked,
-  getMockSectorRiskFactorHeatmap,
-} from '@/lib/dashboardMockData'
-import { MOCK_RISK_FACTORS } from '@/lib/riskFactorsMock'
-import { getBusinessGroupDisplayName } from '@/types/businessGroup'
 import {
   type InfoData,
   type RiskCategory,
@@ -505,18 +498,22 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
   ])
 
   const riskCategoryBarData = useMemo(() => {
-    const mock = getMockRiskCategoryProjectCounts()
+    const rows = [...(riskData?.countProjectGroupByRiskCategory ?? [])].sort(
+      (a, b) => b.projectCount - a.projectCount || a.riskCategoryId - b.riskCategoryId
+    )
     return {
-      labels: mock.map((m) => riskCategoryNameById.get(m.categoryId) ?? m.categoryId),
+      labels: rows.map(
+        (r) => riskCategoryNameById.get(String(r.riskCategoryId)) ?? String(r.riskCategoryId)
+      ),
       datasets: [
         {
           label: 'จำนวนโครงการ',
-          data: mock.map((m) => m.count),
+          data: rows.map((r) => r.projectCount),
           ...chartBarDataset('primary'),
         },
       ],
     }
-  }, [riskCategoryNameById])
+  }, [riskCategoryNameById, riskData?.countProjectGroupByRiskCategory])
 
   const riskCategoryBarOptions = useMemo(() => {
     const counts = (riskCategoryBarData.datasets[0]?.data as number[] | undefined) ?? []
@@ -556,14 +553,41 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
   }, [riskCategoryBarData])
 
   const riskByPhaseStackedData = useMemo(() => {
-    const mock = getMockRiskByPhaseStacked()
-    const datasets = mock.datasets.map((d) => ({
-      label: riskCategoryNameById.get(d.categoryId) ?? d.categoryId,
-      data: d.data,
-      backgroundColor: d.backgroundColor,
+    const phaseLabels = ['Pre-construction', 'Construction', 'Operation'] as const
+    const stackedColorKeys = [
+      'primary',
+      'pending',
+      'success',
+      'info',
+      'slate.500',
+      'warning',
+      'danger',
+    ] as const
+
+    const byPhase = riskData?.countProjectGroupByPhaseAndRiskCategory
+    if (!byPhase?.length) {
+      return { labels: [...phaseLabels], datasets: [] as { label: string; data: number[]; backgroundColor: string }[] }
+    }
+
+    const categoryIds = new Set<number>()
+    for (const block of byPhase) {
+      for (const row of block.riskCategoryList) {
+        categoryIds.add(row.riskCategoryId)
+      }
+    }
+    const sortedCategoryIds = Array.from(categoryIds).sort((a, b) => a - b)
+
+    const datasets = sortedCategoryIds.map((categoryId, idx) => ({
+      label: riskCategoryNameById.get(String(categoryId)) ?? String(categoryId),
+      data: byPhase.map((block) => {
+        const row = block.riskCategoryList.find((r) => r.riskCategoryId === categoryId)
+        return row?.projectCount ?? 0
+      }),
+      backgroundColor: getColor(stackedColorKeys[idx % stackedColorKeys.length], CHART.barFill),
     }))
-    return { labels: mock.labels, datasets }
-  }, [riskCategoryNameById])
+
+    return { labels: [...phaseLabels], datasets }
+  }, [riskCategoryNameById, riskData?.countProjectGroupByPhaseAndRiskCategory])
 
   const riskByPhaseStackedOptions = useMemo(
     () => ({
@@ -577,8 +601,6 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
     }),
     []
   )
-
-  const sectorRiskFactorHeatmapData = useMemo(() => getMockSectorRiskFactorHeatmap(), [])
 
   const riskSourceReferenceCounts = useMemo(
     () => ({
