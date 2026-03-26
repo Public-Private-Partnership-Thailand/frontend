@@ -266,18 +266,37 @@ export default function ViewProjectClient() {
   const relatedLawsName = getRelatedLaws()
 
   // Get investment scope from additionalClassifications
-  const getInvestmentScope = (): string => {
+  const getInvestmentScopeCodes = (): string[] => {
     if (!project.additionalClassifications || !Array.isArray(project.additionalClassifications)) {
-      return 'N/A'
+      return []
     }
     
     const investmentScopeClassification = project.additionalClassifications.find(
       c => c?.scheme === 'ขอบเขตการลุงทุน'
     )
-    return investmentScopeClassification?.description || 'N/A'
+    const rawValue = investmentScopeClassification?.description || ''
+    return rawValue
+      .split(',')
+      .map(code => code.trim())
+      .filter(Boolean)
   }
 
-  const investmentScopeName = getInvestmentScope()
+  const investmentScopeCodes = getInvestmentScopeCodes()
+  const investmentScopeRows = [
+    'การจัดการที่ดิน',
+    'การก่อสร้างงานโยธา*',
+    'การติดตั้งงานระบบ',
+    'การดำเนินโครงการและบำรุงรักษา (O&M)'
+  ]
+
+  const getInvestmentScopeCell = (code: string | undefined, side: 'public' | 'private'): boolean => {
+    if (!code) return false
+    if (code === '1') return true
+    if (code === '11') return true
+    if (code === '10') return side === 'public'
+    if (code === '01') return side === 'private'
+    return false
+  }
 
   // Image URLs from documents where documentType === 'image'
   const getProjectImages = (): string[] => {
@@ -316,6 +335,12 @@ export default function ViewProjectClient() {
       setSelectedImageIndex(selectedImageIndex - 1)
     }
   }
+
+  const CheckMarkIcon = () => (
+    <svg className="w-4 h-4 text-black" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M5 10.5L8.5 14L15 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8">
@@ -465,20 +490,20 @@ export default function ViewProjectClient() {
                     <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.lastUpdated')}</dt>
                     <dd className="mt-1 text-base text-gray-900 break-words">{formatDate(project.updated)}</dd>
                   </div>
-                  <div>
+                  {/* <div>
                     <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.locations')}</dt>
                     <dd className="mt-1 text-base text-gray-900 break-words">
                       {project.locations?.map(loc => loc.description || loc.id).join(', ') || 'N/A'}
                     </dd>
-                  </div>
+                  </div> */}
                   <div className="sm:col-span-2">
                     <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.projectType')}</dt>
                     <dd className="mt-1 text-base text-gray-900 break-words">{project.type || 'N/A'}</dd>
                   </div>
-                  <div className="sm:col-span-2">
+                  {/* <div className="sm:col-span-2">
                     <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.purpose')}</dt>
                     <dd className="mt-1 text-base text-gray-900 break-words whitespace-pre-line">{project.purpose || 'N/A'}</dd>
-                  </div>
+                  </div> */}
                   <div className="sm:col-span-2">
                     <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.projectDescription')}</dt>
                     <dd className="mt-1 text-base text-gray-900 break-words whitespace-pre-line">{project.description || 'N/A'}</dd>
@@ -499,10 +524,10 @@ export default function ViewProjectClient() {
                     <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.concessionEndDate')}</dt>
                     <dd className="mt-1 text-base text-gray-900">{formatDate(project.period?.endDate)}</dd>
                   </div>
-                  <div>
+                  {/* <div>
                     <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.serviceStartDate')}</dt>
                     <dd className="mt-1 text-base text-gray-900">{formatDate(project.maintenancePeriod?.startDate || '')}</dd>
-                  </div>
+                  </div> */}
                   {project.milestones && project.milestones.length > 0 && (
                     <div className="sm:col-span-2">
                       <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.contractAmendments')}</dt>
@@ -535,12 +560,47 @@ export default function ViewProjectClient() {
                     <dd className="mt-1 text-base text-gray-900 break-words">{concessionFormName}</dd>
                   </div>
                   <div className="sm:col-span-2">
-                    <dt className="text-sm font-bold text-black opacity-100">กฎหมายที่เกี่ยวข้อง</dt>
-                    <dd className="mt-1 text-base text-gray-900 break-words whitespace-pre-line">{relatedLawsName}</dd>
+                    <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.investmentScope')} (ภาครัฐและภาคเอกชน)</dt>
+                    <dd className="mt-2">
+                      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                        <table className="min-w-full text-sm text-gray-900">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-3 text-left font-semibold border-b border-gray-200">หน้าที่ความรับผิดชอบ</th>
+                              <th className="px-4 py-3 text-center font-semibold border-b border-gray-200">ภาครัฐ</th>
+                              <th className="px-4 py-3 text-center font-semibold border-b border-gray-200">ภาคเอกชน</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {investmentScopeRows.map((label, index) => {
+                              const code = investmentScopeCodes[index]
+                              const publicHasRole = getInvestmentScopeCell(code, 'public')
+                              const privateHasRole = getInvestmentScopeCell(code, 'private')
+
+                              return (
+                                <tr key={label} className="border-b border-gray-100 last:border-b-0">
+                                  <td className="px-4 py-3 align-middle">{label}</td>
+                                  <td className="px-4 py-3 align-middle">
+                                    <div className="flex items-center justify-center">
+                                      {publicHasRole ? <CheckMarkIcon /> : '-'}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 align-middle">
+                                    <div className="flex items-center justify-center">
+                                      {privateHasRole ? <CheckMarkIcon /> : '-'}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </dd>
                   </div>
                   <div className="sm:col-span-2">
-                    <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.investmentScope')} (ภาครัฐและภาคเอกชน)</dt>
-                    <dd className="mt-1 text-base text-gray-900 break-words whitespace-pre-line">{investmentScopeName}</dd>
+                    <dt className="text-sm font-bold text-black opacity-100">กฎหมายที่เกี่ยวข้อง</dt>
+                    <dd className="mt-1 text-base text-gray-900 break-words whitespace-pre-line">{relatedLawsName}</dd>
                   </div>
                 </dl>
               </div>

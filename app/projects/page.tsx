@@ -938,7 +938,7 @@ export default function ProjectsPage() {
                   {t('projects.privateContractor')}
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
-                  กรรมสิทธิ์
+                รูปแบบการจัดสรรกรรมสิทธิ์
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-bold text-black opacity-100 uppercase tracking-wider">
                 วันที่ลงนามในสัญญา
