@@ -349,6 +349,10 @@ export default function ViewProjectClient() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex-1 min-w-0">
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 break-words">{project.title}</h1>
+              <p className="mt-2 text-sm text-gray-500">
+                <span className="font-medium text-gray-600">{t('pages.view.lastUpdated')}:</span>{' '}
+                {formatDate(project.updated)}
+              </p>
             </div>
             <div className="flex space-x-3 flex-shrink-0">
               {isAuthenticated && (
@@ -486,10 +490,6 @@ export default function ViewProjectClient() {
               <div className="px-4 sm:px-6 pb-6 border-t border-gray-200">
                 <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 mt-6">
                   {/* Project Details moved here */}
-                  <div>
-                    <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.lastUpdated')}</dt>
-                    <dd className="mt-1 text-base text-gray-900 break-words">{formatDate(project.updated)}</dd>
-                  </div>
                   {/* <div>
                     <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.locations')}</dt>
                     <dd className="mt-1 text-base text-gray-900 break-words">
