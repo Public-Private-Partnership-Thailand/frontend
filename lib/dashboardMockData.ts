@@ -1,18 +1,9 @@
-/**
- * Mock data for home dashboard components not yet provided by api/v1/summary.
- * Replace with real API data when available.
- */
-
-import { ALL_RISK_FACTOR_IDS } from '@/lib/riskFactorsMock'
-import { getColor, CHART } from '@/lib/utils/colors'
-
 /** Row from `GET /api/v1/summary` → `countProjectGroupByPublicAuthority[]` (home horizontal bar). */
 export type CountProjectGroupByPublicAuthorityRow = {
   publicAuthorityName: string
   projectCount: number
 }
 
-/** Heatmap: rows = sectors, cols = public authorities (หน่วยงานรัฐเจ้าของโครงการ). Value = project count. */
 export interface SectorAuthorityHeatmapCell {
   sector: string
   authority: string
@@ -30,12 +21,10 @@ export interface SectorCardWithRisks {
   sector: string
   projectCount: number
   totalValue: number
-  /** Risk category IDs from api/v1/info riskCategory (e.g. C01, C05). Resolve to name when rendering. */
   riskCategoryIds: string[]
 }
 
 export interface RiskCategoryProjectCount {
-  /** Risk category ID from api/v1/info riskCategory (e.g. C01, C09). */
   categoryId: string
   count: number
 }
@@ -85,10 +74,6 @@ export type SectorMinistryHeatmapSummaryRow = {
   ministryList: Array<{ id: number; value: number }>
 }
 
-/**
- * Build matrix [sectorIndex][ministryIndex] for the home heat map.
- * `sectorOrder` should match column order (e.g. `ALL_SECTORS`); `ministriesSorted` matches Y-axis rows (info.ministry by id).
- */
 export function buildSectorMinistryHeatmapFromSummaryApi(
   apiRows: SectorMinistryHeatmapSummaryRow[] | undefined | null,
   sectorOrder: readonly string[],

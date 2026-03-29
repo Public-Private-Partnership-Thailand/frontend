@@ -1,21 +1,13 @@
-/**
- * Mock: ความเสี่ยงจากโครงการ PPP ในอดีตของประเทศไทย — แยกตามกลุ่มกิจการ 12 กลุ่ม
- * รอเชื่อม API จริง
- */
-
 import { ALL_SECTORS } from '@/lib/dashboardMockData'
 
 export type PastPppRiskProjectRow = {
   projectId: string
   projectName: string
-  /** ปัญหาที่เกิดขึ้น */
   problem: string
   riskImpact: string
   riskResponse: string
   phase: string
-  /** กลุ่มความเสี่ยง */
   riskGroup: string
-  /** ปัจจัยเสี่ยง */
   riskFactor: string
 }
 

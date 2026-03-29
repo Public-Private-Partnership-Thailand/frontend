@@ -1,8 +1,3 @@
-/**
- * Mock data for risk heat map (api/v1/summary heatmapRisk).
- * Used when API does not return heatmapRisk. Replace with real API data when available.
- */
-
 export interface RiskCategoryItem {
   id: string
   code: string
@@ -20,11 +15,8 @@ export interface RiskFactorItem {
 export interface HeatmapPhaseRiskFactor {
   id: string
   value: number
-  /** Risk source IDs from /api/v1/info riskSource.global */
   sourceGlobal?: number[]
-  /** Risk source IDs from /api/v1/info riskSource.thailand */
   sourceThailand?: number[]
-  /** Per-project refs when `source["thailand-otp"]` is present (Thailand source id 2 — OTP) */
   thailandOtpProjects?: Array<{ projectId: string; title: string }>
 }
 

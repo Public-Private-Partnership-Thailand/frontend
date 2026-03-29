@@ -73,20 +73,6 @@ export interface ProjectQueryParams {
 // Fallback to external JSON API URL if backend is not available
 const EXTERNAL_API_URL = 'https://publicdigitaltwin.s3.ap-southeast-1.amazonaws.com/project-ppp.json'
 
-// Helper function to convert amount string to number
-function parseAmount(amount: string | number): number {
-  if (typeof amount === 'number') return amount
-  if (!amount || amount === 'N/A') return 0
-  
-  // Extract numeric value
-  const numericMatch = amount.toString().match(/[\d,]+/)
-  if (numericMatch) {
-    return parseInt(numericMatch[0].replace(/,/g, ''))
-  }
-  
-  return 0
-}
-
 // Function to fetch projects from backend API (optional query params from filters)
 export async function fetchProjectsFromAPI(params?: ProjectQueryParams): Promise<ProjectData[]> {
   const url = new URL(DATASETS_ENDPOINT)

@@ -13,22 +13,18 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  // Always start with 'th' to ensure server-client consistency
   const [locale, setLocale] = useState<Locale>('th')
   const [isHydrated, setIsHydrated] = useState(false)
 
   useEffect(() => {
-    // After hydration, check for saved locale preference
     const savedLocale = sessionStorage.getItem('locale') as Locale
     if (savedLocale && (savedLocale === 'en' || savedLocale === 'th')) {
       setLocale(savedLocale)
     }
-    // Mark as hydrated after first render
     setIsHydrated(true)
   }, [])
 
   useEffect(() => {
-    // Save language preference to sessionStorage only after hydration
     if (isHydrated) {
       sessionStorage.setItem('locale', locale)
     }
