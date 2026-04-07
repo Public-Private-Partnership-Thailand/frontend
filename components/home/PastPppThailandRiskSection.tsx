@@ -52,7 +52,7 @@ export default function PastPppThailandRiskSection() {
   return (
     <div className="mb-8">
       <div className="mb-4">
-        <h2 className="text-xl font-bold text-gray-900">ความเสี่ยงจากโครงการ PPP ในอดีตของประเทศไทย (เฉพาะโครงการที่พบความเสี่ยง)</h2>
+        <h2 className="text-xl font-bold text-gray-900">ความเสี่ยงจากโครงการ PPP ของประเทศไทย (เฉพาะโครงการที่พบความเสี่ยง)</h2>
         <p className="mt-1 text-sm text-gray-500 max-w-4xl">
           แบ่งตามกลุ่มกิจการ 12 กลุ่มของประเทศไทย — สามารถคลิกกลุ่มกิจการเพื่อดูความเสี่ยงที่เคยเกิดขึ้น
         </p>
@@ -130,9 +130,6 @@ export default function PastPppThailandRiskSection() {
                 <h2 id="past-ppp-sector-title" className="text-lg font-semibold text-gray-900">
                   {getBusinessGroupDisplayName(sectorModal.sectorKey)}
                 </h2>
-                <p className="mt-1 text-xs text-gray-500">
-                  ความเสี่ยงที่เคยเกิดขึ้นจริงจากโครงการในอดีต (ข้อมูลจำลอง)
-                </p>
               </div>
               <button
                 type="button"
@@ -175,7 +172,7 @@ export default function PastPppThailandRiskSection() {
                         }
                         className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1"
                       >
-                        ดูรายละเอียดโครงการในอดีต ({inc.projects.length})
+                        ดูรายละเอียดโครงการ ({inc.projects.length})
                         <Lucide icon="ChevronRight" className="w-4 h-4" />
                       </button>
                     </li>
@@ -203,7 +200,7 @@ export default function PastPppThailandRiskSection() {
             <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-gray-200 bg-white px-5 py-4">
               <div>
                 <h2 id="past-ppp-projects-title" className="text-lg font-semibold text-gray-900">
-                  โครงการในอดีต — {projectsModal.sectorLabel}
+                  โครงการ — {projectsModal.sectorLabel}
                 </h2>
                 <p className="mt-1 text-sm text-gray-600 line-clamp-2">{projectsModal.incident.summaryProblem}</p>
               </div>
