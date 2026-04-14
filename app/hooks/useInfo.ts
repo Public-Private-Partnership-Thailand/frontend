@@ -47,6 +47,10 @@ export function formatRiskFactorLabel(
 export interface RiskSourceEntry {
   id: number
   value: string
+  reference?: string | null
+  referenceFile?: string | null
+  referenceFileUrl?: string | null
+  referenceUrl?: string | null
 }
 
 export interface InfoData {

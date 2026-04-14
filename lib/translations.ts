@@ -511,7 +511,7 @@ export const translations = {
       noProjectsDesc: 'เริ่มต้นด้วยการสร้างโครงการใหม่',
       createProject: 'สร้างโครงการ',
       projectStats: 'ข้อมูลโครงการ PPP',
-      totalProjects: 'โครงการทั้งหมด',
+      totalProjects: 'จำนวนโครงการ PPP ทั้งหมด',
       activeProjects: 'โครงการที่ดำเนินการ',
       lastUpdated: 'ข้อมูลอัปเดตล่าสุด',
       projectsByMinistry: 'จำนวนโครงการแยกตามกระทรวง',

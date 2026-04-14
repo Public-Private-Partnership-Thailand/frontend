@@ -7,7 +7,14 @@ import ThailandMap from '@/components/ThailandMap'
 import { useLanguage } from '@/lib/LanguageContext'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { getColor, chartBarDataset, CHART, chartHeatmapCellColor } from '@/lib/utils/colors'
+import {
+  getColor,
+  chartBarDataset,
+  CHART,
+  chartHeatmapCellColor,
+  chartPieBackgroundColors,
+  chartPieHoverBackgroundColors,
+} from '@/lib/utils/colors'
 import clsx from 'clsx'
 import Lucide from '@/components/Base/Lucide'
 import Tippy from '@/components/Base/Tippy'
@@ -29,13 +36,14 @@ import {
   Filler,
 } from 'chart.js'
 import ChartDataLabels from 'chartjs-plugin-datalabels'
-import { Bar, Bubble } from 'react-chartjs-2'
+import { Bar, Bubble, Pie } from 'react-chartjs-2'
 import {
   ALL_SECTORS,
   buildSectorMinistryHeatmapFromSummaryApi,
   buildSectorMinistryHeatmapMatrix,
-  getMockSectorCardsWithRisks,
+  getProjectDisplayNamesForSectorCard,
   type SectorBubblePoint,
+  type SectorCardWithRisks,
 } from '@/lib/dashboardMockData'
 ChartJS.register(
   CategoryScale,
@@ -926,6 +934,108 @@ export default function HomePage() {
     }
   }, [projectScales, t])
 
+  const PIE_COLOR_KEYS = ['primary', 'pending', 'warning', 'success', 'danger', 'info'] as const
+
+  const contractTypePieRows = useMemo(() => {
+    const raw = summaryData?.pieContractTypeCount
+    if (!Array.isArray(raw)) return []
+    return raw
+      .map((r) => {
+        const count =
+          typeof r.count === 'number' && Number.isFinite(r.count)
+            ? r.count
+            : Number.isFinite(Number(r.count))
+              ? Number(r.count)
+              : 0
+        return {
+          id: r.id,
+          name: String(r.name ?? '').trim() || `ประเภท ${r.id}`,
+          fullName: String(r.fullName ?? r.name ?? '').trim() || String(r.name ?? `ประเภท ${r.id}`),
+          count,
+        }
+      })
+      .filter((r) => r.count > 0)
+  }, [summaryData?.pieContractTypeCount])
+
+  const contractTypePieChartData = useMemo(() => {
+    const keys = contractTypePieRows.map((_, i) => PIE_COLOR_KEYS[i % PIE_COLOR_KEYS.length])
+    return {
+      labels: contractTypePieRows.map((r) => r.name),
+      datasets: [
+        {
+          label: 'จำนวนโครงการ',
+          data: contractTypePieRows.map((r) => r.count),
+          backgroundColor: chartPieBackgroundColors([...keys]),
+          hoverBackgroundColor: chartPieHoverBackgroundColors([...keys]),
+          borderColor: '#ffffff',
+          borderWidth: 2,
+        },
+      ],
+    }
+  }, [contractTypePieRows])
+
+  /** Pie/doughnut often ignores `generateLabels`; render legend in JSX instead. */
+  const contractTypePieLegendItems = useMemo(() => {
+    const total = contractTypePieRows.reduce((s, r) => s + r.count, 0)
+    if (total <= 0 || contractTypePieRows.length === 0) return []
+    const keys = contractTypePieRows.map((_, i) => PIE_COLOR_KEYS[i % PIE_COLOR_KEYS.length])
+    const colors = chartPieBackgroundColors([...keys])
+    return contractTypePieRows.map((row, i) => ({
+      id: row.id,
+      fullName: row.fullName,
+      count: row.count,
+      color: colors[i] ?? getColor('slate.400', CHART.pieSlice),
+    }))
+  }, [contractTypePieRows])
+
+  const contractTypePieChartOptions = useMemo(() => {
+    const rows = contractTypePieRows
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: {
+        padding: { top: 8, bottom: 8, left: 8, right: 8 },
+      },
+      plugins: {
+        legend: {
+          display: false,
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx: any) => {
+              const i = ctx.dataIndex
+              const r = rows[i]
+              const v = ctx.parsed
+              if (!r) return `${v} โครงการ`
+              return [`${r.fullName}`, `จำนวน: ${Number(v).toLocaleString('th-TH')} โครงการ`]
+            },
+          },
+        },
+        datalabels: {
+          clip: false,
+          color: '#1f2937',
+          font: {
+            family: 'IBM Plex Sans Thai',
+            weight: 'bold' as const,
+            size: 18,
+          },
+          formatter: (value: number, context: any) => {
+            const shortName = context.chart.data.labels[context.dataIndex] as string
+            const dataArr = context.dataset.data as number[]
+            const total = dataArr.reduce((a, b) => a + b, 0)
+            const pct = total > 0 ? (value / total) * 100 : 0
+            const pctStr = `${pct.toFixed(1)}%`
+            if (pct <= 6) return pctStr
+            return `${shortName}\n${pctStr}`
+          },
+          textAlign: 'center' as const,
+          textStrokeColor: '#ffffff',
+          textStrokeWidth: 3,
+        },
+      },
+    }
+  }, [contractTypePieRows])
+
   // จำนวนโครงการแยกตามหน่วยงานรัฐเจ้าของโครงการ — api/v1/summary countProjectGroupByPublicAuthority
   const publicAuthorityBarData = useMemo(() => {
     const rows = summaryData?.countProjectGroupByPublicAuthority ?? []
@@ -1055,7 +1165,43 @@ export default function HomePage() {
       .filter((d) => d.sector.length > 0)
       .filter((d) => d.projectCount > 0 || d.totalValue > 0 || d.authorityCount > 0)
   }, [summaryData?.sectorProjectValueBubble])
-  const sectorCards = useMemo(() => getMockSectorCardsWithRisks(), [])
+  /** กลุ่มกิจการ cards: counts & value from `GET /api/v1/summary` → `businessGroupStats` */
+  const sectorCards = useMemo((): SectorCardWithRisks[] => {
+    const toNum = (v: unknown) => {
+      if (typeof v === 'number' && Number.isFinite(v)) return v
+      const n = Number(v)
+      return Number.isFinite(n) ? n : 0
+    }
+    const stats = summaryData?.businessGroupStats
+    if (!Array.isArray(stats) || stats.length === 0) {
+      return ALL_SECTORS.map((sector) => ({
+        sector,
+        projectCount: 0,
+        totalValue: 0,
+        riskCategoryIds: [],
+      }))
+    }
+    const byGroup = new Map(stats.map((g) => [g.groupName, g]))
+    const ordered: SectorCardWithRisks[] = ALL_SECTORS.map((sector) => {
+      const g = byGroup.get(sector)
+      return {
+        sector,
+        projectCount: g ? toNum(g.total?.count) : 0,
+        totalValue: g ? toNum(g.total?.investment) : 0,
+        riskCategoryIds: [],
+      }
+    })
+    const sectorSet = new Set<string>([...ALL_SECTORS])
+    const extras: SectorCardWithRisks[] = stats
+      .filter((g) => g.groupName && !sectorSet.has(g.groupName))
+      .map((g) => ({
+        sector: g.groupName,
+        projectCount: toNum(g.total?.count),
+        totalValue: toNum(g.total?.investment),
+        riskCategoryIds: [],
+      }))
+    return [...ordered, ...extras]
+  }, [summaryData?.businessGroupStats])
   const sectorBubbleChartData = useMemo(() => {
     const maxR = Math.max(...sectorBubbleData.map((d) => d.authorityCount), 1)
     return {
@@ -1162,17 +1308,56 @@ export default function HomePage() {
           </div>
         </div>
       </div>
-      <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="box p-6">
-          <div className="mb-4">
-            <h2 className="text-xl font-bold text-gray-900">จำนวนโครงการแยกตามหน่วยงานรัฐเจ้าของโครงการ</h2>
+      <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <div className="flex min-w-0 flex-col gap-8">
+          <div className="box p-6">
+            <div className="mb-4">
+              <h2 className="text-xl font-bold text-gray-900">จำนวนโครงของแต่ละหน่วยงานเจ้าของโครงการ (5 อันดับแรก)</h2>
+            </div>
+            <div className="h-80">
+              {(publicAuthorityBarData.fullLabels?.length ?? 0) > 0 ? (
+                <Bar data={publicAuthorityBarData} options={publicAuthorityBarOptions} />
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-500">{t('home.noDataAvailable')}</div>
+              )}
+            </div>
           </div>
-          <div className="h-80">
-            {(publicAuthorityBarData.fullLabels?.length ?? 0) > 0 ? (
-              <Bar data={publicAuthorityBarData} options={publicAuthorityBarOptions} />
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-500">{t('home.noDataAvailable')}</div>
-            )}
+          <div className="box p-6">
+            <div className="mb-4">
+              <h2 className="text-xl font-bold text-gray-900">จำนวนโครงการแยกตามรูปแบบการจัดสรรกรรมสิทธิ์</h2>
+              {/* <p className="mt-1 text-sm text-gray-500">
+                ชื่อย่อและเปอร์เซ็นต์บนกราฟ — ด้านล่างแสดงชื่อเต็มและจำนวนโครงการ แถวละหนึ่งรายการ
+              </p> */}
+            </div>
+            <div className="h-[20rem] sm:h-[24rem] w-full min-h-[16rem]">
+              {contractTypePieRows.length > 0 ? (
+                <Pie data={contractTypePieChartData} options={contractTypePieChartOptions} />
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-500">{t('home.noDataAvailable')}</div>
+              )}
+            </div>
+            {contractTypePieLegendItems.length > 0 ? (
+              <div className="mx-auto mt-4 w-[80%] max-w-xl border-t border-gray-100 pt-4">
+                <ul
+                  className="flex w-full flex-col gap-2.5 text-sm text-gray-800"
+                  aria-label="คำอธิบายสีกราฟรูปแบบสัญญา"
+                >
+                  {contractTypePieLegendItems.map((item) => (
+                    <li key={item.id} className="flex w-full min-w-0 items-center gap-3">
+                      <span
+                        className="h-3.5 w-3.5 shrink-0 rounded-sm ring-1 ring-gray-200/80"
+                        style={{ backgroundColor: item.color }}
+                        aria-hidden
+                      />
+                      <span className="min-w-0 flex-1 leading-snug break-words">{item.fullName}</span>
+                      <span className="shrink-0 whitespace-nowrap font-medium tabular-nums text-gray-900">
+                        {Number(item.count).toLocaleString('th-TH')} โครงการ
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="box p-4 sm:p-6">
@@ -1396,17 +1581,30 @@ export default function HomePage() {
             const mappedIcon = mapIconName(icon)
             const iconPath = `/assets/icons/${mappedIcon}`
             const displayName = getBusinessGroupDisplayName(card.sector)
+            const hoverProjectNames = getProjectDisplayNamesForSectorCard(card)
             return (
-              <div key={card.sector} className="box p-3 sm:p-4 flex gap-2 sm:gap-4 h-full">
-                <div className="flex flex-col items-center justify-start flex-shrink-0 w-16 sm:w-20">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 mb-2 rounded-md overflow-hidden flex items-center justify-center">
+              <div
+                key={card.sector}
+                className="group relative box flex flex-col h-full min-h-[9rem] overflow-hidden p-3 sm:p-4"
+              >
+                {/* Fixed two-line slot so long names don’t push the row below vs short names */}
+                <div className="shrink-0 mb-3 min-h-[2.40625rem] sm:min-h-[2.75rem]">
+                  <p
+                    className="text-sm sm:text-base font-semibold text-gray-900 leading-[1.375] line-clamp-2"
+                    title={displayName}
+                  >
+                    {displayName}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 items-center flex-1 min-h-0">
+                  <div className="flex items-center justify-center min-h-[4.5rem] rounded-md overflow-hidden bg-gray-50/80 p-2">
                     <img
                       src={iconPath}
-                      alt={displayName}
-                      width={56}
-                      height={56}
-                      className="w-full h-full object-contain"
-                      style={{ display: 'block', minWidth: '48px', minHeight: '48px' }}
+                      alt=""
+                      width={64}
+                      height={64}
+                      className="w-14 h-14 sm:w-16 sm:h-16 object-contain"
+                      style={{ display: 'block' }}
                       loading="lazy"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement
@@ -1423,19 +1621,42 @@ export default function HomePage() {
                       }}
                     />
                   </div>
-                  <p className="text-xs font-medium text-gray-700 text-center leading-tight break-words">
-                    {displayName}
-                  </p>
-                </div>
-                <div className="flex-1 flex flex-col min-w-0">
-                  <div className="mb-3">
-                    <p className="text-sm font-semibold text-gray-900">
-                      {card.projectCount} โครงการ
-                    </p>
-                    <p className="text-xs text-gray-600">
+                  <div className="min-w-0 flex flex-col justify-center gap-1.5 pl-0.5">
+                    <div className="flex flex-col gap-0 leading-none text-gray-900">
+                      <span className="text-lg sm:text-xl font-bold tabular-nums tracking-tight">
+                        {card.projectCount.toLocaleString('th-TH')}
+                      </span>
+                      <span className="text-sm sm:text-base font-bold tracking-tight mt-0.5">
+                        โครงการ
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-gray-600 leading-snug">
                       ({(card.totalValue / 1000000).toLocaleString('th-TH', { maximumFractionDigits: 0, minimumFractionDigits: 0 })} ล้านบาท)
                     </p>
                   </div>
+                </div>
+                <div
+                  className={clsx(
+                    'absolute inset-0 z-10 flex flex-col p-3 sm:p-4',
+                    'bg-white/[0.97] backdrop-blur-[2px]',
+                    'opacity-0 pointer-events-none transition-opacity duration-200',
+                    'group-hover:opacity-100 group-hover:pointer-events-auto'
+                  )}
+                >
+                  <p className="shrink-0 text-xs font-semibold text-gray-800 mb-2 border-b border-gray-200 pb-2">
+                    รายชื่อโครงการ
+                  </p>
+                  {hoverProjectNames.length > 0 ? (
+                    <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto text-left text-xs leading-snug text-gray-800">
+                      {hoverProjectNames.map((name, idx) => (
+                        <li key={idx} className="border-b border-gray-100 pb-2 last:border-b-0 last:pb-0">
+                          {name}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-gray-500">ไม่มีโครงการในกลุ่มนี้</p>
+                  )}
                 </div>
               </div>
             )
@@ -1763,13 +1984,13 @@ export default function HomePage() {
                       {uniquePublicAuthorityCount.toLocaleString()}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
-                      จำนวนหน่วยงานรัฐเจ้าของโครงการ
+                      จำนวนหน่วยงานเจ้าของโครงการ
                     </div>
                   </div>
                 </div>
               </div>
 
-             {/* จำนวนบริษัทเอกชนคู่สัญญา */}
+             {/* จำนวนบริษัทเอกชนคู่สัญญา — hidden per request
              <div className="col-span-12 sm:col-span-6 xl:col-span-3 intro-y">
                 <div className="relative zoom-in h-full">
                   <div className="p-5 box h-full">
@@ -1789,8 +2010,9 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
+              */}
 
-              {/* Total Investment Card */}
+              {/* Total Investment Card (มูลค่ารวมโครงการทั้งหมด) — hidden per request
               <div className="col-span-12 sm:col-span-6 xl:col-span-3 intro-y">
                 <div className="relative zoom-in h-full">
                   <div className="p-5 box h-full">
@@ -1819,8 +2041,9 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
+              */}
 
-              {/* Highest Project Budget Card */}
+              {/* Highest Project Budget Card (มูลค่าโครงการสูงสุด) — hidden per request
               <div className="col-span-12 sm:col-span-6 xl:col-span-3 intro-y">
                 <div className="relative zoom-in h-full">
                   <div className="p-5 box h-full">
@@ -1851,8 +2074,9 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
+              */}
 
-              {/* Ongoing Projects Card */}
+              {/* Ongoing Projects Card (โครงการกำลังดำเนินการ) — hidden per request
               <div className="col-span-12 sm:col-span-6 xl:col-span-3 intro-y">
                 <div className="relative zoom-in h-full">
                   <div className="p-5 box h-full">
@@ -1871,6 +2095,7 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
+              */}
 
             </div>
           </div>

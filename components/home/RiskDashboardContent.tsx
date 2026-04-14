@@ -36,6 +36,7 @@ import {
   type RiskSourceMaps,
 } from '@/lib/heatmapRiskPhaseUtils'
 import PastPppThailandRiskSection from '@/components/home/PastPppThailandRiskSection'
+import RiskSourceReferencesSection from '@/components/home/RiskSourceReferencesSection'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ChartDataLabels)
 
@@ -850,6 +851,9 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
           )}
         </div>
       </div>
+      {safeInfoData.riskSource?.global?.length || safeInfoData.riskSource?.thailand?.length ? (
+        <RiskSourceReferencesSection riskSource={safeInfoData.riskSource!} />
+      ) : null}
       {/* <div className="mb-8">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Heat map: กลุ่มกิจการ × ปัจจัยความเสี่ยง</h2>
         <div className="box p-4 overflow-x-auto">

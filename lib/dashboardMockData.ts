@@ -22,6 +22,33 @@ export interface SectorCardWithRisks {
   projectCount: number
   totalValue: number
   riskCategoryIds: string[]
+  /** Demo: project titles shown on card hover until API provides a list per sector */
+  projectNames?: string[]
+}
+
+/** Thai sample titles when `projectNames` is missing but `projectCount` > 0 */
+const MOCK_THAI_PROJECT_TITLE_POOL = [
+  'โครงการก่อสร้างทางหลวงพิเศษสายบางใหญ่–นครปฐม',
+  'โครงการขยายทางด่วนศรีรัช–วงแหวนรอบนอกด้านตะวันตก',
+  'โครงการรถไฟฟ้าชานเมืองสายสีส้ม (ส่วนต่อขยาย)',
+  'โครงการท่าเรือน้ำลึกและคลังสินค้าเชิงพาณิชย์',
+  'โครงการโรงไฟฟ้าชีวมวลจากเศษวัสดุทางการเกษตร',
+  'โครงการประปาผลิตน้ำประปาคุณภาพในเขตเมือง',
+]
+
+/** Titles to show on sector card hover (explicit mock or generated from count). */
+export function getProjectDisplayNamesForSectorCard(card: SectorCardWithRisks): string[] {
+  if (card.projectCount <= 0) return []
+  const explicit = card.projectNames
+  if (explicit?.length) {
+    if (explicit.length >= card.projectCount) return explicit.slice(0, card.projectCount)
+    const pad: string[] = [...explicit]
+    for (let i = explicit.length; i < card.projectCount; i++) {
+      pad.push(MOCK_THAI_PROJECT_TITLE_POOL[i % MOCK_THAI_PROJECT_TITLE_POOL.length])
+    }
+    return pad
+  }
+  return Array.from({ length: card.projectCount }, (_, i) => MOCK_THAI_PROJECT_TITLE_POOL[i % MOCK_THAI_PROJECT_TITLE_POOL.length])
 }
 
 export interface RiskCategoryProjectCount {
@@ -111,17 +138,41 @@ export function buildSectorMinistryHeatmapMatrix(numSectors: number, numMinistri
 
 /** Sector cards with project count, value, and related risk category IDs (mock). All sectors included; others have 0. Use riskCategory from api/v1/info to resolve names. */
 export function getMockSectorCardsWithRisks(): SectorCardWithRisks[] {
-  const withData: Record<string, { projectCount: number; totalValue: number; riskCategoryIds: string[] }> = {
-    'transport.road': { projectCount: 2, totalValue: 26950000000, riskCategoryIds: ['C09', 'C05'] },
-    'transport.rail': { projectCount: 2, totalValue: 138794450000, riskCategoryIds: ['C09', 'C07'] },
-    'transport.water': { projectCount: 2, totalValue: 1000000, riskCategoryIds: ['C10'] },
+  const withData: Record<string, { projectCount: number; totalValue: number; riskCategoryIds: string[]; projectNames: string[] }> = {
+    'transport.road': {
+      projectCount: 2,
+      totalValue: 26950000000,
+      riskCategoryIds: ['C09', 'C05'],
+      projectNames: [
+        'โครงการก่อสร้างทางหลวงพิเศษสายบางใหญ่–นครปฐม',
+        'โครงการขยายทางด่วนศรีรัช–วงแหวนรอบนอกด้านตะวันตก',
+      ],
+    },
+    'transport.rail': {
+      projectCount: 2,
+      totalValue: 138794450000,
+      riskCategoryIds: ['C09', 'C07'],
+      projectNames: [
+        'โครงการรถไฟฟ้าชานเมืองสายสีส้ม (ส่วนต่อขยาย)',
+        'โครงการรถไฟความเร็วสูงเชื่อมสามสนามบิน',
+      ],
+    },
+    'transport.water': {
+      projectCount: 2,
+      totalValue: 1000000,
+      riskCategoryIds: ['C10'],
+      projectNames: [
+        'โครงการท่าเรือน้ำลึกและคลังสินค้าเชิงพาณิชย์',
+        'โครงการพัฒนาเขื่อนกั้นน้ำและระบบระบายน้ำชุมชน',
+      ],
+    },
   }
   return ALL_SECTORS.map((sector) => {
     const data = withData[sector]
     if (data) {
       return { sector, ...data }
     }
-    return { sector, projectCount: 0, totalValue: 0, riskCategoryIds: [] }
+    return { sector, projectCount: 0, totalValue: 0, riskCategoryIds: [], projectNames: [] }
   })
 }
 /**

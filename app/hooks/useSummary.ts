@@ -77,6 +77,15 @@ export interface SummaryData {
   countProjectGroupByPublicAuthority?: CountProjectGroupByPublicAuthorityRow[]
   /** Bubble chart: x = project count, y = value (baht), r ∝ authority count. */
   sectorProjectValueBubble?: SectorBubblePoint[]
+  /** Home overview: project counts by contract type for pie chart. */
+  pieContractTypeCount?: PieContractTypeCountRow[]
+}
+
+export interface PieContractTypeCountRow {
+  id: number
+  name: string
+  fullName: string
+  count: number
 }
 
 export interface SummaryFilters {
@@ -288,6 +297,9 @@ export const useSummary = (filters?: SummaryFilters, infoData?: {
       }
       if (Array.isArray((raw as any)?.sectorProjectValueBubble)) {
         data.sectorProjectValueBubble = (raw as any).sectorProjectValueBubble
+      }
+      if (Array.isArray((raw as any)?.pieContractTypeCount)) {
+        data.pieContractTypeCount = (raw as any).pieContractTypeCount
       }
 
       return data
