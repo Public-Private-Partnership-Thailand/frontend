@@ -1324,7 +1324,7 @@ export default function HomePage() {
           </div>
           <div className="box p-6">
             <div className="mb-4">
-              <h2 className="text-xl font-bold text-gray-900">จำนวนโครงการแยกตามรูปแบบการจัดสรรกรรมสิทธิ์</h2>
+              <h2 className="text-xl font-bold text-gray-900">รูปแบบการจัดสรรกรรมสิทธิ์</h2>
               {/* <p className="mt-1 text-sm text-gray-500">
                 ชื่อย่อและเปอร์เซ็นต์บนกราฟ — ด้านล่างแสดงชื่อเต็มและจำนวนโครงการ แถวละหนึ่งรายการ
               </p> */}
@@ -1630,9 +1630,6 @@ export default function HomePage() {
                         โครงการ
                       </span>
                     </div>
-                    <p className="text-xs sm:text-sm text-gray-600 leading-snug">
-                      ({(card.totalValue / 1000000).toLocaleString('th-TH', { maximumFractionDigits: 0, minimumFractionDigits: 0 })} ล้านบาท)
-                    </p>
                   </div>
                 </div>
                 <div

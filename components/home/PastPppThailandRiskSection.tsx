@@ -3,10 +3,20 @@
 import { useMemo, useState } from 'react'
 import Lucide from '@/components/Base/Lucide'
 import { getIconNameByGroupName } from '@/app/hooks/useSummary'
+import {
+  formatRiskCategoryLabel,
+  formatRiskFactorLabel,
+  type RiskCategory,
+  type RiskFactor,
+} from '@/app/hooks/useInfo'
+import type {
+  RiskSectorWithProjectItem,
+  RiskSectorWithProjectProjectRow,
+} from '@/app/hooks/useRisk'
+import { ALL_SECTORS } from '@/lib/dashboardMockData'
 import { getBusinessGroupDisplayName } from '@/types/businessGroup'
 import {
   countTotalProjects,
-  getMockPastPppThailandRisksBySector,
   type PastPppRiskIncident,
   type PastPppRiskProjectRow,
   type PastPppSectorPastRisks,
@@ -41,8 +51,97 @@ function phaseLabelTh(phase: string): string {
   return m[phase] ?? phase
 }
 
-export default function PastPppThailandRiskSection() {
-  const bySector = useMemo(() => getMockPastPppThailandRisksBySector(), [])
+type PastPppThailandRiskSectionProps = {
+  riskSectorWithProject?: RiskSectorWithProjectItem[]
+  riskCategoryList?: RiskCategory[]
+  riskFactorList?: RiskFactor[]
+}
+
+function normalizePhase(phase: string): string {
+  const s = phase.trim().toLowerCase().replace(/\s+/g, '-')
+  if (s === 'preconstruction' || s === 'pre-construction') return 'pre-construction'
+  if (s === 'construction') return 'construction'
+  if (s === 'operation') return 'operation'
+  if (s === 'handback') return 'handback'
+  return phase
+}
+
+function mapProjectRowFromApi(
+  p: RiskSectorWithProjectProjectRow,
+  riskCategoryMap: Map<number, string>,
+  riskFactorMap: Map<number, string>
+): PastPppRiskProjectRow {
+  const riskGroup = riskCategoryMap.get(p.riskCategoryId) ?? `หมวดความเสี่ยง #${p.riskCategoryId}`
+  const riskFactor = riskFactorMap.get(p.riskFactorId) ?? `ปัจจัยความเสี่ยง #${p.riskFactorId}`
+  return {
+    projectId: p.projectId,
+    projectName: p.projectName,
+    problem: p.problem,
+    riskImpact: p.riskImpact,
+    riskResponse: p.riskResponse,
+    phase: normalizePhase(p.phase),
+    riskGroup,
+    riskFactor,
+  }
+}
+
+function mapApiToSectorPastRisks(
+  riskSectorWithProject: RiskSectorWithProjectItem[] | undefined,
+  riskCategoryList: RiskCategory[],
+  riskFactorList: RiskFactor[]
+): PastPppSectorPastRisks[] {
+  const riskCategoryMap = new Map<number, string>(
+    riskCategoryList.map((c) => [c.id, formatRiskCategoryLabel(c)])
+  )
+  const riskFactorMap = new Map<number, string>(
+    riskFactorList.map((f) => [f.id, formatRiskFactorLabel(f)])
+  )
+
+  const projectsBySector = new Map<string, RiskSectorWithProjectProjectRow[]>()
+  for (const row of riskSectorWithProject ?? []) {
+    if (!Array.isArray(row.projects)) continue
+    projectsBySector.set(row.sector, row.projects)
+  }
+
+  return ALL_SECTORS.map((sectorKey) => {
+    const projects = projectsBySector.get(sectorKey) ?? []
+    const incidents: PastPppRiskIncident[] = projects.map((p, idx) => {
+      const mapped = mapProjectRowFromApi(p, riskCategoryMap, riskFactorMap)
+      return {
+        id: `${sectorKey}-${p.projectId || idx + 1}-${idx + 1}`,
+        summaryProblem: mapped.problem,
+        riskGroup: mapped.riskGroup,
+        riskFactor: mapped.riskFactor,
+        phase: mapped.phase,
+        projects: [mapped],
+      }
+    })
+
+    return {
+      sectorKey,
+      incidents,
+    }
+  })
+}
+
+export default function PastPppThailandRiskSection({
+  riskSectorWithProject,
+  riskCategoryList = [],
+  riskFactorList = [],
+}: PastPppThailandRiskSectionProps) {
+  const bySector = useMemo(
+    () => mapApiToSectorPastRisks(riskSectorWithProject, riskCategoryList, riskFactorList),
+    [riskSectorWithProject, riskCategoryList, riskFactorList]
+  )
+  const riskCountBySector = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const row of riskSectorWithProject ?? []) {
+      if (typeof row.riskCount === 'number' && Number.isFinite(row.riskCount)) {
+        m.set(row.sector, Math.max(0, Math.floor(row.riskCount)))
+      }
+    }
+    return m
+  }, [riskSectorWithProject])
   const [sectorModal, setSectorModal] = useState<PastPppSectorPastRisks | null>(null)
   const [projectsModal, setProjectsModal] = useState<{
     sectorLabel: string
@@ -63,7 +162,7 @@ export default function PastPppThailandRiskSection() {
           const displayName = getBusinessGroupDisplayName(row.sectorKey)
           const icon = mapIconName(getIconNameByGroupName(row.sectorKey))
           const iconPath = `/assets/icons/${icon}`
-          const nIncidents = row.incidents.length
+          const nIncidents = riskCountBySector.get(row.sectorKey) ?? row.incidents.length
           const nProjects = countTotalProjects(row.incidents)
 
           return (

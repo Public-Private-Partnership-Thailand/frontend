@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { useEffect, useMemo, useRef, useState, type ComponentProps, type RefObject } from 'react'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -22,6 +22,7 @@ import {
   type RiskCategory,
   type RiskFactor,
   formatRiskCategoryLabel,
+  formatRiskFactorLabel,
 } from '@/app/hooks/useInfo'
 import { toRiskFactorCode } from '@/lib/normalizeHeatmapRisk'
 import { getIconNameByGroupName } from '@/app/hooks/useSummary'
@@ -42,6 +43,35 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
 
 /** Same as ภาพรวมความเสี่ยงทั่วไป — matrix filter / legend use these for Global vs Thailand */
 const THAI_FLAG_ICON_SRC = '/assets/icons/thai_flag.png'
+const MATRIX_PHASE_KEYS = ['pre-construction', 'construction', 'operation'] as const
+type MatrixPhaseKey = (typeof MATRIX_PHASE_KEYS)[number]
+const MATRIX_PHASE_TITLES: Record<MatrixPhaseKey, string> = {
+  'pre-construction': 'Pre-construction',
+  construction: 'Construction',
+  operation: 'Operation',
+}
+const RISK_FACTOR_RANK_TOP_PREVIEW = 5
+const RISK_FACTOR_RANK_TOP_MAX = 10
+
+/** Split long labels for Chart.js datalabels (Thai often has no spaces). */
+function chunkLabelForBar(text: string, maxCharsPerLine: number): string[] {
+  if (text.length <= maxCharsPerLine) return [text]
+  const lines: string[] = []
+  for (let i = 0; i < text.length; i += maxCharsPerLine) {
+    lines.push(text.slice(i, i + maxCharsPerLine))
+  }
+  return lines
+}
+
+const PIE_LIKE_COLOR_KEYS = ['primary', 'pending', 'warning', 'success', 'danger', 'info'] as const
+
+function getPieLikeCategoryColorByIndex(index: number): string {
+  const key = PIE_LIKE_COLOR_KEYS[index % PIE_LIKE_COLOR_KEYS.length]
+  const cycle = Math.floor(index / PIE_LIKE_COLOR_KEYS.length)
+  // Keep the same palette feel as home pie chart, slightly softer on later cycles.
+  const opacity = Math.max(0.52, CHART.pieSlice - cycle * 0.08)
+  return getColor(key, opacity)
+}
 
 type MatrixSourceFilterModeState =
   | { kind: 'all_selected' }
@@ -297,6 +327,32 @@ function GeneralRiskOverviewCard({
   )
 }
 
+function RiskSummaryCountCard({
+  icon,
+  label,
+  count,
+}: {
+  icon: ComponentProps<typeof Lucide>['icon']
+  label: string
+  count: number
+}) {
+  return (
+    <div className="col-span-12 sm:col-span-6 xl:col-span-3 intro-y">
+      <div className="relative zoom-in h-full">
+        <div className="p-5 box h-full">
+          <div className="flex">
+            <Lucide icon={icon} className="w-[28px] h-[28px] text-primary" />
+          </div>
+          <div className="mt-6 text-3xl font-medium leading-8 tabular-nums">
+            {count.toLocaleString('th-TH')}
+          </div>
+          <div className="mt-1 text-base text-slate-500">{label}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export type RiskDashboardContentProps = {
   infoData?: InfoData
   riskData?: RiskApiData
@@ -304,6 +360,7 @@ export type RiskDashboardContentProps = {
 
 export default function RiskDashboardContent({ infoData, riskData }: RiskDashboardContentProps) {
   const [sectorRiskHeatmapExpanded, setSectorRiskHeatmapExpanded] = useState(false)
+  const [showTop10RiskFactors, setShowTop10RiskFactors] = useState(false)
   const [matrixSourceFilterKeys, setMatrixSourceFilterKeys] = useState<string[]>([])
   const [selectedMatrixCategoryId, setSelectedMatrixCategoryId] = useState<string | null>(null)
   const matrixSourceFilterDefaultedRef = useRef(false)
@@ -621,6 +678,143 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
     [safeInfoData.riskSource?.thailand]
   )
 
+  const savedProjectCount = useMemo(
+    () =>
+      (riskData?.riskSectorWithProject ?? []).reduce((sum, row) => {
+        const projectCount = Array.isArray(row.projects) ? row.projects.length : 0
+        return sum + projectCount
+      }, 0),
+    [riskData?.riskSectorWithProject]
+  )
+  const riskCategoryCount = safeInfoData.riskCategory?.length ?? 0
+  const riskFactorCount = safeInfoData.riskFactor?.length ?? 0
+
+  const riskFactorByCode = useMemo(() => {
+    const m = new Map<string, RiskFactor>()
+    for (const f of safeInfoData.riskFactor ?? []) {
+      m.set(toRiskFactorCode(f.id), f)
+    }
+    return m
+  }, [safeInfoData.riskFactor])
+
+  const riskCategoryColorMap = useMemo(() => {
+    const m = new Map<string, string>()
+    const categories = [...(safeInfoData.riskCategory ?? [])].sort((a, b) => a.id - b.id)
+    categories.forEach((c, index) => {
+      m.set(toRiskCategoryCode(c.id), getPieLikeCategoryColorByIndex(index))
+    })
+    return m
+  }, [safeInfoData.riskCategory])
+
+  const riskFactorRankByPhase = useMemo(() => {
+    const h = riskData?.heatmapRiskPhase
+    const noSourceSelected = matrixSourceFilterMode.kind === 'none_selected'
+    const activeSourceKeys =
+      matrixSourceFilterMode.kind === 'partial' ? matrixSourceFilterMode.keys : null
+
+    return MATRIX_PHASE_KEYS.map((phase) => {
+      type AggRow = {
+        factorId: string
+        count: number
+        rank: number
+        label: string
+        dominantCategoryId: string
+        dominantCategoryLabel: string
+        color: string
+      }
+
+      if (!h || typeof h !== 'object' || noSourceSelected) {
+        return { phase, title: MATRIX_PHASE_TITLES[phase], rows: [] as AggRow[] }
+      }
+
+      // Count each category × factor matrix occurrence in a phase.
+      const factorCounts = new Map<string, number>()
+      const factorByCategoryCounts = new Map<string, Map<string, number>>()
+
+      for (const [categoryIdRaw, factorPhases] of Object.entries(h)) {
+        const categoryId = toRiskCategoryCode(categoryIdRaw)
+        if (!factorPhases || typeof factorPhases !== 'object') continue
+        for (const [factorIdRaw, raw] of Object.entries(factorPhases as Record<string, unknown>)) {
+          const n = normalizeHeatmapFactorPhaseEntry(raw)
+          if (activeSourceKeys && !factorMatchesRiskSourceFilter(n, activeSourceKeys)) continue
+          if (!n.phases.includes(phase)) continue
+          const factorId = toRiskFactorCode(factorIdRaw)
+          factorCounts.set(factorId, (factorCounts.get(factorId) ?? 0) + 1)
+          if (!factorByCategoryCounts.has(factorId)) {
+            factorByCategoryCounts.set(factorId, new Map())
+          }
+          const byCategory = factorByCategoryCounts.get(factorId)!
+          byCategory.set(categoryId, (byCategory.get(categoryId) ?? 0) + 1)
+        }
+      }
+
+      const rows: AggRow[] = Array.from(factorCounts.entries()).map(([factorId, count]) => {
+        const factorInfo = riskFactorByCode.get(factorId)
+        const label = factorInfo ? formatRiskFactorLabel(factorInfo) : factorId
+        const byCategory = factorByCategoryCounts.get(factorId) ?? new Map<string, number>()
+        const sortedCategoryCounts = Array.from(byCategory.entries()).sort(
+          (a, b) => b[1] - a[1] || a[0].localeCompare(b[0], undefined, { numeric: true })
+        )
+        const dominantCategoryId = sortedCategoryCounts[0]?.[0] ?? 'unknown'
+        const dominantCategoryLabel =
+          riskCategoryNameById.get(dominantCategoryId) ?? dominantCategoryId
+        return {
+          factorId,
+          count,
+          rank: 0,
+          label,
+          dominantCategoryId,
+          dominantCategoryLabel,
+          color: riskCategoryColorMap.get(dominantCategoryId) ?? getColor('slate.500', CHART.pieSlice),
+        }
+      })
+
+      rows.sort((a, b) => b.count - a.count || a.factorId.localeCompare(b.factorId, undefined, { numeric: true }))
+      rows.forEach((row, index) => {
+        if (index === 0) {
+          row.rank = 1
+          return
+        }
+        const prev = rows[index - 1]
+        row.rank = row.count === prev.count ? prev.rank : index + 1
+      })
+
+      return {
+        phase,
+        title: MATRIX_PHASE_TITLES[phase],
+        rows: rows.slice(0, RISK_FACTOR_RANK_TOP_MAX),
+      }
+    })
+  }, [riskData?.heatmapRiskPhase, matrixSourceFilterMode, riskCategoryNameById, riskFactorByCode, riskCategoryColorMap])
+
+  const rankColorLegendTooltip = useMemo(() => {
+    const categories = [...(safeInfoData.riskCategory ?? [])].sort((a, b) => a.id - b.id)
+    if (categories.length === 0) {
+      return '<div class="text-sm text-gray-700">ไม่มีข้อมูล Risk Category</div>'
+    }
+    const items = categories
+      .map((c) => {
+        const categoryId = toRiskCategoryCode(c.id)
+        const label = formatRiskCategoryLabel(c)
+        const color = riskCategoryColorMap.get(categoryId) ?? getColor('slate.500', CHART.pieSlice)
+        return `<li class="flex items-center gap-2 text-xs leading-5"><span class="inline-block h-3 w-3 rounded-sm border border-gray-300" style="background:${color}"></span><span>${escapeHtmlForTooltip(label)}</span></li>`
+      })
+      .join('')
+    return `<div class="text-left w-[min(88vw,480px)] min-w-[260px] max-w-[480px] p-1"><p class="text-xs font-semibold mb-2">สีของ Category</p><ul class="space-y-1.5 max-h-[min(72vh,620px)] overflow-y-auto overscroll-contain pr-2 py-1">${items}</ul></div>`
+  }, [safeInfoData.riskCategory, riskCategoryColorMap])
+
+  const rankColorLegendTippyOptions = useMemo(
+    () => ({
+      allowHTML: true,
+      maxWidth: 300,
+      placement: 'right-start' as const,
+      interactive: true,
+      interactiveBorder: 24,
+      appendTo: () => document.body,
+    }),
+    []
+  )
+
   const riskCategoryMatrixData = useMemo(() => {
     const h = riskData?.heatmapRiskPhase
     if (!h || typeof h !== 'object') return []
@@ -655,6 +849,23 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
           <h2 className="text-xl font-bold text-gray-900">ภาพรวมความเสี่ยงทั่วไป</h2>
         </div>
         <div className="grid grid-cols-12 gap-6 auto-rows-fr">
+          <RiskSummaryCountCard
+            icon="FolderCheck"
+            label="จำนวนโครงการที่บันทึก"
+            count={savedProjectCount}
+          />
+          <RiskSummaryCountCard
+            icon="LayoutList"
+            label="จำนวน Risk Category ทั้งหมด"
+            count={riskCategoryCount}
+          />
+          <RiskSummaryCountCard
+            icon="ShieldAlert"
+            label="จำนวน Risk Factor ทั้งหมด"
+            count={riskFactorCount}
+          />
+        </div>
+        <div className="mt-6 grid grid-cols-12 gap-6 auto-rows-fr">
           <GeneralRiskOverviewCard
             accent="foreign"
             sourceReferenceCount={riskSourceReferenceCounts.global}
@@ -666,10 +877,147 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
             sourceNames={generalRiskThailandSourceNames}
           />
         </div>
+        <div className="mt-6">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {showTop10RiskFactors ? '10' : '5'} อันดับแรกของปัจจัยความเสี่ยงที่พบบ่อยที่สุด แยกตามเฟสโครงการ
+            </h3>
+            <Tippy content={rankColorLegendTooltip} options={rankColorLegendTippyOptions}>
+              <button
+                type="button"
+                aria-label="ดู mapping สีตาม category"
+                className="inline-flex items-center justify-center rounded-full text-gray-500 hover:text-primary"
+              >
+                <Lucide icon="Info" />
+              </button>
+            </Tippy>
+            <button
+              type="button"
+              onClick={() => setShowTop10RiskFactors((v) => !v)}
+              className="ml-auto rounded-md border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:border-indigo-300 hover:text-indigo-700"
+            >
+              {showTop10RiskFactors ? 'แสดง 5 อันดับแรก' : 'ดูเพิ่มเติม (10 อันดับแรก)'}
+            </button>
+          </div>
+          {/* <p className="mt-1 text-sm text-gray-500">
+            ใช้ข้อมูลชุดเดียวกับ Matrix ประเภทความเสี่ยง × เฟสโครงการ และจัดอันดับแบบแชร์ลำดับเมื่อจำนวนเท่ากัน
+            (ตัวอย่าง 1, 2, 2, 4)
+          </p> */}
+          <div className="mt-4 grid grid-cols-1 xl:grid-cols-3 gap-6">
+            {riskFactorRankByPhase.map((block) => {
+              const visibleRows = block.rows.slice(
+                0,
+                showTop10RiskFactors ? RISK_FACTOR_RANK_TOP_MAX : RISK_FACTOR_RANK_TOP_PREVIEW
+              )
+              const maxCount = visibleRows.length > 0 ? Math.max(...visibleRows.map((r) => r.count), 1) : 1
+              const chartHeight = Math.max(280, visibleRows.length * 52 + 80)
+              return (
+                <div key={block.phase} className="box p-4">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3">{block.title}</h4>
+                  <div style={{ height: chartHeight }}>
+                    {visibleRows.length > 0 ? (
+                      <Bar
+                        data={{
+                          labels: visibleRows.map((r) => `#${r.rank}`),
+                          datasets: [
+                            {
+                              label: 'จำนวนครั้งที่เกิดขึ้นจริง',
+                              data: visibleRows.map((r) => r.count),
+                              backgroundColor: visibleRows.map((r) => r.color),
+                              borderColor: visibleRows.map((r) => r.color),
+                              borderWidth: 1,
+                              categoryPercentage: 0.88,
+                              barPercentage: 0.92,
+                            },
+                          ],
+                        }}
+                        options={{
+                          indexAxis: 'y',
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          layout: { padding: { right: 8 } },
+                          plugins: {
+                            legend: { display: false },
+                            datalabels: {
+                              display: true,
+                              // Horizontal bar: anchor at left edge of bar; align 'end' places label to the
+                              // right of that point (inside the bar). 'center' would straddle the edge.
+                              anchor: 'start',
+                              align: 'end',
+                              offset: 4,
+                              textAlign: 'left',
+                              clip: false,
+                              clamp: false,
+                              color: '#1f2937',
+                              textStrokeColor: '#ffffff',
+                              textStrokeWidth: 2.5,
+                              font: {
+                                family: 'IBM Plex Sans Thai, system-ui, sans-serif',
+                                size: 10,
+                                weight: 'bold' as const,
+                              },
+                              formatter: (_value: number, ctx) => {
+                                const row = visibleRows[ctx.dataIndex]
+                                if (!row) return ''
+                                const narrow =
+                                  maxCount > 0 && Number(ctx.dataset.data[ctx.dataIndex]) / maxCount < 0.18
+                                return chunkLabelForBar(row.label, narrow ? 22 : 30)
+                              },
+                            },
+                            tooltip: {
+                              callbacks: {
+                                title: (items) => {
+                                  const idx = items[0]?.dataIndex ?? 0
+                                  return visibleRows[idx]?.label ?? ''
+                                },
+                                label: (ctx) => {
+                                  const row = visibleRows[ctx.dataIndex]
+                                  if (!row) return ''
+                                  return `จำนวนครั้ง: ${row.count}`
+                                },
+                                afterLabel: (ctx) => {
+                                  const row = visibleRows[ctx.dataIndex]
+                                  if (!row) return ''
+                                  return `Category หลัก: ${row.dominantCategoryLabel}`
+                                },
+                              },
+                            },
+                          },
+                          scales: {
+                            x: {
+                              min: 0,
+                              max: maxCount + 1,
+                              ticks: {
+                                precision: 0,
+                                stepSize: 1,
+                              },
+                              grid: { color: getColor('slate.300', 0.3) },
+                            },
+                            y: {
+                              ticks: {
+                                font: { size: 11, weight: 'bold' as const },
+                                color: getColor('slate.600', 0.9),
+                              },
+                              grid: { display: false },
+                            },
+                          },
+                        }}
+                      />
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-sm text-gray-500">
+                        ไม่มีข้อมูลในเฟสนี้
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
       <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div>
-          <h2 className="text-xl font-bold text-gray-900 mb-4">จำนวนโครงการแยกตามประเภทความเสี่ยง</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">จำนวนโครงการแยกตามประเภทความเสี่ยง</h2>
           <div className="box p-6">
             <div className="h-80">
               <Bar data={riskCategoryBarData} options={riskCategoryBarOptions} />
@@ -677,7 +1025,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
           </div>
         </div>
         <div>
-          <h2 className="text-xl font-bold text-gray-900 mb-4">ประเภทความเสี่ยงแยกตามเฟสโครงการ</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">ประเภทความเสี่ยงแยกตามเฟสโครงการ</h2>
           <div className="box p-6">
             <div className="h-80">
               <Bar data={riskByPhaseStackedData} options={riskByPhaseStackedOptions} />
@@ -685,7 +1033,11 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
           </div>
         </div>
       </div>
-      <PastPppThailandRiskSection />
+      <PastPppThailandRiskSection
+        riskSectorWithProject={riskData?.riskSectorWithProject}
+        riskCategoryList={safeInfoData.riskCategory}
+        riskFactorList={safeInfoData.riskFactor}
+      />
       <div className="mb-8">
         <div className="mb-4">
           <h2 className="text-xl font-bold text-gray-900">Matrix ประเภทความเสี่ยง × เฟสโครงการ</h2>

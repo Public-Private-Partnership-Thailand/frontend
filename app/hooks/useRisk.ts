@@ -36,6 +36,24 @@ export type RiskApiData = {
   countProjectGroupByRiskCategory?: CountProjectGroupByRiskCategoryRow[]
   /** Fixed order: pre-construction, construction, operation */
   countProjectGroupByPhaseAndRiskCategory?: CountProjectGroupByPhaseAndRiskCategoryRow[]
+  riskSectorWithProject?: RiskSectorWithProjectItem[]
+}
+
+export type RiskSectorWithProjectProjectRow = {
+  projectId: string
+  projectName: string
+  problem: string
+  riskImpact: string
+  riskResponse: string
+  phase: string
+  riskCategoryId: number
+  riskFactorId: number
+}
+
+export type RiskSectorWithProjectItem = {
+  sector: string
+  riskCount?: number
+  projects: RiskSectorWithProjectProjectRow[]
 }
 
 export const useRisk = (
@@ -117,6 +135,40 @@ export const useRisk = (
           phase,
           riskCategoryList: byPhase.get(phase) ?? [],
         }))
+      }
+
+      if (Array.isArray(raw.riskSectorWithProject)) {
+        const rows = raw.riskSectorWithProject
+          .filter(
+            (x): x is { sector: unknown; riskCount?: unknown; projects: unknown } =>
+              x != null && typeof x === 'object' && 'sector' in x && 'projects' in x
+          )
+          .map((x) => {
+            const sector = typeof x.sector === 'string' ? x.sector : ''
+            const riskCount = typeof x.riskCount === 'number' && Number.isFinite(x.riskCount) ? x.riskCount : undefined
+            const projectsRaw = Array.isArray(x.projects) ? x.projects : []
+            const projects = projectsRaw.filter(
+              (p): p is RiskSectorWithProjectProjectRow =>
+                p != null &&
+                typeof p === 'object' &&
+                typeof (p as RiskSectorWithProjectProjectRow).projectId === 'string' &&
+                typeof (p as RiskSectorWithProjectProjectRow).projectName === 'string' &&
+                typeof (p as RiskSectorWithProjectProjectRow).problem === 'string' &&
+                typeof (p as RiskSectorWithProjectProjectRow).riskImpact === 'string' &&
+                typeof (p as RiskSectorWithProjectProjectRow).riskResponse === 'string' &&
+                typeof (p as RiskSectorWithProjectProjectRow).phase === 'string' &&
+                typeof (p as RiskSectorWithProjectProjectRow).riskCategoryId === 'number' &&
+                typeof (p as RiskSectorWithProjectProjectRow).riskFactorId === 'number'
+            )
+            return {
+              sector,
+              riskCount,
+              projects,
+            }
+          })
+          .filter((x) => x.sector.length > 0)
+
+        data.riskSectorWithProject = rows
       }
 
       return data
