@@ -22,7 +22,6 @@ import {
   type RiskCategory,
   type RiskFactor,
   formatRiskCategoryLabel,
-  formatRiskFactorLabel,
 } from '@/app/hooks/useInfo'
 import { toRiskFactorCode } from '@/lib/normalizeHeatmapRisk'
 import { getIconNameByGroupName } from '@/app/hooks/useSummary'
@@ -750,7 +749,9 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
 
       const rows: AggRow[] = Array.from(factorCounts.entries()).map(([factorId, count]) => {
         const factorInfo = riskFactorByCode.get(factorId)
-        const label = factorInfo ? formatRiskFactorLabel(factorInfo) : factorId
+        const label = factorInfo
+          ? (factorInfo.value ?? factorInfo.name ?? '').trim() || factorId
+          : factorId
         const byCategory = factorByCategoryCounts.get(factorId) ?? new Map<string, number>()
         const sortedCategoryCounts = Array.from(byCategory.entries()).sort(
           (a, b) => b[1] - a[1] || a[0].localeCompare(b[0], undefined, { numeric: true })
@@ -800,7 +801,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
         return `<li class="flex items-center gap-2 text-xs leading-5"><span class="inline-block h-3 w-3 rounded-sm border border-gray-300" style="background:${color}"></span><span>${escapeHtmlForTooltip(label)}</span></li>`
       })
       .join('')
-    return `<div class="text-left w-[min(88vw,480px)] min-w-[260px] max-w-[480px] p-1"><p class="text-xs font-semibold mb-2">สีของ Category</p><ul class="space-y-1.5 max-h-[min(72vh,620px)] overflow-y-auto overscroll-contain pr-2 py-1">${items}</ul></div>`
+    return `<div class="text-left w-[min(88vw,480px)] min-w-[260px] max-w-[480px] p-1"><p class="text-xs font-semibold mb-2">สีของ Risk Category</p><ul class="space-y-1.5 max-h-[min(72vh,620px)] overflow-y-auto overscroll-contain pr-2 py-1">${items}</ul></div>`
   }, [safeInfoData.riskCategory, riskCategoryColorMap])
 
   const rankColorLegendTippyOptions = useMemo(
@@ -978,7 +979,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
                                 afterLabel: (ctx) => {
                                   const row = visibleRows[ctx.dataIndex]
                                   if (!row) return ''
-                                  return `Category หลัก: ${row.dominantCategoryLabel}`
+                                  return `Risk Category: ${row.dominantCategoryLabel}`
                                 },
                               },
                             },
@@ -1015,6 +1016,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
           </div>
         </div>
       </div>
+      {/* จำนวนโครงการแยกตามประเภทความเสี่ยง + ประเภทความเสี่ยงแยกตามเฟสโครงการ — ซ่อนชั่วคราว
       <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">จำนวนโครงการแยกตามประเภทความเสี่ยง</h2>
@@ -1033,6 +1035,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
           </div>
         </div>
       </div>
+      */}
       <PastPppThailandRiskSection
         riskSectorWithProject={riskData?.riskSectorWithProject}
         riskCategoryList={safeInfoData.riskCategory}

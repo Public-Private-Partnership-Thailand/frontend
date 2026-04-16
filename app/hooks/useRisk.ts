@@ -3,7 +3,37 @@ import { appConfig } from '@/app/configs/appConfig'
 import type { HeatmapRiskItem } from '@/lib/mockHeatmapData'
 import type { SectorMinistryHeatmapSummaryRow } from '@/lib/dashboardMockData'
 import { normalizeHeatmapRisk, type HeatmapRiskApiItem } from '@/lib/normalizeHeatmapRisk'
-import { buildSummaryQueryParams, type SummaryFilters } from '@/app/hooks/useSummary'
+
+/** Filters for `GET /api/v1/risk` — sector values come from `/api/v1/info` → `sector[].value` */
+export type RiskPageFilters = {
+  /** Selected sector values; when all options are selected, no `sector_id` query params are sent */
+  sectorValues?: string[]
+}
+
+/** Build query string: `sector_id=1&sector_id=2` (repeated keys). Empty when all sectors or none. */
+export function buildRiskQueryParams(
+  filters: RiskPageFilters,
+  infoData?: { sector?: Array<{ id: number; value: string }> }
+): URLSearchParams {
+  const params = new URLSearchParams()
+  const sectors = infoData?.sector
+  const selected = filters.sectorValues
+  if (!sectors?.length || !selected?.length) return params
+
+  const allValues = sectors.map((s) => s.value)
+  if (allValues.length === 0) return params
+
+  const selectedSet = new Set(selected)
+  const allSelected =
+    selected.length === allValues.length && allValues.every((v) => selectedSet.has(v))
+  if (allSelected) return params
+
+  for (const value of selected) {
+    const row = sectors.find((s) => s.value === value)
+    if (row) params.append('sector_id', String(row.id))
+  }
+  return params
+}
 
 /** Row from `GET /api/v1/risk` → `countProjectGroupByRiskCategory` */
 export type CountProjectGroupByRiskCategoryRow = {
@@ -57,18 +87,17 @@ export type RiskSectorWithProjectItem = {
 }
 
 export const useRisk = (
-  filters?: SummaryFilters,
+  filters?: RiskPageFilters,
   infoData?: {
-    ministry?: Array<{ id: number; value: string }>
     sector?: Array<{ id: number; value: string }>
-    contractType?: Array<{ id: number; value: string }>
   }
 ) => {
+  const queryParams = buildRiskQueryParams(filters ?? {}, infoData)
+  const queryString = queryParams.toString()
+
   return useQuery<RiskApiData>({
-    queryKey: ['get', 'risk', filters, infoData],
+    queryKey: ['get', 'risk', queryString],
     queryFn: async () => {
-      const params = filters ? buildSummaryQueryParams(filters, infoData) : new URLSearchParams()
-      const queryString = params.toString()
       const url = queryString
         ? `${appConfig.apiUrl}/api/v1/risk?${queryString}`
         : `${appConfig.apiUrl}/api/v1/risk`

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {getBusinessGroupInfo, getBusinessGroupDisplayName } from '@/types/businessGroup'
 import HomePageSkeleton from '@/components/HomePageSkeleton'
+import MultiSelectDropdown from '@/components/MultiSelectDropdown'
 import ThailandMap from '@/components/ThailandMap'
 import { useLanguage } from '@/lib/LanguageContext'
 import Link from 'next/link'
@@ -22,6 +23,8 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/th'
 import { useInfo, type InfoData } from '@/app/hooks/useInfo'
 import { useSummary, type SummaryData, type SummaryFilters, getIconNameByGroupName } from '@/app/hooks/useSummary'
+import type { ProjectData } from '@/types/project'
+import { fetchProjectsFromAPI } from '@/lib/projectService'
 
 import {
   Chart as ChartJS,
@@ -36,7 +39,7 @@ import {
   Filler,
 } from 'chart.js'
 import ChartDataLabels from 'chartjs-plugin-datalabels'
-import { Bar, Bubble, Pie } from 'react-chartjs-2'
+import { Bar, Pie } from 'react-chartjs-2'
 import {
   ALL_SECTORS,
   buildSectorMinistryHeatmapFromSummaryApi,
@@ -45,6 +48,38 @@ import {
   type SectorBubblePoint,
   type SectorCardWithRisks,
 } from '@/lib/dashboardMockData'
+
+/** Pair API projects with hover list rows (same length/order as getProjectDisplayNamesForSectorCard). */
+function buildSectorCardHoverRows(
+  card: SectorCardWithRisks,
+  linkedList: { id: string; title: string }[] | undefined
+): { id?: string; title: string }[] {
+  const mock = getProjectDisplayNamesForSectorCard(card)
+  if (!linkedList?.length) {
+    return mock.map((title) => ({ title }))
+  }
+  return mock.map((title, i) => {
+    const L = linkedList[i]
+    return L ? { id: L.id, title: L.title } : { title }
+  })
+}
+
+/** Same keys as `businessGroupMapping` in HomePage — used to map projects to sector cards. */
+const SECTOR_CODES_BY_GROUP: Record<string, string[]> = {
+  'transport.road': ['transport.road'],
+  'transport.rail': ['transport.rail', 'transport.urban'],
+  'transport.air': ['transport.air'],
+  'transport.water': ['transport.water'],
+  waterAndWaste: ['waterAndWaste'],
+  energy: ['energy'],
+  communications: ['communications'],
+  health: ['health'],
+  education: ['education'],
+  socialHousing: ['socialHousing'],
+  cultureSportsAndRecreation: ['cultureSportsAndRecreation'],
+  others: ['economy', 'governance'],
+}
+
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -58,132 +93,12 @@ ChartJS.register(
   ChartDataLabels
 )
 
-// Multi-select dropdown component
-const MultiSelectDropdown = ({ 
-  label, 
-  options, 
-  selectedValues, 
-  onChange, 
-  onSelectAll,
-  onClear,
-  placeholder,
-  displayNameMap
-}: { 
-  label: string; 
-  options: string[]; 
-  selectedValues: string[]; 
-  onChange: (value: string) => void; 
-  onSelectAll: (selectAll: boolean) => void;
-  onClear: () => void;
-  placeholder: string;
-  displayNameMap?: (key: string) => string;
-}) => {
-  const [isOpen, setIsOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  const allSelected = selectedValues.length === options.length && options.length > 0
-  const someSelected = selectedValues.length > 0 && selectedValues.length < options.length
-  const selectAllCheckboxRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (selectAllCheckboxRef.current) {
-      selectAllCheckboxRef.current.indeterminate = someSelected
-    }
-  }, [someSelected])
-
-  const hasSelections = selectedValues.length > 0
-
-  return (
-    <div className="mb-3" ref={dropdownRef}>
-      <div className="flex items-center justify-between mb-1">
-        <label className="block text-xs font-medium text-gray-700">
-          {label}
-        </label>
-        {hasSelections && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              onClear()
-            }}
-            className="text-xs text-gray-500 hover:text-gray-700 hover:underline transition-colors"
-          >
-            ล้างการกรอง
-          </button>
-        )}
-      </div>
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-left flex items-center justify-between"
-        >
-          <span className="truncate text-xs">
-            {selectedValues.length === 0 
-              ? placeholder 
-              : `เลือกไว้ ${selectedValues.length} รายการ`}
-          </span>
-          <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        
-        {isOpen && (
-          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-auto">
-            {/* Select All option */}
-            <label
-              className="flex items-center px-2 py-1.5 hover:bg-gray-50 cursor-pointer border-b border-gray-200"
-            >
-              <input
-                ref={selectAllCheckboxRef}
-                type="checkbox"
-                checked={allSelected}
-                onChange={(e) => onSelectAll(e.target.checked)}
-                className="mr-2 h-3.5 w-3.5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-              />
-              <span className="text-xs font-medium text-gray-900">เลือกทั้งหมด</span>
-            </label>
-            {options.map(option => {
-              // Use display name map if provided, otherwise use option as-is
-              const displayName = displayNameMap ? displayNameMap(option) : option
-              return (
-                <label
-                  key={option}
-                  className="flex items-center px-2 py-1.5 hover:bg-gray-50 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedValues.includes(option)}
-                    onChange={() => onChange(option)}
-                    className="mr-2 h-3.5 w-3.5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                  />
-                  <span className="text-xs text-gray-700">{displayName}</span>
-                </label>
-              )
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 // Types are now imported from hooks
 
-type HomeTab = 'overview' | 'sector'
+// type HomeTab = 'overview' | 'sector'
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<HomeTab>('overview')
+  // const [activeTab, setActiveTab] = useState<HomeTab>('overview')
   const [filterValidationError, setFilterValidationError] = useState<string | null>(null)
   const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState({
@@ -204,12 +119,28 @@ export default function HomePage() {
     startYear: '',
     endYear: ''
   })
+  /** Full project list for sector-card hover links (GET /api/v1/projects) */
+  const [allProjectsForSectorCards, setAllProjectsForSectorCards] = useState<ProjectData[] | null>(null)
   const { t } = useLanguage()
   const router = useRouter()
 
   // Set Thai locale for dayjs
   useEffect(() => {
     dayjs.locale('th')
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetchProjectsFromAPI()
+      .then((data) => {
+        if (!cancelled) setAllProjectsForSectorCards(data)
+      })
+      .catch(() => {
+        if (!cancelled) setAllProjectsForSectorCards([])
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // Use React Query hooks
@@ -994,7 +925,7 @@ export default function HomePage() {
       responsive: true,
       maintainAspectRatio: false,
       layout: {
-        padding: { top: 8, bottom: 8, left: 8, right: 8 },
+        padding: { top: 4, bottom: 4, left: 4, right: 4 },
       },
       plugins: {
         legend: {
@@ -1017,7 +948,7 @@ export default function HomePage() {
           font: {
             family: 'IBM Plex Sans Thai',
             weight: 'bold' as const,
-            size: 18,
+            size: 13,
           },
           formatter: (value: number, context: any) => {
             const shortName = context.chart.data.labels[context.dataIndex] as string
@@ -1030,7 +961,7 @@ export default function HomePage() {
           },
           textAlign: 'center' as const,
           textStrokeColor: '#ffffff',
-          textStrokeWidth: 3,
+          textStrokeWidth: 2,
         },
       },
     }
@@ -1202,6 +1133,20 @@ export default function HomePage() {
       }))
     return [...ordered, ...extras]
   }, [summaryData?.businessGroupStats])
+
+  const projectsByGroupForLinks = useMemo(() => {
+    if (!allProjectsForSectorCards?.length) return null
+    const map = new Map<string, { id: string; title: string }[]>()
+    for (const card of sectorCards) {
+      const codes = new Set(SECTOR_CODES_BY_GROUP[card.sector] ?? [card.sector])
+      const items = allProjectsForSectorCards
+        .filter((p) => (p.sector ?? []).some((s) => codes.has(s.id)))
+        .map((p) => ({ id: p.id, title: p.title }))
+      map.set(card.sector, items)
+    }
+    return map
+  }, [allProjectsForSectorCards, sectorCards])
+
   const sectorBubbleChartData = useMemo(() => {
     const maxR = Math.max(...sectorBubbleData.map((d) => d.authorityCount), 1)
     return {
@@ -1278,8 +1223,9 @@ export default function HomePage() {
     return <HomePageSkeleton />
   }
 
-  const tabContent = activeTab === 'overview' ? (
+  const tabContent = (
     <div className="contents">
+      {/* Tabs ภาพรวม / กลุ่มกิจการและหน่วยงาน — ซ่อนชั่วคราว: แสดงแดชบอร์ดแบบไม่แบ่งแท็บ
       <div className="mb-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           <div className="box p-6">
@@ -1308,28 +1254,30 @@ export default function HomePage() {
           </div>
         </div>
       </div>
-      <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        <div className="flex min-w-0 flex-col gap-8">
-          <div className="box p-6">
-            <div className="mb-4">
+      */}
+      <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-8 md:items-stretch">
+          <div className="box p-6 min-w-0 flex flex-col h-full">
+            <div className="mb-4 shrink-0">
               <h2 className="text-xl font-bold text-gray-900">จำนวนโครงของแต่ละหน่วยงานเจ้าของโครงการ (5 อันดับแรก)</h2>
             </div>
-            <div className="h-80">
-              {(publicAuthorityBarData.fullLabels?.length ?? 0) > 0 ? (
-                <Bar data={publicAuthorityBarData} options={publicAuthorityBarOptions} />
-              ) : (
-                <div className="h-full flex items-center justify-center text-gray-500">{t('home.noDataAvailable')}</div>
-              )}
+            <div className="flex-1 min-h-0 w-full flex flex-col">
+              <div className="relative flex-1 w-full min-h-[18rem] sm:min-h-[20rem]">
+                {(publicAuthorityBarData.fullLabels?.length ?? 0) > 0 ? (
+                  <Bar data={publicAuthorityBarData} options={publicAuthorityBarOptions} />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-gray-500">{t('home.noDataAvailable')}</div>
+                )}
+              </div>
             </div>
           </div>
-          <div className="box p-6">
-            <div className="mb-4">
+          <div className="box p-6 min-w-0 flex flex-col h-full">
+            <div className="mb-4 shrink-0">
               <h2 className="text-xl font-bold text-gray-900">รูปแบบการจัดสรรกรรมสิทธิ์</h2>
               {/* <p className="mt-1 text-sm text-gray-500">
                 ชื่อย่อและเปอร์เซ็นต์บนกราฟ — ด้านล่างแสดงชื่อเต็มและจำนวนโครงการ แถวละหนึ่งรายการ
               </p> */}
             </div>
-            <div className="h-[20rem] sm:h-[24rem] w-full min-h-[16rem]">
+            <div className="shrink-0 h-[18rem] sm:h-[20rem] w-full">
               {contractTypePieRows.length > 0 ? (
                 <Pie data={contractTypePieChartData} options={contractTypePieChartOptions} />
               ) : (
@@ -1337,7 +1285,7 @@ export default function HomePage() {
               )}
             </div>
             {contractTypePieLegendItems.length > 0 ? (
-              <div className="mx-auto mt-4 w-[80%] max-w-xl border-t border-gray-100 pt-4">
+              <div className="mx-auto mt-3 w-[80%] max-w-xl border-t border-gray-100 pt-3 shrink-0">
                 <ul
                   className="flex w-full flex-col gap-2.5 text-sm text-gray-800"
                   aria-label="คำอธิบายสีกราฟรูปแบบสัญญา"
@@ -1359,7 +1307,7 @@ export default function HomePage() {
               </div>
             ) : null}
           </div>
-        </div>
+        {/* มูลค่ารวมโครงการ PPP แยกตามปีงบประมาณ (ล้านบาท) — ซ่อนชั่วคราว
         <div className="box p-4 sm:p-6">
           <div className="mb-4">
             <h2 className="text-lg sm:text-xl font-bold text-gray-900">มูลค่ารวมโครงการ PPP แยกตามปีงบประมาณ  (ล้านบาท)</h2>
@@ -1371,6 +1319,109 @@ export default function HomePage() {
           ) : (
             <div className="h-64 sm:h-80 flex items-center justify-center text-gray-500">{t('home.noDataAvailable')}</div>
           )}
+        </div>
+        */}
+      </div>
+
+      <div className="mb-8 box p-4 sm:p-6">
+        <div className="mb-4">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+          จำนวนโครงการแต่ละกลุ่มกิจการ
+          </h2>
+        </div>
+        <div className="min-h-80 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 auto-rows-fr overflow-y-auto">
+          {sectorCards.map((card) => {
+            const icon = getIconNameByGroupName(card.sector)
+            const mappedIcon = mapIconName(icon)
+            const iconPath = `/assets/icons/${mappedIcon}`
+            const displayName = getBusinessGroupDisplayName(card.sector)
+            const hoverRows = buildSectorCardHoverRows(card, projectsByGroupForLinks?.get(card.sector))
+            return (
+              <div
+                key={card.sector}
+                className="group relative box flex flex-col h-full min-h-[9rem] overflow-hidden p-3 sm:p-4"
+              >
+                <div className="shrink-0 mb-3 min-h-[2.40625rem] sm:min-h-[2.75rem]">
+                  <p
+                    className="text-sm sm:text-base font-semibold text-gray-900 leading-[1.375] line-clamp-2"
+                    title={displayName}
+                  >
+                    {displayName}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 items-center flex-1 min-h-0">
+                  <div className="flex items-center justify-center min-h-[4.5rem] rounded-md overflow-hidden bg-gray-50/80 p-2">
+                    <img
+                      src={iconPath}
+                      alt=""
+                      width={64}
+                      height={64}
+                      className="w-14 h-14 sm:w-16 sm:h-16 object-contain"
+                      style={{ display: 'block' }}
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                        if (target.parentElement) {
+                          const existingFallback = target.parentElement.querySelector('.icon-fallback')
+                          if (!existingFallback) {
+                            const fallback = document.createElement('div')
+                            fallback.className = 'icon-fallback w-full h-full flex items-center justify-center text-gray-400 text-xs'
+                            fallback.textContent = 'Icon'
+                            target.parentElement.appendChild(fallback)
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="min-w-0 flex flex-col justify-center gap-1.5 pl-0.5">
+                    <div className="flex flex-col gap-0 leading-none text-gray-900">
+                      <span className="text-lg sm:text-xl font-bold tabular-nums tracking-tight">
+                        {card.projectCount.toLocaleString('th-TH')}
+                      </span>
+                      <span className="text-sm sm:text-base font-bold tracking-tight mt-0.5">
+                        โครงการ
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className={clsx(
+                    'absolute inset-0 z-10 flex flex-col p-3 sm:p-4',
+                    'bg-white/[0.97] backdrop-blur-[2px]',
+                    'opacity-0 pointer-events-none transition-opacity duration-200',
+                    'group-hover:opacity-100 group-hover:pointer-events-auto'
+                  )}
+                >
+                  <p className="shrink-0 text-xs font-semibold text-gray-800 mb-2 border-b border-gray-200 pb-2">
+                    รายชื่อโครงการ
+                  </p>
+                  {hoverRows.length > 0 ? (
+                    <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto text-left text-xs leading-snug text-gray-800">
+                      {hoverRows.map((row, idx) => (
+                        <li key={row.id ?? `hover-${card.sector}-${idx}`} className="border-b border-gray-100 pb-2 last:border-b-0 last:pb-0">
+                          {row.id ? (
+                            <Link
+                              href={`/view/${row.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block text-theme-primary hover:underline"
+                            >
+                              {row.title}
+                            </Link>
+                          ) : (
+                            <span className="text-gray-800">{row.title}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-gray-500">ไม่มีโครงการในกลุ่มนี้</p>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -1555,233 +1606,10 @@ export default function HomePage() {
         </div>
       </div>
     </div>
-  ) : (
-    <div className="contents">
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">จำนวนโครงการ vs มูลค่าโครงการ (ขนาดวงกลม = จำนวนหน่วยงาน)</h2>
-        <div className="box p-6">
-          <div className="h-96">
-            {sectorBubbleData.length > 0 ? (
-              <Bubble data={sectorBubbleChartData} options={sectorBubbleOptions} />
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-500">{t('home.noDataAvailable')}</div>
-            )}
-          </div>
-        </div>
-      </div>
-      <div className="mb-8 box p-4 sm:p-6">
-        <div className="mb-4">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-            กลุ่มกิจการ: จำนวนโครงการและมูลค่ารวม
-          </h2>
-        </div>
-        <div className="min-h-80 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 auto-rows-fr overflow-y-auto">
-          {sectorCards.map((card) => {
-            const icon = getIconNameByGroupName(card.sector)
-            const mappedIcon = mapIconName(icon)
-            const iconPath = `/assets/icons/${mappedIcon}`
-            const displayName = getBusinessGroupDisplayName(card.sector)
-            const hoverProjectNames = getProjectDisplayNamesForSectorCard(card)
-            return (
-              <div
-                key={card.sector}
-                className="group relative box flex flex-col h-full min-h-[9rem] overflow-hidden p-3 sm:p-4"
-              >
-                {/* Fixed two-line slot so long names don’t push the row below vs short names */}
-                <div className="shrink-0 mb-3 min-h-[2.40625rem] sm:min-h-[2.75rem]">
-                  <p
-                    className="text-sm sm:text-base font-semibold text-gray-900 leading-[1.375] line-clamp-2"
-                    title={displayName}
-                  >
-                    {displayName}
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-2 sm:gap-3 items-center flex-1 min-h-0">
-                  <div className="flex items-center justify-center min-h-[4.5rem] rounded-md overflow-hidden bg-gray-50/80 p-2">
-                    <img
-                      src={iconPath}
-                      alt=""
-                      width={64}
-                      height={64}
-                      className="w-14 h-14 sm:w-16 sm:h-16 object-contain"
-                      style={{ display: 'block' }}
-                      loading="lazy"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement
-                        target.style.display = 'none'
-                        if (target.parentElement) {
-                          const existingFallback = target.parentElement.querySelector('.icon-fallback')
-                          if (!existingFallback) {
-                            const fallback = document.createElement('div')
-                            fallback.className = 'icon-fallback w-full h-full flex items-center justify-center text-gray-400 text-xs'
-                            fallback.textContent = 'Icon'
-                            target.parentElement.appendChild(fallback)
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="min-w-0 flex flex-col justify-center gap-1.5 pl-0.5">
-                    <div className="flex flex-col gap-0 leading-none text-gray-900">
-                      <span className="text-lg sm:text-xl font-bold tabular-nums tracking-tight">
-                        {card.projectCount.toLocaleString('th-TH')}
-                      </span>
-                      <span className="text-sm sm:text-base font-bold tracking-tight mt-0.5">
-                        โครงการ
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div
-                  className={clsx(
-                    'absolute inset-0 z-10 flex flex-col p-3 sm:p-4',
-                    'bg-white/[0.97] backdrop-blur-[2px]',
-                    'opacity-0 pointer-events-none transition-opacity duration-200',
-                    'group-hover:opacity-100 group-hover:pointer-events-auto'
-                  )}
-                >
-                  <p className="shrink-0 text-xs font-semibold text-gray-800 mb-2 border-b border-gray-200 pb-2">
-                    รายชื่อโครงการ
-                  </p>
-                  {hoverProjectNames.length > 0 ? (
-                    <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto text-left text-xs leading-snug text-gray-800">
-                      {hoverProjectNames.map((name, idx) => (
-                        <li key={idx} className="border-b border-gray-100 pb-2 last:border-b-0 last:pb-0">
-                          {name}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-xs text-gray-500">ไม่มีโครงการในกลุ่มนี้</p>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">กลุ่มกิจการ × กระทรวงเจ้าสังกัด</h2>
-        <div className="box p-4 overflow-x-auto">
-          {sectorMinistryHeatmapData.ministriesSorted.length === 0 ? (
-            <p className="text-sm text-gray-500 py-6 text-center">ไม่มีรายการกระทรวงจากระบบ</p>
-          ) : (
-            <>
-              <table className="w-full border-collapse text-sm table-fixed">
-                <colgroup>
-                  <col style={{ width: '15rem' }} />
-                  {sectorMinistryHeatmapData.sectorRows.map((row) => (
-                    <col key={row} style={{ width: '4rem' }} />
-                  ))}
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th className="border border-gray-300 bg-gray-50 px-2 py-2 text-left font-medium text-gray-700">
-                      กระทรวงเจ้าสังกัด
-                    </th>
-                    {sectorMinistryHeatmapData.sectorRows.map((row) => {
-                      const icon = getIconNameByGroupName(row)
-                      const mappedIcon = mapIconName(icon)
-                      const iconPath = `/assets/icons/${mappedIcon}`
-                      const displayName = getBusinessGroupDisplayName(row)
-                      return (
-                        <th
-                          key={row}
-                          className="border border-gray-300 bg-gray-50 px-2 py-2 text-center font-medium text-gray-700 w-16 align-middle"
-                          title={displayName}
-                        >
-                          <div className="w-8 h-8 mx-auto rounded overflow-hidden flex items-center justify-center bg-gray-50">
-                            <img
-                              src={iconPath}
-                              alt=""
-                              width={32}
-                              height={32}
-                              className="w-full h-full object-contain"
-                              loading="lazy"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement
-                                target.style.display = 'none'
-                              }}
-                            />
-                          </div>
-                        </th>
-                      )
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const { sectorRows, ministriesSorted, data: heatmapData } = sectorMinistryHeatmapData
-                    const rowSums = ministriesSorted.map((_, j) =>
-                      sectorRows.reduce((s, _, i) => s + (heatmapData[i]?.[j] ?? 0), 0)
-                    )
-                    const sortedMinistryIndices = ministriesSorted
-                      .map((_, j) => j)
-                      .sort((a, b) => rowSums[b] - rowSums[a])
-                    const maxVal = Math.max(...heatmapData.flat(), 1)
-                    return sortedMinistryIndices.map((j) => {
-                      const ministry = ministriesSorted[j]
-                      return (
-                        <tr key={ministry.id}>
-                          <td
-                            className="border border-gray-300 px-2 py-1.5 text-gray-800 bg-white align-middle text-left text-xs break-words"
-                            style={{ minWidth: '10rem', maxWidth: '18rem' }}
-                          >
-                            {ministry.value}
-                          </td>
-                          {sectorRows.map((_, i) => {
-                            const val = heatmapData[i]?.[j] ?? 0
-                            const bg = chartHeatmapCellColor(val, maxVal)
-                            return (
-                              <td
-                                key={i}
-                                className="border border-gray-300 p-1 text-center align-middle w-16"
-                                style={{ backgroundColor: bg }}
-                              >
-                                <span
-                                  className={
-                                    val > 0
-                                      ? 'inline-flex items-center justify-center w-8 h-6 rounded text-gray-800 font-medium'
-                                      : 'text-gray-400'
-                                  }
-                                >
-                                  {val}
-                                </span>
-                              </td>
-                            )
-                          })}
-                        </tr>
-                      )
-                    })
-                  })()}
-                </tbody>
-              </table>
-              <div className="mt-3 flex items-center gap-3 flex-wrap text-xs text-gray-600">
-                <span className="text-gray-600">พบโครงการน้อย</span>
-                <span className="inline-flex items-center gap-0.5">
-                  {(() => {
-                    const maxVal = Math.max(...sectorMinistryHeatmapData.data.flat(), 1)
-                    return [0, 0.25, 0.5, 0.75, 1].map((f) => {
-                      const v = Math.round(maxVal * f)
-                      return (
-                        <span
-                          key={v}
-                          className="w-5 h-4 rounded border border-gray-300 flex-shrink-0"
-                          style={{ backgroundColor: chartHeatmapCellColor(v, maxVal) }}
-                          title={String(v)}
-                        />
-                      )
-                    })
-                  })()}
-                </span>
-                <span className="text-gray-600">พบโครงการมาก</span>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
   )
+
+  /* แท็บ 「กลุ่มกิจการและหน่วยงาน」เดิม (คอมเมนต์ออก ไม่ลบ): กราฟ Bubble จำนวนโครงการ vs มูลค่าโครงการ,
+   * ตาราง heatmap กลุ่มกิจการ × กระทรวงเจ้าสังกัด — ดึง JSX เดิมจาก git ได้หากต้องการคืน */
 
   return (
     <div className="px-4 sm:px-0">
@@ -2097,7 +1925,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Tabs: Overview | Sector */}
+          {/* Tabs ภาพรวม | กลุ่มกิจการและหน่วยงาน — ซ่อนชั่วคราว (แสดงแดชบอร์ดแบบไม่แบ่งแท็บ)
           <div className="mb-6 border-b border-gray-200">
             <nav className="flex gap-1" aria-label="Dashboard tabs">
               {[
@@ -2120,6 +1948,7 @@ export default function HomePage() {
               ))}
             </nav>
           </div>
+          */}
 
           {tabContent}
 

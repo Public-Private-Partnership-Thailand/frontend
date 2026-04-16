@@ -13,7 +13,6 @@ import type {
   RiskSectorWithProjectItem,
   RiskSectorWithProjectProjectRow,
 } from '@/app/hooks/useRisk'
-import { ALL_SECTORS } from '@/lib/dashboardMockData'
 import { getBusinessGroupDisplayName } from '@/types/businessGroup'
 import {
   countTotalProjects,
@@ -103,7 +102,10 @@ function mapApiToSectorPastRisks(
     projectsBySector.set(row.sector, row.projects)
   }
 
-  return ALL_SECTORS.map((sectorKey) => {
+  return (riskSectorWithProject ?? [])
+    .filter((row) => typeof row.sector === 'string' && row.sector.trim().length > 0)
+    .map((row) => {
+    const sectorKey = row.sector
     const projects = projectsBySector.get(sectorKey) ?? []
     const incidents: PastPppRiskIncident[] = projects.map((p, idx) => {
       const mapped = mapProjectRowFromApi(p, riskCategoryMap, riskFactorMap)
@@ -117,11 +119,11 @@ function mapApiToSectorPastRisks(
       }
     })
 
-    return {
-      sectorKey,
-      incidents,
-    }
-  })
+      return {
+        sectorKey,
+        incidents,
+      }
+    })
 }
 
 export default function PastPppThailandRiskSection({

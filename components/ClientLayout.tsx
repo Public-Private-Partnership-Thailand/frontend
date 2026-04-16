@@ -68,14 +68,14 @@ function Navbar() {
               {t('nav.home')}
             </Link>
             
-            {/* Risk */}
-            <Link href="/risk" className="text-gray-700 hover:text-theme-primary hover:bg-theme-primary-light px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
-              {t('nav.risk')}
-            </Link>
-            
             {/* Projects */}
             <Link href="/projects" className="text-gray-700 hover:text-theme-primary hover:bg-theme-primary-light px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
               {t('nav.projects')}
+            </Link>
+            
+            {/* Risk */}
+            <Link href="/risk" className="text-gray-700 hover:text-theme-primary hover:bg-theme-primary-light px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
+              {t('nav.risk')}
             </Link>
             
             {/* About PPP */}
@@ -159,15 +159,6 @@ function Navbar() {
                 {t('nav.home')}
               </Link>
               
-              {/* Risk */}
-              <Link 
-                href="/risk" 
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {t('nav.risk')}
-              </Link>
-              
               {/* Projects */}
               <Link 
                 href="/projects" 
@@ -175,6 +166,15 @@ function Navbar() {
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {t('nav.projects')}
+              </Link>
+              
+              {/* Risk */}
+              <Link 
+                href="/risk" 
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {t('nav.risk')}
               </Link>
               
               {/* About PPP */}
