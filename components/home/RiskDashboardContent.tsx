@@ -52,13 +52,51 @@ const MATRIX_PHASE_TITLES: Record<MatrixPhaseKey, string> = {
 const RISK_FACTOR_RANK_TOP_PREVIEW = 5
 const RISK_FACTOR_RANK_TOP_MAX = 10
 
-/** Split long labels for Chart.js datalabels (Thai often has no spaces). */
 function chunkLabelForBar(text: string, maxCharsPerLine: number): string[] {
-  if (text.length <= maxCharsPerLine) return [text]
-  const lines: string[] = []
-  for (let i = 0; i < text.length; i += maxCharsPerLine) {
-    lines.push(text.slice(i, i + maxCharsPerLine))
+  const trimmed = text.trim()
+  if (!trimmed) return ['']
+  if (trimmed.length <= maxCharsPerLine) return [trimmed]
+
+  const hasSpaces = /\s/.test(trimmed)
+  if (!hasSpaces) {
+    const lines: string[] = []
+    for (let i = 0; i < trimmed.length; i += maxCharsPerLine) {
+      lines.push(trimmed.slice(i, i + maxCharsPerLine))
+    }
+    return lines
   }
+
+  const words = trimmed.split(/\s+/).filter(Boolean)
+  const lines: string[] = []
+  let current = ''
+
+  const pushWordTooLong = (word: string) => {
+    let rest = word
+    while (rest.length > maxCharsPerLine) {
+      lines.push(rest.slice(0, maxCharsPerLine))
+      rest = rest.slice(maxCharsPerLine)
+    }
+    return rest
+  }
+
+  for (const word of words) {
+    if (word.length > maxCharsPerLine) {
+      if (current) {
+        lines.push(current)
+        current = ''
+      }
+      current = pushWordTooLong(word)
+      continue
+    }
+    const candidate = current ? `${current} ${word}` : word
+    if (candidate.length <= maxCharsPerLine) {
+      current = candidate
+    } else {
+      if (current) lines.push(current)
+      current = word
+    }
+  }
+  if (current) lines.push(current)
   return lines
 }
 
