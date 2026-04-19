@@ -376,7 +376,7 @@ export default function ViewProjectClient() {
 
           {/* Timeline Phase (like create page step indicator) */}
           <div className="mt-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Timeline Phase</h3>
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Timeline ของโครงการ</h3>
             <div className="flex items-start justify-between w-full overflow-x-auto pb-2">
               {PHASES.map((phase, index) => {
                 const step = index + 1
@@ -629,9 +629,9 @@ export default function ViewProjectClient() {
             }
 
             const PHASE_META: Record<string, { label: string; cls: string }> = {
-              'pre-construction': { label: 'ก่อนก่อสร้าง', cls: 'bg-violet-100 text-violet-700' },
-              construction:       { label: 'ก่อสร้าง',       cls: 'bg-blue-100 text-blue-700' },
-              operation:          { label: 'ดำเนินการ',        cls: 'bg-emerald-100 text-emerald-700' },
+              'pre-construction': { label: 'pre-construction', cls: 'bg-violet-100 text-violet-700' },
+              construction:       { label: 'construction',       cls: 'bg-blue-100 text-blue-700' },
+              operation:          { label: 'operation',        cls: 'bg-emerald-100 text-emerald-700' },
             }
             const MITIGATION_META: Record<string, { label: string; icon: string; cls: string }> = {
               planned:          { label: 'วางแผน',          icon: '○', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -721,7 +721,7 @@ export default function ViewProjectClient() {
                           {/* ── Category Drivers ── */}
                           {risk.category_drivers && risk.category_drivers.length > 0 && (
                             <div className="px-4 py-4">
-                              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-3">Risk Category Drivers</p>
+                              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-3">กลุ่มความเสี่ยงที่พบ</p>
                               <div className="space-y-3">
                                 {risk.category_drivers.map((driver, dIdx) => {
                                   const catInfo = riskCategories.find(c => c.id === driver.risk_category_id)
@@ -745,7 +745,7 @@ export default function ViewProjectClient() {
                                       {/* Risk Factors */}
                                       {driver.driven_by_risk_factors && driver.driven_by_risk_factors.length > 0 && (
                                         <div className="px-3 py-2.5">
-                                          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Risk Factors</p>
+                                          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">ปัจจัยเสี่ยง</p>
                                           <div className="space-y-2">
                                             {driver.driven_by_risk_factors.map((factor, fIdx) => {
                                               const factorInfo = riskFactors.find(f => f.id === factor.risk_factor_id)
@@ -776,7 +776,7 @@ export default function ViewProjectClient() {
                           {/* ── Mitigation / Handling ── */}
                           {risk.mitigation_handling && risk.mitigation_handling.length > 0 && (
                             <div className="px-4 py-4">
-                              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-2">มาตรการรับมือ</p>
+                              <p className="text-[11px] font-semibold text-gray-400 tracking-widest mb-2">มาตรการรับมือ (Mitigation)</p>
                               <div className="space-y-2">
                                 {risk.mitigation_handling.map((m, mIdx) => {
                                   const meta = MITIGATION_META[m.status] ?? { label: m.status, icon: '·', cls: 'bg-gray-50 text-gray-600 border-gray-200' }
@@ -797,7 +797,7 @@ export default function ViewProjectClient() {
                           {/* ── Impact Statement ── */}
                           {risk.impact_statement && risk.impact_statement.length > 0 && (
                             <div className="px-4 py-4 bg-amber-50/30">
-                              <p className="text-[11px] font-semibold text-amber-600/70 uppercase tracking-widest mb-2">ผลกระทบ (Impact)</p>
+                              <p className="text-[11px] font-semibold text-amber-600/70 tracking-widest mb-2">ผลกระทบ (Impact)</p>
                               <ul className="space-y-1.5">
                                 {risk.impact_statement.map((line, i) => (
                                   <li key={i} className="flex gap-2.5 text-sm text-gray-700 leading-relaxed">

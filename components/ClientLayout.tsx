@@ -8,8 +8,26 @@ import ProjectsPageSkeleton from '@/components/ProjectsPageSkeleton'
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
+import clsx from 'clsx'
+
+/** Which top-nav item is active for the current route (project flows → Projects). */
+function getNavActiveFlags(pathname: string) {
+  return {
+    home: pathname === '/',
+    projects:
+      pathname.startsWith('/projects') ||
+      pathname.startsWith('/view/') ||
+      pathname.startsWith('/edit/') ||
+      pathname === '/create' ||
+      pathname.startsWith('/create/'),
+    risk: pathname === '/risk' || pathname.startsWith('/risk/'),
+    about: pathname === '/about' || pathname.startsWith('/about/'),
+  }
+}
 
 function Navbar() {
+  const pathname = usePathname()
+  const navActive = getNavActiveFlags(pathname || '')
   const { t, isHydrated } = useLanguage()
   const { user, signOut, isAuthenticated } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -64,22 +82,58 @@ function Navbar() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-4">
             {/* Home */}
-            <Link href="/" className="text-gray-700 hover:text-theme-primary hover:bg-theme-primary-light px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
+            <Link
+              href="/"
+              className={clsx(
+                'px-3 py-2 rounded-md text-sm font-medium transition-all duration-200',
+                navActive.home
+                  ? 'text-theme-primary bg-theme-primary-light font-semibold shadow-sm ring-1 ring-theme-primary/20'
+                  : 'text-gray-700 hover:text-theme-primary hover:bg-theme-primary-light'
+              )}
+              aria-current={navActive.home ? 'page' : undefined}
+            >
               {t('nav.home')}
             </Link>
             
             {/* Projects */}
-            <Link href="/projects" className="text-gray-700 hover:text-theme-primary hover:bg-theme-primary-light px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
+            <Link
+              href="/projects"
+              className={clsx(
+                'px-3 py-2 rounded-md text-sm font-medium transition-all duration-200',
+                navActive.projects
+                  ? 'text-theme-primary bg-theme-primary-light font-semibold shadow-sm ring-1 ring-theme-primary/20'
+                  : 'text-gray-700 hover:text-theme-primary hover:bg-theme-primary-light'
+              )}
+              aria-current={navActive.projects ? 'page' : undefined}
+            >
               {t('nav.projects')}
             </Link>
             
             {/* Risk */}
-            <Link href="/risk" className="text-gray-700 hover:text-theme-primary hover:bg-theme-primary-light px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
+            <Link
+              href="/risk"
+              className={clsx(
+                'px-3 py-2 rounded-md text-sm font-medium transition-all duration-200',
+                navActive.risk
+                  ? 'text-theme-primary bg-theme-primary-light font-semibold shadow-sm ring-1 ring-theme-primary/20'
+                  : 'text-gray-700 hover:text-theme-primary hover:bg-theme-primary-light'
+              )}
+              aria-current={navActive.risk ? 'page' : undefined}
+            >
               {t('nav.risk')}
             </Link>
             
             {/* About PPP */}
-            <Link href="/about" className="text-gray-700 hover:text-theme-primary hover:bg-theme-primary-light px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
+            <Link
+              href="/about"
+              className={clsx(
+                'px-3 py-2 rounded-md text-sm font-medium transition-all duration-200',
+                navActive.about
+                  ? 'text-theme-primary bg-theme-primary-light font-semibold shadow-sm ring-1 ring-theme-primary/20'
+                  : 'text-gray-700 hover:text-theme-primary hover:bg-theme-primary-light'
+              )}
+              aria-current={navActive.about ? 'page' : undefined}
+            >
               {t('nav.aboutPPP')}
             </Link>
             
@@ -153,7 +207,13 @@ function Navbar() {
               {/* Home */}
               <Link 
                 href="/" 
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                className={clsx(
+                  'block px-3 py-2 rounded-md text-base font-medium',
+                  navActive.home
+                    ? 'text-theme-primary bg-theme-primary-light font-semibold'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+                )}
+                aria-current={navActive.home ? 'page' : undefined}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {t('nav.home')}
@@ -162,7 +222,13 @@ function Navbar() {
               {/* Projects */}
               <Link 
                 href="/projects" 
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                className={clsx(
+                  'block px-3 py-2 rounded-md text-base font-medium',
+                  navActive.projects
+                    ? 'text-theme-primary bg-theme-primary-light font-semibold'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+                )}
+                aria-current={navActive.projects ? 'page' : undefined}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {t('nav.projects')}
@@ -171,7 +237,13 @@ function Navbar() {
               {/* Risk */}
               <Link 
                 href="/risk" 
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                className={clsx(
+                  'block px-3 py-2 rounded-md text-base font-medium',
+                  navActive.risk
+                    ? 'text-theme-primary bg-theme-primary-light font-semibold'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+                )}
+                aria-current={navActive.risk ? 'page' : undefined}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {t('nav.risk')}
@@ -180,7 +252,13 @@ function Navbar() {
               {/* About PPP */}
               <Link 
                 href="/about" 
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                className={clsx(
+                  'block px-3 py-2 rounded-md text-base font-medium',
+                  navActive.about
+                    ? 'text-theme-primary bg-theme-primary-light font-semibold'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+                )}
+                aria-current={navActive.about ? 'page' : undefined}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {t('nav.aboutPPP')}
@@ -248,12 +326,20 @@ function Footer() {
           {/* Links */}
           <div>
             <h4 className="text-lg font-semibold text-white mb-4">{t('footer.links')}</h4>
-            <div className="space-y-2">
-              <a href="/" className="block text-gray-300 hover:text-theme-primary transition-colors duration-200 text-sm">{t('footer.home')}</a>
-              <a href="/dashboard" className="block text-gray-300 hover:text-theme-primary transition-colors duration-200 text-sm">{t('footer.dashboard')}</a>
-              <a href="/projects" className="block text-gray-300 hover:text-theme-primary transition-colors duration-200 text-sm">{t('footer.allProjects')}</a>
-              <a href="/about" className="block text-gray-300 hover:text-theme-primary transition-colors duration-200 text-sm">{t('footer.aboutPPP')}</a>
-            </div>
+            <nav className="space-y-2" aria-label={t('footer.links')}>
+              <Link href="/" className="block text-gray-300 hover:text-theme-primary transition-colors duration-200 text-sm">
+                {t('nav.home')}
+              </Link>
+              <Link href="/projects" className="block text-gray-300 hover:text-theme-primary transition-colors duration-200 text-sm">
+                {t('nav.projects')}
+              </Link>
+              <Link href="/risk" className="block text-gray-300 hover:text-theme-primary transition-colors duration-200 text-sm">
+                {t('nav.risk')}
+              </Link>
+              <Link href="/about" className="block text-gray-300 hover:text-theme-primary transition-colors duration-200 text-sm">
+                {t('nav.aboutPPP')}
+              </Link>
+            </nav>
           </div>
           
           {/* Contact */}

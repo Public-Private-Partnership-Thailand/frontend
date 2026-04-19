@@ -17,7 +17,7 @@ import { getColor } from '@/lib/utils/colors'
 import { useInfo, type InfoData } from '@/app/hooks/useInfo'
 import { useDeleteProject } from '@/app/hooks/useDelete'
 import { getIconNameByGroupName } from '@/app/hooks/useSummary'
-import { formatDateForDisplay } from '@/lib/utils/dateUtils'
+import { formatDateForDisplay, adYearToBe } from '@/lib/utils/dateUtils'
 
 // Option shape from api/v1/info (id is unique per list, use for React key to avoid duplicate-value keys)
 type InfoOption = { id: number; value: string }
@@ -144,6 +144,8 @@ const MultiSelectDropdown = ({
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectData[]>([])
   const [loading, setLoading] = useState(true)
+  /** True while refetching after Apply / Clear filters — keeps page mounted; use inline overlay, not full skeleton */
+  const [filterFetchLoading, setFilterFetchLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [filterValidationError, setFilterValidationError] = useState<string | null>(null)
@@ -190,9 +192,17 @@ export default function ProjectsPage() {
     dayjs.locale('th')
   }, [])
 
-  const fetchProjects = async (queryParams?: ProjectQueryParams) => {
+  const fetchProjects = async (
+    queryParams?: ProjectQueryParams,
+    options?: { soft?: boolean }
+  ) => {
+    const soft = options?.soft === true
     try {
-      setLoading(true)
+      if (soft) {
+        setFilterFetchLoading(true)
+      } else {
+        setLoading(true)
+      }
       setError(null)
       const data = await fetchProjectsFromAPI(queryParams)
       setProjects(data || [])
@@ -201,7 +211,11 @@ export default function ProjectsPage() {
       setError('ไม่สามารถโหลดข้อมูลโครงการได้')
       setProjects([])
     } finally {
-      setLoading(false)
+      if (soft) {
+        setFilterFetchLoading(false)
+      } else {
+        setLoading(false)
+      }
     }
   }
 
@@ -459,7 +473,17 @@ export default function ProjectsPage() {
     }
     if (tempFilters.search?.trim()) params.search = tempFilters.search.trim()
 
-    fetchProjects(Object.keys(params).length > 0 ? params : undefined)
+    // Year filters: UI shows พ.ศ.; state and API use ค.ศ. (A.D.)
+    if (tempFilters.startYear) {
+      const yf = parseInt(tempFilters.startYear, 10)
+      if (Number.isInteger(yf)) params.year_from = yf
+    }
+    if (tempFilters.endYear) {
+      const yt = parseInt(tempFilters.endYear, 10)
+      if (Number.isInteger(yt)) params.year_to = yt
+    }
+
+    fetchProjects(Object.keys(params).length > 0 ? params : undefined, { soft: true })
   }
 
   const clearFilters = () => {
@@ -477,7 +501,7 @@ export default function ProjectsPage() {
     setTempFilters(emptyFilters)
     setFilterValidationError(null)
     setCurrentPage(1)
-    fetchProjects()
+    fetchProjects(undefined, { soft: true })
   }
 
   const toggleProjectSelection = (id: string) => {
@@ -669,9 +693,9 @@ export default function ProjectsPage() {
       <div className="mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">{t('projects.title')}</h1>
-          <p className="mt-2 text-gray-600">
+          {/* <p className="mt-2 text-gray-600">
             {t('projects.subtitle')}
-          </p>
+          </p> */}
         </div>
       </div>
 
@@ -736,7 +760,9 @@ export default function ProjectsPage() {
             >
               <option value="">{t('home.allYears') || 'ทั้งหมด'}</option>
               {availableYears.map((y) => (
-                <option key={y} value={String(y)}>{y}</option>
+                <option key={y} value={String(y)}>
+                  พ.ศ. {adYearToBe(y)}
+                </option>
               ))}
             </select>
           </div>
@@ -753,7 +779,9 @@ export default function ProjectsPage() {
             >
               <option value="">{t('home.allYears') || 'ทั้งหมด'}</option>
               {availableYears.map((y) => (
-                <option key={y} value={String(y)}>{y}</option>
+                <option key={y} value={String(y)}>
+                  พ.ศ. {adYearToBe(y)}
+                </option>
               ))}
             </select>
             {filterValidationError && (
@@ -805,14 +833,18 @@ export default function ProjectsPage() {
             </div>
             <div className="space-x-2">
               <button
+                type="button"
                 onClick={applyFilters}
-                className="px-3 py-1.5 text-sm font-medium text-white bg-theme-primary hover:bg-theme-primary-dark rounded-md transition-colors duration-200"
+                disabled={filterFetchLoading}
+                className="px-3 py-1.5 text-sm font-medium text-white bg-theme-primary hover:bg-theme-primary-dark rounded-md transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {t('home.applyFilters') || 'Apply Filters'}
               </button>
               <button
+                type="button"
                 onClick={clearFilters}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-200"
+                disabled={filterFetchLoading}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {t('projects.clearFilters')}
               </button>
@@ -832,6 +864,7 @@ export default function ProjectsPage() {
             )}
             {selectedProjectIds.size >= 2 && (
               <button
+                type="button"
                 onClick={() => setShowCompareModal(true)}
                 disabled={!canCompare}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-theme-primary hover:bg-theme-primary-dark rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -854,6 +887,7 @@ export default function ProjectsPage() {
               </Link>
             )}
             <button
+              type="button"
               onClick={exportToCSV}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-theme-primary hover:bg-theme-primary-dark rounded-md transition-colors duration-200"
             >
@@ -891,7 +925,20 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-lg shadow overflow-hidden relative min-h-[12rem]">
+        {filterFetchLoading && (
+          <div
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-lg bg-white/75 backdrop-blur-[1px]"
+            aria-busy="true"
+            aria-live="polite"
+          >
+            <div
+              className="w-10 h-10 border-2 border-theme-primary border-t-transparent rounded-full animate-spin"
+              aria-hidden
+            />
+            <span className="text-sm text-gray-600">{t('common.loading')}</span>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">

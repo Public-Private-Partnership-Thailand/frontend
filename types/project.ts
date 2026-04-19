@@ -272,6 +272,8 @@ export interface ProjectData {
   id: string;
   identifiers?: Identifier[];
   updated: string;
+  /** Display/sort date from API (e.g. summary `latestProjects`); prefer over `updated` when present. */
+  date?: string;
   title: string;
   description: string;
   status: string;

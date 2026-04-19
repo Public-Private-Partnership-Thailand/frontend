@@ -45,7 +45,6 @@ function phaseLabelTh(phase: string): string {
     'pre-construction': 'ก่อนก่อสร้าง',
     construction: 'ก่อสร้าง',
     operation: 'ดำเนินการ',
-    handback: 'ส่งมอบ',
   }
   return m[phase] ?? phase
 }

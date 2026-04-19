@@ -37,6 +37,7 @@ import {
 } from '@/lib/heatmapRiskPhaseUtils'
 import PastPppThailandRiskSection from '@/components/home/PastPppThailandRiskSection'
 import RiskSourceReferencesSection from '@/components/home/RiskSourceReferencesSection'
+import { hexColorForRiskCategoryId } from '@/lib/riskCategoryColors'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ChartDataLabels)
 
@@ -140,7 +141,7 @@ function MatrixRiskSourceFilterPanel({
     <div className={`rounded-lg border border-gray-200 bg-slate-50 px-4 py-3 text-sm ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-2">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0">
-          <span className="font-medium text-gray-800 shrink-0">กรองตามแหล่งอ้างอิง</span>
+          <span className="font-medium text-gray-800 shrink-0">กรองตามแหล่งที่มาของข้อมูล</span>
           <label className="inline-flex cursor-pointer select-none items-center gap-2 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-800 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50">
             <input
               ref={selectAllInputRef}
@@ -177,7 +178,7 @@ function MatrixRiskSourceFilterPanel({
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-indigo-900 mb-2 flex items-center gap-2">
               <Lucide icon="Globe" className="h-5 w-5 shrink-0 text-primary" aria-hidden />
-              <span>นานาชาติ</span>
+              <span>ต่างประเทศ</span>
             </p>
             <div className="flex flex-wrap gap-2">
               {rs.global.map((s) => {
@@ -296,8 +297,8 @@ function escapeHtmlForTooltip(text: string): string {
 }
 
 const GENERAL_RISK_LABELS = {
-  foreign: 'แหล่งข้อมูลจากต่างประเทศ',
-  thailand: 'แหล่งข้อมูลของไทย',
+  foreign: 'แหล่งที่มาของข้อมูลจากต่างประเทศ',
+  thailand: 'แหล่งที่มาข้อมูลจากไทย',
 } as const
 
 type GeneralRiskAccent = keyof typeof GENERAL_RISK_LABELS
@@ -678,7 +679,9 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
         const row = block.riskCategoryList.find((r) => r.riskCategoryId === categoryId)
         return row?.projectCount ?? 0
       }),
-      backgroundColor: getColor(stackedColorKeys[idx % stackedColorKeys.length], CHART.barFill),
+      backgroundColor:
+        hexColorForRiskCategoryId(categoryId) ??
+        getColor(stackedColorKeys[idx % stackedColorKeys.length], CHART.barFill),
     }))
 
     return { labels: [...phaseLabels], datasets }
@@ -738,7 +741,8 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
     const m = new Map<string, string>()
     const categories = [...(safeInfoData.riskCategory ?? [])].sort((a, b) => a.id - b.id)
     categories.forEach((c, index) => {
-      m.set(toRiskCategoryCode(c.id), getPieLikeCategoryColorByIndex(index))
+      const fixed = hexColorForRiskCategoryId(c.id)
+      m.set(toRiskCategoryCode(c.id), fixed ?? getPieLikeCategoryColorByIndex(index))
     })
     return m
   }, [safeInfoData.riskCategory])
@@ -839,7 +843,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
         return `<li class="flex items-center gap-2 text-xs leading-5"><span class="inline-block h-3 w-3 rounded-sm border border-gray-300" style="background:${color}"></span><span>${escapeHtmlForTooltip(label)}</span></li>`
       })
       .join('')
-    return `<div class="text-left w-[min(88vw,480px)] min-w-[260px] max-w-[480px] p-1"><p class="text-xs font-semibold mb-2">สีของ Risk Category</p><ul class="space-y-1.5 max-h-[min(72vh,620px)] overflow-y-auto overscroll-contain pr-2 py-1">${items}</ul></div>`
+    return `<div class="text-left w-[min(88vw,480px)] min-w-[260px] max-w-[480px] p-1"><p class="text-xs font-semibold mb-2">สีของกลุ่มความเสี่ยง</p><ul class="space-y-1.5 max-h-[min(72vh,620px)] overflow-y-auto overscroll-contain pr-2 py-1">${items}</ul></div>`
   }, [safeInfoData.riskCategory, riskCategoryColorMap])
 
   const rankColorLegendTippyOptions = useMemo(
@@ -885,22 +889,22 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
     <div className="contents">
       <div className="mb-8">
         <div className="mb-4">
-          <h2 className="text-xl font-bold text-gray-900">ภาพรวมความเสี่ยงทั่วไป</h2>
+          <h2 className="text-xl font-bold text-gray-900">ภาพรวมความเสี่ยง</h2>
         </div>
         <div className="grid grid-cols-12 gap-6 auto-rows-fr">
           <RiskSummaryCountCard
             icon="FolderCheck"
-            label="จำนวนโครงการที่บันทึก"
+            label="จำนวนโครงการที่พบความเสี่ยง"
             count={savedProjectCount}
           />
           <RiskSummaryCountCard
             icon="LayoutList"
-            label="จำนวน Risk Category ทั้งหมด"
+            label="จำนวนกลุ่มความเสี่ยง"
             count={riskCategoryCount}
           />
           <RiskSummaryCountCard
             icon="ShieldAlert"
-            label="จำนวน Risk Factor ทั้งหมด"
+            label="จำนวนปัจจัยเสี่ยง"
             count={riskFactorCount}
           />
         </div>
@@ -919,7 +923,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
         <div className="mt-6">
           <div className="flex items-center gap-2">
             <h3 className="text-lg font-semibold text-gray-900">
-              {showTop10RiskFactors ? '10' : '5'} อันดับแรกของปัจจัยความเสี่ยงที่พบบ่อยที่สุด แยกตามเฟสโครงการ
+              ปัจจัยเสี่ยงที่พบบ่อยที่สุด {showTop10RiskFactors ? '10' : '5'} อันดับแรก แยกตามเฟสของโครงการ
             </h3>
             <Tippy content={rankColorLegendTooltip} options={rankColorLegendTippyOptions}>
               <button
@@ -1017,7 +1021,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
                                 afterLabel: (ctx) => {
                                   const row = visibleRows[ctx.dataIndex]
                                   if (!row) return ''
-                                  return `Risk Category: ${row.dominantCategoryLabel}`
+                                  return `กลุ่มความเสี่ยง: ${row.dominantCategoryLabel}`
                                 },
                               },
                             },
@@ -1026,6 +1030,16 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
                             x: {
                               min: 0,
                               max: maxCount + 1,
+                              title: {
+                                display: true,
+                                text: 'จำนวนโครงการที่พบปัจจัยเสี่ยง',
+                                font: {
+                                  family: 'IBM Plex Sans Thai, system-ui, sans-serif',
+                                  size: 12,
+                                },
+                                color: getColor('slate.700', 0.95),
+                                padding: { top: 8 },
+                              },
                               ticks: {
                                 precision: 0,
                                 stepSize: 1,
@@ -1227,7 +1241,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
                 <span className="text-gray-500">แหล่งอ้างอิง</span>
                 <span className="inline-flex items-center gap-1.5">
                   <Lucide icon="Globe" className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-                  นานาชาติ
+                  ต่างประเทศ
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <img
@@ -1403,6 +1417,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
                 <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
                   <div>
                     <h2 id="risk-heatmap-modal-title" className="text-lg font-semibold text-gray-900">
+                      {'กลุ่มความเสี่ยง '}
                       {modalTitle}
                     </h2>
                     {matrixSourceFilterMode.kind === 'partial' && (

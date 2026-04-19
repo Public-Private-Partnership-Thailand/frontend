@@ -55,6 +55,19 @@ export function parseThaiDate(dateString: string): dayjs.Dayjs | null {
   return date
 }
 
+/** Buddhist Era (พ.ศ.) offset from Gregorian (ค.ศ. / A.D.) year — Thailand */
+export const THAI_BE_YEAR_OFFSET = 543
+
+/** Gregorian (A.D.) year → Buddhist Era year for UI labels only */
+export function adYearToBe(adYear: number): number {
+  return adYear + THAI_BE_YEAR_OFFSET
+}
+
+/** Buddhist Era year → Gregorian (A.D.) — e.g. when parsing user input as พ.ศ. */
+export function beYearToAd(beYear: number): number {
+  return beYear - THAI_BE_YEAR_OFFSET
+}
+
 /**
  * Format dayjs date to ISO 8601 format in UTC (GMT+0)
  * Converts local time to UTC before formatting

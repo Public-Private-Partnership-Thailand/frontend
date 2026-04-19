@@ -79,6 +79,10 @@ export interface SummaryData {
   sectorProjectValueBubble?: SectorBubblePoint[]
   /** Home overview: project counts by contract type for pie chart. */
   pieContractTypeCount?: PieContractTypeCountRow[]
+  /**
+   * Map pins for the home Thailand map — lat/lng per project (filtered consistently with other summary fields when query params are used).
+   */
+  locations?: SummaryProjectLocation[]
 }
 
 export interface PieContractTypeCountRow {
@@ -86,6 +90,28 @@ export interface PieContractTypeCountRow {
   name: string
   fullName: string
   count: number
+}
+
+/**
+ * One project marker for the home page Thailand map (สถานที่ตั้งโครงการในประเทศไทย).
+ * Returned on GET /api/v1/summary as top-level field `locations` (array).
+ * Coordinates must be WGS-84 (EPSG:4326) in decimal degrees.
+ */
+export interface SummaryProjectLocation {
+  /** Same id as project detail `/view/[id]` and list APIs */
+  id: string
+  /** Marker popup title */
+  title: string
+  /** Latitude */
+  lat: number
+  /** Longitude */
+  lng: number
+  /** Optional: business group / sector label for popup */
+  sector?: string | null
+  /** Optional: status label or code */
+  status?: string | null
+  /** Optional: total project value in millions THB (popup); omit or null if unknown */
+  budgetMillionBaht?: number | null
 }
 
 export interface SummaryFilters {

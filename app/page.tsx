@@ -25,6 +25,7 @@ import { useInfo, type InfoData } from '@/app/hooks/useInfo'
 import { useSummary, type SummaryData, type SummaryFilters, getIconNameByGroupName } from '@/app/hooks/useSummary'
 import type { ProjectData } from '@/types/project'
 import { fetchProjectsFromAPI } from '@/lib/projectService'
+import { adYearToBe } from '@/lib/utils/dateUtils'
 
 import {
   Chart as ChartJS,
@@ -62,6 +63,34 @@ function buildSectorCardHoverRows(
     const L = linkedList[i]
     return L ? { id: L.id, title: L.title } : { title }
   })
+}
+
+/**
+ * Chart.js category ticks: use a string for short text, or string[] so the scale renders multiple lines.
+ * Thai text often has no spaces; we break by run length when needed.
+ */
+function wrapChartCategoryLabel(text: string, maxCharsPerLine: number): string | string[] {
+  const t = text.trim()
+  if (t.length === 0) return t
+  if (t.length <= maxCharsPerLine) return t
+  const lines: string[] = []
+  let rest = t
+  while (rest.length > 0) {
+    if (rest.length <= maxCharsPerLine) {
+      lines.push(rest)
+      break
+    }
+    const chunk = rest.slice(0, maxCharsPerLine)
+    const lastSpace = chunk.lastIndexOf(' ')
+    if (lastSpace > 0 && lastSpace >= maxCharsPerLine - 10) {
+      lines.push(rest.slice(0, lastSpace).trimEnd())
+      rest = rest.slice(lastSpace + 1).trimStart()
+    } else {
+      lines.push(chunk)
+      rest = rest.slice(maxCharsPerLine)
+    }
+  }
+  return lines
 }
 
 /** Same keys as `businessGroupMapping` in HomePage — used to map projects to sector cards. */
@@ -961,7 +990,7 @@ export default function HomePage() {
           },
           textAlign: 'center' as const,
           textStrokeColor: '#ffffff',
-          textStrokeWidth: 2,
+          textStrokeWidth: 1,
         },
       },
     }
@@ -981,7 +1010,7 @@ export default function HomePage() {
       .filter((x) => x.name.length > 0)
     const sorted = [...normalized].sort((a, b) => b.count - a.count)
     return {
-      labels: sorted.map((x) => (x.name.length > 20 ? `${x.name.slice(0, 20)}…` : x.name)),
+      labels: sorted.map((x) => wrapChartCategoryLabel(x.name, 24)),
       fullLabels: sorted.map((x) => x.name),
       datasets: [{ label: 'จำนวนโครงการ', data: sorted.map((x) => x.count), ...chartBarDataset('primary') }],
     }
@@ -991,9 +1020,14 @@ export default function HomePage() {
     indexAxis: 'y' as const,
     responsive: true,
     maintainAspectRatio: false,
+    font: {
+      family: 'IBM Plex Sans Thai',
+    },
     plugins: {
       legend: { display: false },
       tooltip: {
+        bodyFont: { family: 'IBM Plex Sans Thai' },
+        titleFont: { family: 'IBM Plex Sans Thai' },
         callbacks: {
           label: (ctx: any) => {
             const full = publicAuthorityBarData.fullLabels?.[ctx.dataIndex] ?? ctx.label
@@ -1007,7 +1041,7 @@ export default function HomePage() {
       x: {
         min: 0,
         ticks: {
-          font: { size: 11 },
+          font: { family: 'IBM Plex Sans Thai', size: 11 },
           stepSize: 1,
           callback: function (this: any, value: string | number) {
             const n = typeof value === 'number' ? value : Number(value)
@@ -1016,7 +1050,10 @@ export default function HomePage() {
         },
         grid: { color: getColor('slate.300', 0.3) },
       },
-      y: { ticks: { font: { size: 11 }, maxRotation: 0 }, grid: { display: false } },
+      y: {
+        ticks: { font: { family: 'IBM Plex Sans Thai', size: 11 }, maxRotation: 0 },
+        grid: { display: false },
+      },
     },
   }), [publicAuthorityBarData])
 
@@ -1258,7 +1295,7 @@ export default function HomePage() {
       <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-8 md:items-stretch">
           <div className="box p-6 min-w-0 flex flex-col h-full">
             <div className="mb-4 shrink-0">
-              <h2 className="text-xl font-bold text-gray-900">จำนวนโครงของแต่ละหน่วยงานเจ้าของโครงการ (5 อันดับแรก)</h2>
+              <h2 className="text-xl font-bold text-gray-900">จำนวนโครงการ แยกตามหน่วยงานเจ้าของโครงการ (5 อันดับแรก)</h2>
             </div>
             <div className="flex-1 min-h-0 w-full flex flex-col">
               <div className="relative flex-1 w-full min-h-[18rem] sm:min-h-[20rem]">
@@ -1272,7 +1309,7 @@ export default function HomePage() {
           </div>
           <div className="box p-6 min-w-0 flex flex-col h-full">
             <div className="mb-4 shrink-0">
-              <h2 className="text-xl font-bold text-gray-900">รูปแบบการจัดสรรกรรมสิทธิ์</h2>
+              <h2 className="text-xl font-bold text-gray-900">ร้อยละของจำนวนโครงการ แยกตามรูปแบบการจัดสรรกรรมสิทธิ์</h2>
               {/* <p className="mt-1 text-sm text-gray-500">
                 ชื่อย่อและเปอร์เซ็นต์บนกราฟ — ด้านล่างแสดงชื่อเต็มและจำนวนโครงการ แถวละหนึ่งรายการ
               </p> */}
@@ -1326,7 +1363,7 @@ export default function HomePage() {
       <div className="mb-8 box p-4 sm:p-6">
         <div className="mb-4">
           <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-          จำนวนโครงการแต่ละกลุ่มกิจการ
+          จำนวนโครงการแยกตามกลุ่มกิจการ
           </h2>
         </div>
         <div className="min-h-80 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 auto-rows-fr overflow-y-auto">
@@ -1341,11 +1378,8 @@ export default function HomePage() {
                 key={card.sector}
                 className="group relative box flex flex-col h-full min-h-[9rem] overflow-hidden p-3 sm:p-4"
               >
-                <div className="shrink-0 mb-3 min-h-[2.40625rem] sm:min-h-[2.75rem]">
-                  <p
-                    className="text-sm sm:text-base font-semibold text-gray-900 leading-[1.375] line-clamp-2"
-                    title={displayName}
-                  >
+                <div className="shrink-0 mb-3">
+                  <p className="text-sm sm:text-base font-semibold text-gray-900 leading-[1.375] break-words">
                     {displayName}
                   </p>
                 </div>
@@ -1551,7 +1585,7 @@ export default function HomePage() {
           </div>
           <div className="p-5 mt-12 intro-y box sm:mt-5">
             {/* <div>{t('home.exploreMapDesc') || 'Explore Thailand\'s PPP projects on the map.'}</div> */}
-            <ThailandMap className="h-[310px] rounded-md bg-slate-200" />
+            <ThailandMap className="h-[310px] rounded-md bg-slate-200" locations={summaryData?.locations} />
           </div>
         </div>
         <div className="col-span-12 xl:col-span-6">
@@ -1573,12 +1607,14 @@ export default function HomePage() {
               </div>
             ) : (
               <>
-                {latestProjects.filter((p) => !!p?.id).slice(0, 4).map((project) => (
+                {latestProjects.filter((p) => !!p?.id).slice(0, 4).map((project) => {
+                  const displayDate = project.date ?? project.updated
+                  return (
                   <Link key={project.id} href={`/view/${project.id}`} className="intro-y block">
                     <div className="px-4 py-4 mb-3 box transition-all duration-300 hover:scale-105 hover:shadow-lg cursor-pointer">
                       <div className="flex items-start gap-3">
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm text-gray-900 mb-2 truncate" title={project.title || 'N/A'}>{project.title || 'N/A'}</div>
+                          <div className="font-medium text-sm text-gray-900 mb-2 break-words">{project.title || 'N/A'}</div>
                           <div className="mb-1.5 flex items-center min-w-0">
                             <span className="text-xs font-medium text-gray-600 flex-shrink-0">หน่วยงานเจ้าของโครงการ: </span>
                             <span className="text-xs text-gray-700 truncate ml-1" title={project.publicAuthority?.name || 'N/A'}>{project.publicAuthority?.name || 'N/A'}</span>
@@ -1590,15 +1626,18 @@ export default function HomePage() {
                             </span>
                           </div>
                         </div>
-                        {project.updated && (
+                        {displayDate && (
                           <div className="flex-shrink-0">
-                            <div className="px-2 py-1 text-xs font-medium text-white rounded-full bg-primary">{dayjs(project.updated).format('DD/MM/YYYY')}</div>
+                            <div className="px-2 py-1 text-xs font-medium text-white rounded-full bg-primary">
+                              {dayjs(displayDate).format('DD/MM/YYYY')}
+                            </div>
                           </div>
                         )}
                       </div>
                     </div>
                   </Link>
-                ))}
+                  )
+                })}
                 <Link href="/projects" className="block w-full py-4 text-center border border-dotted rounded-md border-slate-400 text-slate-500">{t('nav.allProjects') || 'View More'}</Link>
               </>
             )}
@@ -1684,7 +1723,9 @@ export default function HomePage() {
                     >
                       <option value="">{t('home.allYears') || 'ทั้งหมด'}</option>
                       {availableYears.map((y) => (
-                        <option key={y} value={String(y)}>{y}</option>
+                        <option key={y} value={String(y)}>
+                          พ.ศ. {adYearToBe(y)}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -1697,7 +1738,9 @@ export default function HomePage() {
                     >
                       <option value="">{t('home.allYears') || 'ทั้งหมด'}</option>
                       {availableYears.map((y) => (
-                        <option key={y} value={String(y)}>{y}</option>
+                        <option key={y} value={String(y)}>
+                          พ.ศ. {adYearToBe(y)}
+                        </option>
                       ))}
                     </select>
                   </div>

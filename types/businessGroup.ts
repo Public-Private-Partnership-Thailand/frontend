@@ -193,6 +193,40 @@ export function getBusinessGroupDisplayName(code: BusinessGroupCode | string): s
   return BUSINESS_GROUP_CODE_TO_DISPLAY_NAME[code as BusinessGroupCode] || code
 }
 
+/**
+ * Map API / summary sector keys (e.g. transport.road, transport_road) to Thai labels.
+ * Unknown values are returned unchanged.
+ */
+export function resolveBusinessGroupLabel(raw: string | null | undefined): string {
+  if (raw == null) return ''
+  const s = String(raw).trim()
+  if (!s) return ''
+  if (isValidBusinessGroupCode(s)) return getBusinessGroupDisplayName(s)
+
+  const lower = s.toLowerCase()
+  if (lower === 'transport.urban') return getBusinessGroupDisplayName('transport.rail')
+  const alias: Record<string, BusinessGroupCode> = {
+    transport_road: 'transport.road',
+    transport_rail: 'transport.rail',
+    transport_air: 'transport.air',
+    transport_water: 'transport.water',
+    transport_urban: 'transport.rail',
+    transporturban: 'transport.rail',
+    water_and_waste: 'waterAndWaste',
+    waterandwaste: 'waterAndWaste',
+    social_housing: 'socialHousing',
+    socialhousing: 'socialHousing',
+    culture_sports_and_recreation: 'cultureSportsAndRecreation',
+    culturesportsandrecreation: 'cultureSportsAndRecreation',
+  }
+  if (alias[lower]) return getBusinessGroupDisplayName(alias[lower])
+
+  const dotted = s.replace(/_/g, '.')
+  if (isValidBusinessGroupCode(dotted)) return getBusinessGroupDisplayName(dotted)
+
+  return s
+}
+
 // Helper function to get info from code
 export function getBusinessGroupInfo(code: BusinessGroupCode | string): BusinessGroupInfo | null {
   return BUSINESS_GROUP_INFO[code as BusinessGroupCode] || null

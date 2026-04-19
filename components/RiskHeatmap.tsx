@@ -100,7 +100,7 @@ function SourceBadgesRow({
         const name = maps.global.get(id) ?? `#${id}`
         const active = isKeyActive('global', id)
         return (
-          <Tippy key={`g-${id}`} content={`นานาชาติ: ${name}`}>
+          <Tippy key={`g-${id}`} content={`ต่างประเทศ: ${name}`}>
             <span
               className={`inline-flex max-w-[7rem] items-center gap-1 cursor-default truncate py-0.5 text-[10px] font-medium transition-opacity ${
                 active
@@ -284,7 +284,7 @@ export function HeatMapTable({
       <thead>
         <tr>
           <th className="border border-gray-300 bg-gray-50 px-2 py-2 text-left text-gray-700 text-xs">
-            ปัจจัยความเสี่ยง
+            ปัจจัยเสี่ยง/เฟสโครงการ
           </th>
           {phases.map((p) => (
             <th
@@ -400,7 +400,7 @@ export function HeatMapTable({
             <span>แท็กแหล่งอ้างอิงใต้ชื่อปัจจัย:</span>
             <span className="inline-flex items-center gap-1">
               <Lucide icon="Globe" className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-              นานาชาติ
+              ต่างประเทศ
             </span>
             <span className="text-gray-400">·</span>
             <span className="inline-flex items-center gap-1">

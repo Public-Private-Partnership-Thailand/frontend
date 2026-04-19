@@ -142,7 +142,7 @@ export function formatRiskSourcePlainText(
   const lines: string[] = []
   if (globalIds.length) {
     const labels = globalIds.map((id) => maps.global.get(id) ?? `#${id}`)
-    lines.push(`นานาชาติ: ${labels.join(', ')}`)
+    lines.push(`ต่างประเทศ: ${labels.join(', ')}`)
   }
   if (thailandIds.length) {
     const labels = thailandIds.map((id) => maps.thailand.get(id) ?? `#${id}`)
