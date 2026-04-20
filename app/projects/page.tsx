@@ -719,7 +719,7 @@ export default function ProjectsPage() {
           />
         </div>
 
-        {/* Second row: กลุ่มกิจการ 30%, กระทรวง 30%, startDate 20%, endDate 20% */}
+        {/* Second row: กลุ่มกิจการ 30%, กระทรวงเจ้าสังกัด 30%, startDate 20%, endDate 20% */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
           {/* Business Group Filter - 30% */}
           <div className="min-w-0">
@@ -738,7 +738,7 @@ export default function ProjectsPage() {
           {/* Ministry Filter - 30% */}
           <div className="min-w-0">
             <MultiSelectDropdown
-              label={t('dashboard.ministry')}
+              label={t('pages.view.ministry')}
               options={ministryOptions}
               selectedValues={tempFilters.ministry}
               onChange={(value) => handleMultiSelectChange('ministry', value)}

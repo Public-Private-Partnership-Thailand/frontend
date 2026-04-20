@@ -993,7 +993,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
                               clamp: false,
                               color: '#1f2937',
                               textStrokeColor: '#ffffff',
-                              textStrokeWidth: 2.5,
+                              textStrokeWidth: 1,
                               font: {
                                 family: 'IBM Plex Sans Thai, system-ui, sans-serif',
                                 size: 10,
