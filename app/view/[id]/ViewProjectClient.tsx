@@ -284,7 +284,7 @@ export default function ViewProjectClient() {
   const investmentScopeCodes = getInvestmentScopeCodes()
   const investmentScopeRows = [
     'การจัดการที่ดิน',
-    'การก่อสร้างงานโยธา*',
+    'การก่อสร้างงานโยธา',
     'การติดตั้งงานระบบ',
     'การดำเนินโครงการและบำรุงรักษา (O&M)'
   ]
