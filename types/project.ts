@@ -284,7 +284,7 @@ export interface ProjectData {
   completionPeriod?: Period;
   maintenancePeriod?: Period;
   decommissioningPeriod?: Period;
-  sector: Classification[];
+  sector: string[];
   additionalClassifications?: Classification[];
   type: string;
   purpose: string;

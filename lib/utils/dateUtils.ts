@@ -1,8 +1,14 @@
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
 import 'dayjs/locale/th'
 
 dayjs.extend(utc)
+dayjs.extend(timezone)
+
+/** All project date-only values are stored as wall time in Asia/Bangkok (+07:00). */
+export const APP_TIMEZONE = 'Asia/Bangkok' as const
+export const APP_TIMEZONE_ISO_OFFSET = '+07:00' as const
 
 // Thai month abbreviations mapping
 export const THAI_MONTH_MAP: Record<string, number> = {
@@ -44,8 +50,11 @@ export function parseThaiDate(dateString: string): dayjs.Dayjs | null {
     return null
   }
 
-  // Create date using dayjs with explicit values (YYYY-MM-DD format)
-  const date = dayjs(`${commonEraYear}-${String(monthNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`)
+  // Calendar date at start of day in Bangkok (not browser local), for consistent save/display.
+  const date = dayjs.tz(
+    `${commonEraYear}-${String(monthNum).padStart(2, '0')}-${String(day).padStart(2, '0')} 00:00:00`,
+    APP_TIMEZONE
+  )
 
   if (!date.isValid()) {
     console.warn('Invalid date after conversion:', { year: commonEraYear, month: monthNum, day }, 'Original:', dateString)
@@ -69,16 +78,22 @@ export function beYearToAd(beYear: number): number {
 }
 
 /**
- * Format dayjs date to ISO 8601 format in UTC (GMT+0)
- * Converts local time to UTC before formatting
- * 
- * @param date - dayjs date object (in local timezone)
- * @returns ISO 8601 formatted string in UTC: "YYYY-MM-DDTHH:mm:ss+00:00"
+ * Format dayjs date to ISO 8601 with fixed Asia/Bangkok offset (+07:00).
+ * Uses the calendar date in Bangkok (wall clock midnight or end-of-day).
+ *
+ * @param date - dayjs instance (any offset; normalized to {@link APP_TIMEZONE} for Y-M-D)
+ * @param boundary - `start`: 00:00:00.000, `end`: 23:59:59.999 on that calendar day
  */
-export function formatToISO8601(date: dayjs.Dayjs): string {
-  // Convert to UTC and format as ISO 8601 with +00:00 timezone
-  const utcDate = date.utc()
-  return utcDate.format('YYYY-MM-DDTHH:mm:ss') + '+00:00'
+export function formatToISO8601(date: dayjs.Dayjs, boundary: 'start' | 'end' = 'start'): string {
+  if (!date || !date.isValid()) return ''
+  const z = date.tz(APP_TIMEZONE)
+  const y = z.year()
+  const mo = String(z.month() + 1).padStart(2, '0')
+  const da = String(z.date()).padStart(2, '0')
+  if (boundary === 'end') {
+    return `${y}-${mo}-${da}T23:59:59.999${APP_TIMEZONE_ISO_OFFSET}`
+  }
+  return `${y}-${mo}-${da}T00:00:00${APP_TIMEZONE_ISO_OFFSET}`
 }
 
 /**
@@ -97,11 +112,8 @@ export function formatDateForLitepicker(adDate: string): string {
   let date: dayjs.Dayjs | null = null
   
   if (isISO8601) {
-    // Parse as UTC and convert to local timezone
-    date = dayjs.utc(adDate).local()
-    
+    date = dayjs(adDate).tz(APP_TIMEZONE)
     if (!date.isValid()) {
-      // Fallback: try parsing normally (dayjs will handle timezone)
       date = dayjs(adDate)
     }
   } else {
@@ -181,32 +193,29 @@ export function parseLitepickerDate(litepickerValue: string): string {
 }
 
 /**
- * Parse Thai date string from Litepicker to ISO 8601 format in UTC (GMT+0)
- * Converts Buddhist Era year to Common Era, takes local time, and converts to UTC
- * 
+ * Parse Thai date string from Litepicker to ISO 8601 with Asia/Bangkok (+07:00).
+ *
  * @param litepickerValue - Thai date format: "D MMM YYYY" (e.g., "5 ธ.ค. 2568")
- * @returns Date string in ISO 8601 format in UTC: "2025-12-05T00:00:00+00:00"
+ * @returns e.g. "2025-12-05T00:00:00+07:00"
  */
 export function parseLitepickerDateToISO(litepickerValue: string): string {
   if (!litepickerValue) return ''
 
   // Parse the Thai date using parseThaiDate which handles BE to CE conversion
-  // This creates a date in local timezone
   const date = parseThaiDate(litepickerValue)
   
   if (date && date.isValid()) {
-    // Convert local time to UTC and format as ISO 8601
-    return formatToISO8601(date.startOf('day'))
+    return formatToISO8601(date)
   }
 
   return ''
 }
 
 /**
- * Convert Thai date range string to ISO 8601 startDate and endDate in UTC
- * 
+ * Convert Thai date range string to ISO 8601 startDate and endDate in Asia/Bangkok (+07:00).
+ *
  * @param dateRangeString - Date range in format: "D MMM YYYY - D MMM YYYY" or "D MMM YYYY"
- * @returns Object with startDate and endDate in ISO 8601 format (UTC), or null if invalid
+ * @returns Object with startDate and endDate in ISO 8601 (+07:00), or null if invalid
  */
 export function parseThaiDateRangeToISO(dateRangeString: string): { startDate: string; endDate: string } | null {
   if (!dateRangeString || !dateRangeString.trim()) {
@@ -220,8 +229,8 @@ export function parseThaiDateRangeToISO(dateRangeString: string): { startDate: s
       // Single date selected - use it as both start and end
       const date = parseThaiDate(dateRangeParts[0])
       if (date && date.isValid()) {
-        const startDateISO = formatToISO8601(date.startOf('day'))
-        const endDateISO = formatToISO8601(date.endOf('day'))
+        const startDateISO = formatToISO8601(date, 'start')
+        const endDateISO = formatToISO8601(date, 'end')
         return { startDate: startDateISO, endDate: endDateISO }
       }
     } else if (dateRangeParts.length === 2 && dateRangeParts[0] && dateRangeParts[1]) {
@@ -230,8 +239,8 @@ export function parseThaiDateRangeToISO(dateRangeString: string): { startDate: s
       const endDate = parseThaiDate(dateRangeParts[1])
 
       if (startDate && endDate && startDate.isValid() && endDate.isValid()) {
-        const startDateISO = formatToISO8601(startDate.startOf('day'))
-        const endDateISO = formatToISO8601(endDate.endOf('day'))
+        const startDateISO = formatToISO8601(startDate, 'start')
+        const endDateISO = formatToISO8601(endDate, 'end')
         return { startDate: startDateISO, endDate: endDateISO }
       }
     }
@@ -243,37 +252,28 @@ export function parseThaiDateRangeToISO(dateRangeString: string): { startDate: s
 }
 
 /**
- * Convert UTC ISO 8601 date string to local timezone dayjs object
- * 
- * @param utcDateString - ISO 8601 date string in UTC (e.g., "2025-12-05T00:00:00+00:00")
- * @returns dayjs object in local timezone, or null if invalid
+ * Parse ISO 8601 date string and return dayjs in {@link APP_TIMEZONE} (wall calendar for app dates).
+ * Still accepts legacy values saved as `+00:00`.
+ *
+ * @param utcDateString - ISO 8601 string (e.g. with +07:00 or +00:00)
  */
 export function parseUTCToLocal(utcDateString: string): dayjs.Dayjs | null {
   if (!utcDateString || !utcDateString.trim()) {
     return null
   }
 
-  // Parse as UTC first
-  let date = dayjs.utc(utcDateString)
-  
-  // If that fails, try parsing normally (dayjs will handle timezone)
-  if (!date.isValid()) {
-    date = dayjs(utcDateString)
-  }
-  
+  const date = dayjs(utcDateString).tz(APP_TIMEZONE)
   if (!date.isValid()) {
     return null
   }
-  
-  // Convert UTC to local timezone
-  return date.local()
+  return date
 }
 
 /**
  * Format UTC ISO 8601 date string to Thai format for display
  * Converts from UTC to local timezone before formatting
  * 
- * @param utcDateString - ISO 8601 date string in UTC (e.g., "2025-12-05T00:00:00+00:00")
+ * @param utcDateString - ISO 8601 date string (Bangkok +07:00 or legacy UTC)
  * @returns Thai formatted date string: "D MMM YYYY" (e.g., "5 ธ.ค. 2568")
  */
 export function formatUTCToThai(utcDateString: string): string {
@@ -314,11 +314,8 @@ export function formatDateForDisplay(dateString: string | undefined): string {
   let date: dayjs.Dayjs | null = null
   
   if (isISO8601) {
-    // Parse as UTC and convert to local timezone
-    date = dayjs.utc(trimmedDate).local()
-    
+    date = dayjs(trimmedDate).tz(APP_TIMEZONE)
     if (!date.isValid()) {
-      // Fallback: try parsing normally (dayjs will handle timezone)
       date = dayjs(trimmedDate)
     }
   } else {

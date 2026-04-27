@@ -192,21 +192,18 @@ export default function CreateProjectPage() {
         }
       }
       
-      // Convert sector (Classification[] or string[]) to string codes
-      // Sector field now directly contains business group codes
-      const sector = Array.isArray(data.sector) 
+      // Sector: string[] of business group codes (normalize legacy object entries if any)
+      const sector = Array.isArray(data.sector)
         ? data.sector
-            .filter(s => s)
-            .map(s => {
-              // If it's a string, use it directly
-              if (typeof s === 'string') return s
-              // If it's a Classification object, use the id field
-              if (typeof s === 'object' && s !== null) {
-                return s.id || ''
+            .filter(Boolean)
+            .map((s) => {
+              if (typeof s === 'string') return s.trim()
+              if (typeof s === 'object' && s !== null && 'id' in s) {
+                return String((s as { id?: string }).id || '').trim()
               }
               return ''
             })
-            .filter(s => s && typeof s === 'string' && isValidBusinessGroupCode(s))
+            .filter((s) => s && isValidBusinessGroupCode(s))
         : []
 
       // Extract contractType from additionalClassifications

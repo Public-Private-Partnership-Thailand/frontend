@@ -64,10 +64,14 @@ function Litepicker({
       initialRender.current = false;
     } else {
       if (tempValue.current !== props.value && litepickerRef.current !== null) {
-        // Reinitialize to sync Litepicker with new value (init parses BE and sets date)
-        reInit(litepickerRef.current, props);
-        // Ensure input shows selected value after reInit (library destroy can clear it)
-        litepickerRef.current.value = props.value || '';
+        const next = props.value || '';
+        const dom = litepickerRef.current.value || '';
+        // If the input already matches React state, skip reInit — otherwise `setDate`
+        // during init can fire `selected` again and cause a tight update loop.
+        if (next !== dom) {
+          reInit(litepickerRef.current, props);
+          litepickerRef.current.value = next;
+        }
       }
     }
 

@@ -317,10 +317,10 @@ export default function Step1EssentialInfo({ register, control, errors, setValue
             const selectedCode = e.target.value
             setSelectedSectorCode(selectedCode)
             if (selectedCode) {
-              // Store the code directly in sector array as first element
-              setValue('sector', [{ id: selectedCode, scheme: '', description: '' }] as any, { shouldValidate: true })
+              // API expects string codes only, e.g. ["transport.road"]
+              setValue('sector', [selectedCode], { shouldValidate: true })
             } else {
-              setValue('sector', [] as any, { shouldValidate: true })
+              setValue('sector', [], { shouldValidate: true })
             }
           }}
           className={`form-input ${errors.sector ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
@@ -340,8 +340,14 @@ export default function Step1EssentialInfo({ register, control, errors, setValue
               if (!Array.isArray(value) || value.length === 0) {
                 return t('common.required')
               }
-              const firstSector = value[0]
-              if (!firstSector || !firstSector.id) {
+              const first = value[0]
+              const code =
+                typeof first === 'string'
+                  ? first.trim()
+                  : first && typeof first === 'object' && 'id' in first
+                    ? String((first as { id?: string }).id || '').trim()
+                    : ''
+              if (!code) {
                 return t('common.required')
               }
               return true

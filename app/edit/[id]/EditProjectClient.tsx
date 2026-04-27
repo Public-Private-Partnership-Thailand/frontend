@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useForm, SubmitHandler } from 'react-hook-form'
 import { useParams, useRouter } from 'next/navigation'
-import { ProjectFormData, ProjectData, Classification } from '@/types/project'
+import { ProjectFormData, ProjectData } from '@/types/project'
 import { useLanguage } from '@/lib/LanguageContext'
 import { fetchProjectById, updateProject } from '@/lib/projectService'
 import { isValidBusinessGroupCode } from '@/types/businessGroup'
@@ -196,24 +196,19 @@ export default function EditProjectClient() {
         }
       }
 
-      const sector: Classification[] = Array.isArray(data.sector)
+      const sector: string[] = Array.isArray(data.sector)
         ? data.sector
-            .filter((s) => s)
+            .filter(Boolean)
             .map((s) => {
               const code =
                 typeof s === 'string'
-                  ? s
+                  ? s.trim()
                   : s && typeof s === 'object'
-                    ? (s as { id?: string }).id
+                    ? String((s as { id?: string }).id || '').trim()
                     : ''
-              if (!code || !isValidBusinessGroupCode(code)) return null
-              return {
-                scheme: '',
-                id: code,
-                description: '',
-              } as Classification
+              return code && isValidBusinessGroupCode(code) ? code : ''
             })
-            .filter((c): c is Classification => c !== null)
+            .filter(Boolean)
         : []
 
       const contractTypeClassification = Array.isArray(data.additionalClassifications)

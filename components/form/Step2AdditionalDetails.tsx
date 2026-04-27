@@ -7,7 +7,7 @@ import Lucide from '@/components/Base/Lucide'
 import Tippy from '@/components/Base/Tippy'
 import dayjs from 'dayjs'
 import 'dayjs/locale/th'
-import { formatDateForLitepicker, parseLitepickerDateToISO, formatToISO8601 } from '@/lib/utils/dateUtils'
+import { formatDateForLitepicker, parseLitepickerDateToISO, formatToISO8601, APP_TIMEZONE } from '@/lib/utils/dateUtils'
 
 interface Step2AdditionalDetailsProps {
   register: UseFormRegister<ProjectFormData>
@@ -178,7 +178,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
   // Compute endDate ISO from startDate + days (so schema gets both when user enters duration)
   const computeEndDateFromStartAndDays = (startDateIso: string | undefined, days: number): string => {
     if (!startDateIso || days <= 0) return ''
-    const start = dayjs(startDateIso)
+    const start = dayjs(startDateIso).tz(APP_TIMEZONE)
     if (!start.isValid()) return ''
     return formatToISO8601(start.add(days, 'day'))
   }

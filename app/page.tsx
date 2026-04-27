@@ -1177,7 +1177,9 @@ export default function HomePage() {
     for (const card of sectorCards) {
       const codes = new Set(SECTOR_CODES_BY_GROUP[card.sector] ?? [card.sector])
       const items = allProjectsForSectorCards
-        .filter((p) => (p.sector ?? []).some((s) => codes.has(s.id)))
+        .filter((p) =>
+          (p.sector ?? []).some((s) => codes.has(typeof s === 'string' ? s : (s as { id?: string }).id || ''))
+        )
         .map((p) => ({ id: p.id, title: p.title }))
       map.set(card.sector, items)
     }

@@ -102,8 +102,13 @@ export default function DashboardPage() {
 
   // Projects by sector
   const sectorCounts = projects.reduce((acc, project) => {
-    project.sector.forEach(sector => {
-      const sectorKey = sector.id || sector.description || 'unknown'
+    project.sector.forEach((sector) => {
+      const sectorKey =
+        typeof sector === 'string'
+          ? sector
+          : (sector as { id?: string; description?: string }).id ||
+            (sector as { id?: string; description?: string }).description ||
+            'unknown'
       acc[sectorKey] = (acc[sectorKey] || 0) + 1
     })
     return acc

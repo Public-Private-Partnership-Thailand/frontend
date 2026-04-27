@@ -56,66 +56,35 @@ const init = (el: LitepickerElement, props: LitepickerProps) => {
     format: format,
     lang: 'th-TH', // Set Thai locale for Litepicker
     setup: (picker: any) => {
-      if (picker.on) {
-        picker.on("selected", (startDate: any, endDate?: any) => {
-          // Format date with BE year conversion if enabled
-          const formatDateWithBE = (dateInstance: Date) => {
-            const d = dayjs(dateInstance).locale('th');
-            if (useBuddhistEra) {
-              const beYear = d.year() + 543;
-              // Format the date and replace the year with BE year
-              let formatted = d.format(format);
-              // Replace YYYY (4-digit year) with BE year
-              // This handles formats like "D MMM YYYY" -> "15 ม.ค. 2567"
-              formatted = formatted.replace(/\b(\d{4})\b/, (match, year) => {
-                const yearNum = parseInt(year);
-                if (yearNum >= 1900 && yearNum <= 2100) {
-                  return (yearNum + 543).toString();
-                }
-                return match;
-              });
-              return formatted;
-            } else {
-              return d.format(format);
+      const formatDateWithBE = (dateInstance: Date) => {
+        const d = dayjs(dateInstance).locale('th');
+        if (useBuddhistEra) {
+          let formatted = d.format(format);
+          formatted = formatted.replace(/\b(\d{4})\b/, (match, year) => {
+            const yearNum = parseInt(year, 10);
+            if (yearNum >= 1900 && yearNum <= 2200) {
+              return (yearNum + 543).toString();
             }
-          };
-          
-          let date = formatDateWithBE(startDate.dateInstance);
-          date +=
-            endDate !== undefined
-              ? " - " + formatDateWithBE(endDate.dateInstance)
-              : "";
-          // Update the input element value directly to ensure it's visible
-          if (el) {
-            el.value = date;
-          }
-          // Update React state
-          props.onChange({
-            target: {
-              value: date,
-            },
+            return match;
           });
-        });
-      }
-      
+          return formatted;
+        }
+        return d.format(format);
+      };
+
       // Convert year dropdown to Buddhist Era if enabled
       if (useBuddhistEra) {
         const convertYearToBE = (select: HTMLSelectElement) => {
-          // Check if this is a year dropdown by examining the first option
           if (select.options.length === 0) return false;
-          
-          const firstValue = parseInt(select.options[0].value);
-          // Year dropdowns typically have values in the range 1900-2100
-          if (!isNaN(firstValue) && firstValue >= 1900 && firstValue <= 2100) {
-            // This is a year dropdown - convert all options to BE
+
+          const firstValue = parseInt(select.options[0].value, 10);
+          if (!isNaN(firstValue) && firstValue >= 1900 && firstValue <= 2200) {
             Array.from(select.options).forEach((option: HTMLOptionElement) => {
-              const adYear = parseInt(option.value);
-              if (!isNaN(adYear) && adYear >= 1900 && adYear <= 2100) {
+              const adYear = parseInt(option.value, 10);
+              if (!isNaN(adYear) && adYear >= 1900 && adYear <= 2200) {
                 const beYear = adYear + 543;
-                // Update the display text to BE, but keep AD value
-                // Only update if it's not already converted (check if text is BE format)
                 const currentText = option.textContent || '';
-                const currentYear = parseInt(currentText);
+                const currentYear = parseInt(currentText, 10);
                 if (isNaN(currentYear) || currentYear < 2500) {
                   option.textContent = beYear.toString();
                 }
@@ -125,163 +94,97 @@ const init = (el: LitepickerElement, props: LitepickerProps) => {
           }
           return false;
         };
-        
-        const updateYearDropdowns = () => {
+
+        /** When `root` is set, only patch that calendar (avoids touching other pickers). */
+        const updateYearDropdowns = (root: Element | null) => {
           try {
-            // Find all Litepicker containers
-            const pickerContainers = document.querySelectorAll('.litepicker');
-            pickerContainers.forEach((container: Element) => {
-              // Find all select elements that are year dropdowns
-              const selects = container.querySelectorAll('select');
-              selects.forEach((select: HTMLSelectElement) => {
+            const containers = root
+              ? [root]
+              : Array.from(document.querySelectorAll('.litepicker'));
+            containers.forEach((container: Element) => {
+              container.querySelectorAll('select').forEach((select: HTMLSelectElement) => {
                 convertYearToBE(select);
               });
             });
-          } catch (error) {
-            // Silently fail - this is a UI enhancement
+          } catch {
+            // UI enhancement only
           }
         };
-        
-        // Update when picker is shown
-        let conversionInterval: NodeJS.Timeout | null = null;
+
+        let viewYearPatchTimer: ReturnType<typeof setTimeout> | null = null;
+
+        let pickerUiListenersAttached = false;
+        const attachPickerUiYearListeners = () => {
+          const root = picker.ui as HTMLElement | undefined;
+          if (!root || pickerUiListenersAttached) return;
+          pickerUiListenersAttached = true;
+          // Litepicker resets <option> text to A.D. after year/month change; re-apply B.E. labels.
+          // Single rAF only — chained timers + `view` were able to feedback-loop with the library.
+          root.addEventListener(
+            'change',
+            () => {
+              requestAnimationFrame(() => updateYearDropdowns(root));
+            },
+            true
+          );
+        };
+
         if (picker.on) {
           picker.on('show', () => {
-            setTimeout(updateYearDropdowns, 50);
-            // Start continuous conversion while picker is visible
-            if (conversionInterval) {
-              clearInterval(conversionInterval);
-            }
-            conversionInterval = setInterval(() => {
-              updateYearDropdowns();
-            }, 100); // Check every 100ms while visible
+            const root = (picker.ui as Element | undefined) ?? null;
+            setTimeout(() => {
+              if (root) updateYearDropdowns(root);
+              else updateYearDropdowns(null);
+              attachPickerUiYearListeners();
+            }, 50);
           });
-          
-          picker.on('hide', () => {
-            // Stop continuous conversion when picker is hidden
-            if (conversionInterval) {
-              clearInterval(conversionInterval);
-              conversionInterval = null;
-            }
-          });
-          
-          // Also listen for month/year changes
+
           picker.on('view', () => {
-            setTimeout(updateYearDropdowns, 10);
-            requestAnimationFrame(() => updateYearDropdowns());
+            const root = (picker.ui as Element | undefined) ?? null;
+            if (viewYearPatchTimer) clearTimeout(viewYearPatchTimer);
+            viewYearPatchTimer = setTimeout(() => {
+              viewYearPatchTimer = null;
+              updateYearDropdowns(root);
+            }, 80);
+          });
+
+          picker.on('selected', (startDate: any, endDate?: any) => {
+            let date = formatDateWithBE(startDate.dateInstance);
+            date +=
+              endDate !== undefined
+                ? ' - ' + formatDateWithBE(endDate.dateInstance)
+                : '';
+            if (el) {
+              el.value = date;
+            }
+            props.onChange({
+              target: {
+                value: date,
+              },
+            });
+            // Do not patch year dropdowns here — mutating DOM after `selected` can re-trigger
+            // `view` / internal updates; React `value` sync is handled without reInit when DOM matches.
           });
         }
-        
-        // Also update after initialization
-        setTimeout(updateYearDropdowns, 300);
-        
-        // Watch for changes to the picker UI, especially when dropdowns are updated
-        const watchPickerUI = () => {
-          if (!picker.ui) return;
-          
-          // Watch for changes in the picker UI with immediate conversion
-          const uiObserver = new MutationObserver(() => {
-            // Convert immediately when DOM changes
-            updateYearDropdowns();
-            // Also use requestAnimationFrame for immediate visual update
-            requestAnimationFrame(() => {
-              updateYearDropdowns();
-            });
-          });
-          
-          uiObserver.observe(picker.ui, {
-            childList: true,
-            subtree: true,
-            attributes: false,
-            characterData: true,
-          });
-          
-          // Also add event listeners to year dropdowns directly with immediate conversion
-          const attachYearListeners = () => {
-            const selects = picker.ui.querySelectorAll('select');
-            selects.forEach((select: HTMLSelectElement) => {
-              if (convertYearToBE(select)) {
-                // This is a year dropdown - add listeners to maintain BE display
-                // Use a flag to track if we've already added listeners
-                if ((select as any).__beConverted) return;
-                (select as any).__beConverted = true;
-                
-                // Convert immediately
-                convertYearToBE(select);
-                
-                // Add listeners with immediate conversion - use capture phase for early interception
-                const convertHandler = () => {
-                  convertYearToBE(select);
-                  requestAnimationFrame(() => convertYearToBE(select));
-                };
-                
-                select.addEventListener('focus', convertHandler, true);
-                select.addEventListener('mousedown', convertHandler, true);
-                select.addEventListener('mouseup', convertHandler, true);
-                select.addEventListener('change', convertHandler, true);
-                select.addEventListener('click', convertHandler, true);
-                select.addEventListener('input', convertHandler, true);
-                
-                // Also intercept when dropdown opens
-                select.addEventListener('focusin', convertHandler, true);
-              }
-            });
-          };
-          
-          // Attach listeners when UI is ready
-          setTimeout(attachYearListeners, 100);
-          
-          // Re-attach when picker is shown
-          if (picker.on) {
-            picker.on('show', () => {
-              setTimeout(attachYearListeners, 50);
-              // Also convert immediately
-              requestAnimationFrame(() => {
-                updateYearDropdowns();
-              });
-            });
+
+        setTimeout(() => updateYearDropdowns(null), 300);
+      } else if (picker.on) {
+        picker.on('selected', (startDate: any, endDate?: any) => {
+          const d = dayjs(startDate.dateInstance).locale('th');
+          let date = d.format(format);
+          date +=
+            endDate !== undefined
+              ? ' - ' + dayjs(endDate.dateInstance).locale('th').format(format)
+              : '';
+          if (el) {
+            el.value = date;
           }
-        };
-        
-        // Start watching the picker UI
-        setTimeout(watchPickerUI, 200);
-        
-        // Watch for new picker instances - only observe when picker container is added
-        let observer: MutationObserver | null = null;
-        
-        const startObserving = () => {
-          if (observer) return; // Already observing
-          
-          observer = new MutationObserver((mutations) => {
-            let hasPickerChanges = false;
-            mutations.forEach((mutation) => {
-              mutation.addedNodes.forEach((node: any) => {
-                if (node.nodeType === 1) {
-                  // Check if it's a litepicker container or contains one
-                  if (node.classList?.contains('litepicker') || node.querySelector?.('.litepicker')) {
-                    hasPickerChanges = true;
-                  }
-                  // Also check if it's a select element (year dropdown)
-                  if (node.tagName === 'SELECT') {
-                    hasPickerChanges = true;
-                  }
-                }
-              });
-            });
-            if (hasPickerChanges) {
-              setTimeout(updateYearDropdowns, 50);
-            }
+          props.onChange({
+            target: {
+              value: date,
+            },
           });
-          
-          // Only observe document body for new picker containers
-          if (document.body) {
-            observer.observe(document.body, {
-              childList: true,
-              subtree: true, // Changed to true to catch nested selects
-            });
-          }
-        };
-        
-        startObserving();
+        });
       }
     },
   });

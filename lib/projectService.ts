@@ -38,7 +38,7 @@ function mapApiProjectToProjectData(item: ApiProjectItem): ProjectData {
       startDate: item.start_date ?? '',
       endDate: ''
     },
-    sector: (item.sector ?? []).map(s => ({ scheme: '', id: s, description: s })),
+    sector: item.sector ?? [],
     additionalClassifications: ministryClassifications.length > 0 ? ministryClassifications : undefined,
     type: '',
     purpose: '',
