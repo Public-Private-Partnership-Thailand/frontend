@@ -5,7 +5,7 @@ import { ProjectData } from '@/types/project'
 import { BUSINESS_GROUP_INFO, getBusinessGroupInfo, getBusinessGroupDisplayName, BUSINESS_GROUP_CODES, BUSINESS_GROUP_CODE_TO_DISPLAY_NAME } from '@/types/businessGroup'
 import { useLanguage } from '@/lib/LanguageContext'
 import { useAuth } from '@/lib/AuthContext'
-import { fetchProjectsFromAPI, fetchProjectById, type ProjectQueryParams } from '@/lib/projectService'
+import { fetchProjectsPageFromAPI, fetchProjectById, type ProjectQueryParams } from '@/lib/projectService'
 import ProjectsPageSkeleton from '@/components/ProjectsPageSkeleton'
 import Link from 'next/link'
 import Papa from 'papaparse'
@@ -142,12 +142,15 @@ const MultiSelectDropdown = ({
 }
 
 export default function ProjectsPage() {
+  const projectsTableRef = useRef<HTMLDivElement>(null)
   const [projects, setProjects] = useState<ProjectData[]>([])
   const [loading, setLoading] = useState(true)
   /** True while refetching after Apply / Clear filters — keeps page mounted; use inline overlay, not full skeleton */
   const [filterFetchLoading, setFilterFetchLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalProjects, setTotalProjects] = useState(0)
   const [filterValidationError, setFilterValidationError] = useState<string | null>(null)
   
   // Use React Query hook for info data
@@ -185,7 +188,8 @@ export default function ProjectsPage() {
   const { t } = useLanguage()
   const { isAuthenticated } = useAuth()
 
-  const itemsPerPage = 20
+  const itemsPerPage = 10
+  const [appliedQueryParams, setAppliedQueryParams] = useState<ProjectQueryParams | undefined>(undefined)
 
   useEffect(() => {
     fetchProjects()
@@ -194,6 +198,7 @@ export default function ProjectsPage() {
 
   const fetchProjects = async (
     queryParams?: ProjectQueryParams,
+    page = 1,
     options?: { soft?: boolean }
   ) => {
     const soft = options?.soft === true
@@ -204,12 +209,21 @@ export default function ProjectsPage() {
         setLoading(true)
       }
       setError(null)
-      const data = await fetchProjectsFromAPI(queryParams)
-      setProjects(data || [])
+      const response = await fetchProjectsPageFromAPI({
+        ...(queryParams ?? {}),
+        page,
+        page_size: itemsPerPage,
+      })
+      setProjects(response.data || [])
+      setCurrentPage(response.pagination.page || page)
+      setTotalPages(response.pagination.totalPages || 1)
+      setTotalProjects(response.pagination.total || 0)
     } catch (error) {
       console.error('Error fetching projects:', error)
       setError('ไม่สามารถโหลดข้อมูลโครงการได้')
       setProjects([])
+      setTotalPages(1)
+      setTotalProjects(0)
     } finally {
       if (soft) {
         setFilterFetchLoading(false)
@@ -279,118 +293,10 @@ export default function ProjectsPage() {
     }
   }, [infoData, ministries, businessGroups, contractTypes, concessionForms])
 
-  // Filter and search projects (same logic as home page)
-  const filteredProjects = useMemo(() => {
-    return projects.filter(project => {
-      if (!project) return false
-      
-      const matchesSector = !filters.sector || (project.sector && project.sector.some((s: any) => {
-        const sectorStr = typeof s === 'string' ? s : (s?.description || s?.id || '')
-        return sectorStr.toLowerCase().includes(filters.sector.toLowerCase())
-      }))
-      
-      // Filter by business group (sector) - match by sector value from API
-      const noBusinessGroupFilter = filters.businessGroup.length === 0 || filters.businessGroup.length === businessGroups.length
-      const matchesBusinessGroup = noBusinessGroupFilter || filters.businessGroup.some(selectedGroup => {
-        // Handle "อื่น ๆ" - projects that don't match any defined business group
-        if (selectedGroup === 'อื่น ๆ') {
-          if (!project.sector || !Array.isArray(project.sector)) return true
-          // Check if project matches any sector from API
-          const apiSectorValues = infoData?.sector?.map(s => s.value) || []
-          const projectSectorValues = project.sector.map((s: any) => {
-            if (typeof s === 'string') return s
-            return s?.description || s?.id || ''
-          })
-          // Check if any project sector matches any API sector
-          const matchesAnyGroup = projectSectorValues.some(projectSector => 
-            apiSectorValues.some(apiSector => 
-              projectSector === apiSector || projectSector.includes(apiSector) || apiSector.includes(projectSector)
-            )
-          )
-          return !matchesAnyGroup
-        }
-        
-        if (!project.sector || !Array.isArray(project.sector)) return false
-        // Match by sector value (description or id)
-        return project.sector.some((s: any) => {
-          const sectorValue = typeof s === 'string' ? s : (s?.description || s?.id || '')
-          // Direct match or partial match
-          return sectorValue === selectedGroup || 
-                 sectorValue.includes(selectedGroup) || 
-                 selectedGroup.includes(sectorValue)
-        })
-      })
-      
-      const ministryDescriptions = project.additionalClassifications?.filter(c => c.scheme === 'TH-MINISTRY').map(c => c.description).filter(Boolean) ?? []
-      const noMinistryFilter = filters.ministry.length === 0 || filters.ministry.length === ministries.length
-      const matchesMinistry = noMinistryFilter || filters.ministry.some(selectedMinistry => {
-        // Handle "อื่น ๆ" - projects that don't have a ministry or have a ministry not in the list
-        if (selectedMinistry === 'อื่น ๆ') {
-          if (ministryDescriptions.length === 0) return true
-          const predefinedMinistries = ministries.filter(m => m !== 'อื่น ๆ')
-          const hasOnlyOther = ministryDescriptions.every(d => !predefinedMinistries.includes(d ?? ''))
-          return hasOnlyOther
-        }
-        return ministryDescriptions.includes(selectedMinistry)
-      })
-      
-      // Filter by contract type - match by value from API
-      const contractTypeIdentifier = project.identifiers?.find(i => i.scheme === 'TH-PPP-TYPE')
-      const noContractTypeFilter = filters.contractType.length === 0 || filters.contractType.length === contractTypes.length
-      const matchesContractType = noContractTypeFilter || filters.contractType.some(selectedType => {
-        // Handle "อื่น ๆ" - projects that don't match any contract type from API
-        if (selectedType === 'อื่น ๆ') {
-          const contractTypeId = contractTypeIdentifier?.id
-          if (!contractTypeId) return true // No contract type = "อื่น ๆ"
-          // Check if contract type matches any contract type from API
-          const apiOwnershipValues = infoData?.contractType?.map((o: { id: number; value: string }) => o.value) || []
-          const matchesAnyType = apiOwnershipValues.some((apiValue: string) => {
-            // Check if contractTypeId appears in the API value (handles cases like "BOT (ช่วงแรก)\nBTO (ช่วงหลัง)")
-            return apiValue.includes(contractTypeId) || contractTypeId === apiValue
-          })
-          return !matchesAnyType
-        }
-        
-        // Match by ownership type value from API
-        // The selectedType is the value from the API (e.g., "BOT", "BTO", "BOT (ช่วงแรก)\nBTO (ช่วงหลัง)")
-        if (!contractTypeIdentifier?.id) return false
-        
-        // Check if the contract type ID matches the selected ownership type value
-        // Handle cases where the API value contains the contract type (e.g., "BOT (ช่วงแรก)\nBTO (ช่วงหลัง)")
-        return selectedType.includes(contractTypeIdentifier.id) || contractTypeIdentifier.id === selectedType
-      })
-
-      const concessionFormDesc = project.additionalClassifications?.find(c => c.scheme === 'รูปแบบสัมปทานหรือค่าตอบแทน')?.description
-      const noConcessionFormFilter = filters.concessionForm.length === 0 || (concessionForms.length > 0 && filters.concessionForm.length === concessionForms.length)
-      const matchesConcessionForm = noConcessionFormFilter || (concessionFormDesc != null && filters.concessionForm.some(selected => selected === concessionFormDesc || (concessionFormDesc && concessionFormDesc.includes(selected))))
-      
-      const matchesSearch = !filters.search || 
-        project.title?.toLowerCase().includes(filters.search.toLowerCase()) ||
-        project.description?.toLowerCase().includes(filters.search.toLowerCase()) ||
-        project.publicAuthority?.name?.toLowerCase().includes(filters.search.toLowerCase())
-
-      // Filter by year range (ช่วงปีที่ลงนามในสัญญา) - same as home page: start year / end year dropdowns
-      const matchesYearRange = (() => {
-        if (!filters.startYear && !filters.endYear) return true
-        const projectYear = project.period?.startDate ? new Date(project.period.startDate).getFullYear() : null
-        if (projectYear == null || isNaN(projectYear)) return false
-        const startY = filters.startYear ? parseInt(filters.startYear, 10) : null
-        const endY = filters.endYear ? parseInt(filters.endYear, 10) : null
-        if (startY != null && endY != null) return projectYear >= startY && projectYear <= endY
-        if (startY != null) return projectYear >= startY
-        if (endY != null) return projectYear <= endY
-        return true
-      })()
-
-      return matchesSector && matchesBusinessGroup && matchesMinistry && matchesContractType && matchesConcessionForm && matchesSearch && matchesYearRange
-    })
-  }, [projects, filters, ministries, businessGroups, contractTypes, concessionForms, infoData])
-
-  // Pagination
-  const totalPages = Math.ceil(filteredProjects.length / itemsPerPage)
+  const filteredProjects = projects
   const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const currentProjects = filteredProjects.slice(startIndex, endIndex)
+  const endIndex = startIndex + projects.length
+  const currentProjects = projects
 
   const handleFilterChange = (key: string, value: string) => {
     const newFilters = { ...tempFilters, [key]: value }
@@ -440,7 +346,6 @@ export default function ProjectsPage() {
     }
     setFilterValidationError(null)
     setFilters(tempFilters)
-    setCurrentPage(1)
 
     const params: ProjectQueryParams = {}
     if (infoData) {
@@ -483,7 +388,9 @@ export default function ProjectsPage() {
       if (Number.isInteger(yt)) params.year_to = yt
     }
 
-    fetchProjects(Object.keys(params).length > 0 ? params : undefined, { soft: true })
+    const nextQueryParams = Object.keys(params).length > 0 ? params : undefined
+    setAppliedQueryParams(nextQueryParams)
+    fetchProjects(nextQueryParams, 1, { soft: true })
   }
 
   const clearFilters = () => {
@@ -500,8 +407,8 @@ export default function ProjectsPage() {
     setFilters(emptyFilters)
     setTempFilters(emptyFilters)
     setFilterValidationError(null)
-    setCurrentPage(1)
-    fetchProjects(undefined, { soft: true })
+    setAppliedQueryParams(undefined)
+    fetchProjects(undefined, 1, { soft: true })
   }
 
   const toggleProjectSelection = (id: string) => {
@@ -571,7 +478,7 @@ export default function ProjectsPage() {
   const getCompareBusinessGroup = (p: ProjectData) => {
     if (!p.sector?.length) return 'N/A'
     for (const s of p.sector) {
-      const code = typeof s === 'string' ? s : (s?.id ?? '')
+      const code = typeof s === 'string' ? s : ''
       if (code && (BUSINESS_GROUP_CODE_TO_DISPLAY_NAME as Record<string, string>)[code]) return (BUSINESS_GROUP_CODE_TO_DISPLAY_NAME as Record<string, string>)[code]
     }
     return 'N/A'
@@ -659,6 +566,12 @@ export default function ProjectsPage() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+  }
+
+  const handlePageChange = (nextPage: number) => {
+    if (nextPage === currentPage) return
+    projectsTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    fetchProjects(appliedQueryParams, nextPage, { soft: true })
   }
 
   if (loading) {
@@ -828,8 +741,8 @@ export default function ProjectsPage() {
           <div className="flex justify-between items-center">
             <div className="text-sm text-gray-500">
               {t('home.showingProjects')
-                .replace('{filtered}', filteredProjects.length.toString())
-                .replace('{total}', projects.length.toString())}
+                .replace('{filtered}', totalProjects.toString())
+                .replace('{total}', totalProjects.toString())}
             </div>
             <div className="space-x-2">
               <button
@@ -854,7 +767,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* Projects Table */}
-      <div className="mb-4 flex flex-col gap-3">
+      <div ref={projectsTableRef} className="mb-4 flex flex-col gap-3">
         <div className="flex justify-between items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
             {selectedProjectIds.size > 0 && (
@@ -1076,6 +989,8 @@ export default function ProjectsPage() {
                     <div className="flex items-center justify-center gap-2">
                       <Link
                         href={`/view/${project.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="flex items-center justify-center p-1.5 rounded text-theme-primary hover:text-theme-primary-dark hover:bg-theme-primary/10"
                         title={t('common.view')}
                       >
@@ -1085,6 +1000,8 @@ export default function ProjectsPage() {
                         <>
                           <Link
                             href={`/edit/${project.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="flex items-center justify-center p-1.5 rounded text-theme-primary hover:text-theme-primary-dark hover:bg-theme-primary/10"
                             title={t('common.edit')}
                           >
@@ -1113,14 +1030,14 @@ export default function ProjectsPage() {
           <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
             <div className="flex-1 flex justify-between sm:hidden">
               <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
                 className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Previous
               </button>
               <button
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
                 className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -1130,15 +1047,15 @@ export default function ProjectsPage() {
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm text-gray-700">
-                  Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
-                  <span className="font-medium">{Math.min(endIndex, filteredProjects.length)}</span> of{' '}
-                  <span className="font-medium">{filteredProjects.length}</span> results
+                  Showing <span className="font-medium">{totalProjects === 0 ? 0 : startIndex + 1}</span> to{' '}
+                  <span className="font-medium">{Math.min(endIndex, totalProjects)}</span> of{' '}
+                  <span className="font-medium">{totalProjects}</span> results
                 </p>
               </div>
               <div>
                 <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                   <button
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
                     className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -1153,7 +1070,7 @@ export default function ProjectsPage() {
                     return (
                       <button
                         key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
+                        onClick={() => handlePageChange(pageNum)}
                         className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
                           pageNum === currentPage
                             ? 'z-10 bg-theme-primary-light border-theme-primary text-theme-primary-dark'
@@ -1166,7 +1083,7 @@ export default function ProjectsPage() {
                   })}
                   
                   <button
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
                     className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -1179,7 +1096,7 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      {filteredProjects.length === 0 && (
+      {projects.length === 0 && (
         <div className="text-center py-12">
           <div className="mx-auto h-12 w-12 text-gray-400">
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">

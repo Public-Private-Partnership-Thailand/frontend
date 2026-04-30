@@ -70,12 +70,28 @@ export interface ProjectQueryParams {
   search?: string
 }
 
+export interface ProjectListQueryParams extends ProjectQueryParams {
+  page?: number
+  page_size?: number
+}
+
 // Fallback to external JSON API URL if backend is not available
 const EXTERNAL_API_URL = 'https://publicdigitaltwin.s3.ap-southeast-1.amazonaws.com/project-ppp.json'
 
 // Function to fetch projects from backend API (optional query params from filters)
 export async function fetchProjectsFromAPI(params?: ProjectQueryParams): Promise<ProjectData[]> {
+  const response = await fetchProjectsPageFromAPI(params)
+  return response.data
+}
+
+// Function to fetch projects + pagination metadata from backend API
+export async function fetchProjectsPageFromAPI(params?: ProjectListQueryParams): Promise<ProjectsListResponse> {
   const url = new URL(DATASETS_ENDPOINT)
+  const page = params?.page ?? 1
+  const pageSize = params?.page_size ?? 10
+  url.searchParams.set('page', String(page))
+  url.searchParams.set('page_size', String(pageSize))
+
   if (params) {
     if (params.sector_id?.length) params.sector_id.forEach(id => url.searchParams.append('sector_id', String(id)))
     if (params.ministry_id?.length) params.ministry_id.forEach(id => url.searchParams.append('ministry_id', String(id)))
@@ -102,7 +118,21 @@ export async function fetchProjectsFromAPI(params?: ProjectQueryParams): Promise
     const data: ProjectData[] = rawList.map((item: any) =>
       isNewApiProject(item) ? mapApiProjectToProjectData(item) : item
     )
-    return data
+    const rawPagination = json?.pagination
+    const total = Number(rawPagination?.total ?? data.length)
+    const totalPagesFromApi = Number(rawPagination?.totalPages ?? 0)
+    const normalizedPageSize = Number(rawPagination?.pageSize ?? rawPagination?.page_size ?? pageSize)
+    const totalPages = totalPagesFromApi > 0 ? totalPagesFromApi : Math.max(1, Math.ceil(total / Math.max(1, normalizedPageSize)))
+
+    return {
+      data,
+      pagination: {
+        page: Number(rawPagination?.page ?? page),
+        pageSize: normalizedPageSize,
+        total,
+        totalPages,
+      },
+    }
   } catch (error) {
     console.error('Error fetching projects from backend API:', error)
 
@@ -115,12 +145,32 @@ export async function fetchProjectsFromAPI(params?: ProjectQueryParams): Promise
           throw new Error(`HTTP error! status: ${response.status}`)
         }
         const externalData: ProjectData[] = await response.json()
-        return externalData
+        const safePage = Math.max(1, page)
+        const safePageSize = Math.max(1, pageSize)
+        const startIndex = (safePage - 1) * safePageSize
+        const pagedData = externalData.slice(startIndex, startIndex + safePageSize)
+        return {
+          data: pagedData,
+          pagination: {
+            page: safePage,
+            pageSize: safePageSize,
+            total: externalData.length,
+            totalPages: Math.max(1, Math.ceil(externalData.length / safePageSize)),
+          },
+        }
       } catch (fallbackError) {
         console.error('Error fetching projects from external API:', fallbackError)
       }
     }
-    return []
+    return {
+      data: [],
+      pagination: {
+        page,
+        pageSize,
+        total: 0,
+        totalPages: 1,
+      },
+    }
   }
 }
 

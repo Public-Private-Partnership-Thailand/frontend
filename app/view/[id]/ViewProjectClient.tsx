@@ -518,11 +518,11 @@ export default function ViewProjectClient() {
                   </div>
                   <div>
                     <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.concessionStartDate')}</dt>
-                    <dd className="mt-1 text-base text-gray-900">{formatDate(project.period?.startDate)}</dd>
+                    <dd className="mt-1 text-base text-gray-900">{formatDate(project.identificationPeriod?.startDate || '')}</dd>
                   </div>
                   <div>
                     <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.concessionEndDate')}</dt>
-                    <dd className="mt-1 text-base text-gray-900">{formatDate(project.period?.endDate)}</dd>
+                    <dd className="mt-1 text-base text-gray-900">{formatDate(project.identificationPeriod?.endDate || '')}</dd>
                   </div>
                   {/* <div>
                     <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.serviceStartDate')}</dt>
@@ -548,7 +548,10 @@ export default function ViewProjectClient() {
                   <div className="sm:col-span-2">
                     <dt className="text-sm font-bold text-black opacity-100">{t('pages.view.totalProjectValue')}</dt>
                     <dd className="mt-1 text-base text-gray-900 break-words">
-                      {project.budget?.amount?.amountFormatted ?? formatCurrency(project.budget?.amount?.amount ?? 0)}
+                      {project.budget?.amount?.amountFormatted
+                        || (project.budget?.amount?.amount != null
+                          ? formatCurrency(project.budget.amount.amount)
+                          : 'N/A')}
                     </dd>
                   </div>
                   <div>
