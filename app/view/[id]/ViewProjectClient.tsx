@@ -215,7 +215,7 @@ export default function ViewProjectClient() {
   const getBusinessGroupInfo = (): { name: string } => {
     if (!project.sector || !Array.isArray(project.sector)) return { name: 'N/A' }
     for (const sectorItem of project.sector) {
-      const sectorCode = typeof sectorItem === 'string' ? sectorItem : (sectorItem?.id || '')
+      const sectorCode = typeof sectorItem === 'string' ? sectorItem : ''
       if (sectorCode && BUSINESS_GROUP_CODE_TO_DISPLAY_NAME[sectorCode as keyof typeof BUSINESS_GROUP_CODE_TO_DISPLAY_NAME]) {
         const businessGroupCode = sectorCode as keyof typeof BUSINESS_GROUP_CODE_TO_DISPLAY_NAME
         return { name: BUSINESS_GROUP_CODE_TO_DISPLAY_NAME[businessGroupCode] }
