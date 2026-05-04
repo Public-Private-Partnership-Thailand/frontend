@@ -908,7 +908,7 @@ export default function HomePage() {
     const colors = chartPieBackgroundColors([...keys])
     return contractTypePieRows.map((row, i) => ({
       id: row.id,
-      fullName: row.fullName,
+      fullName: row.name,
       count: row.count,
       color: colors[i] ?? getColor('slate.400', CHART.pieSlice),
     }))
