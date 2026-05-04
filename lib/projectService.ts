@@ -17,7 +17,6 @@ function isNewApiProject(item: any): item is ApiProjectItem {
   return item && typeof item.public_authority === 'string'
 }
 
-/** Map new API project item to ProjectData for use in app */
 function mapApiProjectToProjectData(item: ApiProjectItem): ProjectData {
   const ministryList = item.ministry ?? []
   const ministryClassifications = ministryList.map(m => ({ scheme: 'TH-MINISTRY' as const, id: '', description: m }))
@@ -60,7 +59,6 @@ export interface ProjectsListResponse {
 export interface ProjectQueryParams {
   sector_id?: number[]
   ministry_id?: number[]
-  // concession_form_id?: number[]  // uncomment when needed
   year_from?: number
   year_to?: number
   search?: string
@@ -74,7 +72,6 @@ export interface ProjectListQueryParams extends ProjectQueryParams {
 // Fallback to external JSON API URL if backend is not available
 const EXTERNAL_API_URL = 'https://publicdigitaltwin.s3.ap-southeast-1.amazonaws.com/project-ppp.json'
 
-/** Same pattern as `useSummary`: build query string with URLSearchParams, then `${appConfig.apiUrl}/api/v1/projects?...` */
 function buildProjectsListQueryString(params?: ProjectListQueryParams): string {
   const search = new URLSearchParams()
   const page = params?.page ?? 1
@@ -107,7 +104,10 @@ export async function fetchProjectsPageFromAPI(params?: ProjectListQueryParams):
   const page = params?.page ?? 1
   const pageSize = params?.page_size ?? 10
   const queryString = buildProjectsListQueryString(params)
+  console.log('Query string:', queryString)
+  console.log('App config API URL:', appConfig.apiUrl)
   const url = `${appConfig.apiUrl}/api/v1/projects?${queryString}`
+  console.log('Fetching projects from API:', url)
 
   try {
     const response = await fetch(url, {
