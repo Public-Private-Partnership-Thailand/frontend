@@ -55,13 +55,18 @@ export interface ProjectsListResponse {
   }
 }
 
-/** Query params for GET /api/v1/projects (ids from /api/v1/info) */
+/** Query params for GET /api/v1/projects (matches backend; ids from /api/v1/info) */
 export interface ProjectQueryParams {
+  /** Search by project title */
+  title?: string
   sector_id?: number[]
   ministry_id?: number[]
+  concession_form_id?: number[]
+  contract_type_id?: number[]
+  /** Gregorian year (int), e.g. 2007 */
   year_from?: number
+  /** Gregorian year (int) */
   year_to?: number
-  search?: string
 }
 
 export interface ProjectListQueryParams extends ProjectQueryParams {
@@ -75,20 +80,25 @@ const EXTERNAL_API_URL = 'https://publicdigitaltwin.s3.ap-southeast-1.amazonaws.
 function buildProjectsListQueryString(params?: ProjectListQueryParams): string {
   const search = new URLSearchParams()
   const page = params?.page ?? 1
-  const pageSize = params?.page_size ?? 10
+  const pageSize = params?.page_size ?? 20
   search.set('page', String(page))
   search.set('page_size', String(pageSize))
   if (params) {
+    if (params.title?.trim()) search.set('title', params.title.trim())
     if (params.sector_id?.length) {
       params.sector_id.forEach((id) => search.append('sector_id', String(id)))
     }
     if (params.ministry_id?.length) {
       params.ministry_id.forEach((id) => search.append('ministry_id', String(id)))
     }
-    // if (params.concession_form_id?.length) params.concession_form_id.forEach(id => search.append('concession_form_id', String(id)))  // uncomment when needed
+    if (params.concession_form_id?.length) {
+      params.concession_form_id.forEach((id) => search.append('concession_form_id', String(id)))
+    }
+    if (params.contract_type_id?.length) {
+      params.contract_type_id.forEach((id) => search.append('contract_type_id', String(id)))
+    }
     if (params.year_from != null) search.set('year_from', String(params.year_from))
     if (params.year_to != null) search.set('year_to', String(params.year_to))
-    if (params.search) search.set('search', params.search)
   }
   return search.toString()
 }
@@ -102,7 +112,7 @@ export async function fetchProjectsFromAPI(params?: ProjectQueryParams): Promise
 // Function to fetch projects + pagination metadata from backend API
 export async function fetchProjectsPageFromAPI(params?: ProjectListQueryParams): Promise<ProjectsListResponse> {
   const page = params?.page ?? 1
-  const pageSize = params?.page_size ?? 10
+  const pageSize = params?.page_size ?? 20
   const queryString = buildProjectsListQueryString(params)
   // console.log('Query string:', queryString)
   // console.log('App config API URL:', appConfig.apiUrl)

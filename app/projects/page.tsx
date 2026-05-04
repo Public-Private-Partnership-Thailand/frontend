@@ -361,29 +361,46 @@ export default function ProjectsPage() {
           .filter((id): id is number => id != null)
         if (params.ministry_id.length === 0) delete params.ministry_id
       }
-      // contract_type_id: not sent in query (commented out)
-      // if (tempFilters.contractType.length > 0) {
-      //   params.contract_type_id = tempFilters.contractType
-      //     .map(v => infoData.contractType?.find(c => c.value === v)?.id)
-      //     .filter((id): id is number => id != null)
-      //   if (params.contract_type_id.length === 0) delete params.contract_type_id
-      // }
-      // concession_form_id: uncomment when needed
-      // if (tempFilters.concessionForm.length > 0 && infoData.concessionForm) {
-      //   params.concession_form_id = tempFilters.concessionForm
-      //     .map(v => infoData.concessionForm?.find(c => c.value === v)?.id)
-      //     .filter((id): id is number => id != null)
-      //   if (params.concession_form_id.length === 0) delete params.concession_form_id
-      // }
+      if (tempFilters.contractType.length > 0) {
+        const getContractTypeId = (value: string): number | null => {
+          if (!infoData.contractType) return null
+          if (value === 'อื่น ๆ') return -1
+          const ct = infoData.contractType.find(o => o.value === value)
+          return ct ? ct.id : null
+        }
+        const typeIds = tempFilters.contractType
+          .map(typeValue => getContractTypeId(typeValue))
+          .filter((id): id is number => id !== null)
+          .filter(id => {
+            if (id === -1) return tempFilters.contractType.includes('อื่น ๆ')
+            return true
+          })
+        if (typeIds.length > 0) params.contract_type_id = typeIds
+      }
+      if (tempFilters.concessionForm.length > 0 && infoData.concessionForm) {
+        const getConcessionFormId = (value: string): number | null => {
+          if (value === 'อื่น ๆ') return -1
+          const cf = infoData.concessionForm.find(c => c.value === value)
+          return cf ? cf.id : null
+        }
+        const formIds = tempFilters.concessionForm
+          .map(v => getConcessionFormId(v))
+          .filter((id): id is number => id !== null)
+          .filter(id => {
+            if (id === -1) return tempFilters.concessionForm.includes('อื่น ๆ')
+            return true
+          })
+        if (formIds.length > 0) params.concession_form_id = formIds
+      }
     }
-    if (tempFilters.search?.trim()) params.search = tempFilters.search.trim()
+    if (tempFilters.search?.trim()) params.title = tempFilters.search.trim()
 
-    // Year filters: UI shows พ.ศ.; state and API use ค.ศ. (A.D.)
-    if (tempFilters.startYear) {
+    // Year filters: UI values are ค.ศ. (A.D.) integers; API expects year_from / year_to
+    if (tempFilters.startYear?.trim()) {
       const yf = parseInt(tempFilters.startYear, 10)
       if (Number.isInteger(yf)) params.year_from = yf
     }
-    if (tempFilters.endYear) {
+    if (tempFilters.endYear?.trim()) {
       const yt = parseInt(tempFilters.endYear, 10)
       if (Number.isInteger(yt)) params.year_to = yt
     }
