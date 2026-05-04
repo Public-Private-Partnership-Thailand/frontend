@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { ProjectData } from '@/types/project'
 import { useLanguage } from '@/lib/LanguageContext'
 import { useAuth } from '@/lib/AuthContext'
-import LoadingSpinner from '@/components/LoadingSpinner'
+import ViewProjectSkeleton from '@/components/ViewProjectSkeleton'
 import { fetchProjectById } from '@/lib/projectService'
 import { BUSINESS_GROUP_CODE_TO_DISPLAY_NAME } from '@/types/businessGroup'
 import { formatDateForDisplay } from '@/lib/utils/dateUtils'
@@ -57,6 +57,7 @@ export default function ViewProjectClient() {
   }, [selectedImageIndex, project])
 
   const fetchProject = async () => {
+    setIsLoading(true)
     try {
       const foundProject = await fetchProjectById(projectId)
       
@@ -175,7 +176,7 @@ export default function ViewProjectClient() {
   }
 
   if (isLoading) {
-    return <LoadingSpinner />
+    return <ViewProjectSkeleton />
   }
 
   if (!project) {

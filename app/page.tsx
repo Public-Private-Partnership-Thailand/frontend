@@ -1624,7 +1624,12 @@ export default function HomePage() {
                           <div className="flex items-center min-w-0">
                             <span className="text-xs font-medium text-gray-600 flex-shrink-0">เอกชนคู่สัญญา: </span>
                             <span className="text-xs text-gray-700 truncate ml-1">
-                              {project.parties?.filter((p) => p.roles?.includes('contractor')).map((p) => p.name).join(', ') || 'N/A'}
+                              {project.parties
+                                ?.filter((p) => p.roles?.includes('contractor'))
+                                .map((p) => p.name)
+                                .filter(Boolean)
+                                .join(', ')
+                                .trim() || 'N/A'}
                             </span>
                           </div>
                         </div>

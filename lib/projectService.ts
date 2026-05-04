@@ -1,9 +1,5 @@
 import { ProjectData } from '@/types/project'
-
-// Backend API URL - can be overridden with environment variable
-const BACKEND_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-const DATASETS_ENDPOINT = `${BACKEND_API_URL}/api/v1/projects`
-// const DATASETS_ENDPOINT = `${BACKEND_API_URL}/api/datasets`
+import { appConfig } from '@/app/configs/appConfig'
 
 /** New API project item shape (GET /api/v1/projects list item) */
 export interface ApiProjectItem {
@@ -78,6 +74,28 @@ export interface ProjectListQueryParams extends ProjectQueryParams {
 // Fallback to external JSON API URL if backend is not available
 const EXTERNAL_API_URL = 'https://publicdigitaltwin.s3.ap-southeast-1.amazonaws.com/project-ppp.json'
 
+/** Same pattern as `useSummary`: build query string with URLSearchParams, then `${appConfig.apiUrl}/api/v1/projects?...` */
+function buildProjectsListQueryString(params?: ProjectListQueryParams): string {
+  const search = new URLSearchParams()
+  const page = params?.page ?? 1
+  const pageSize = params?.page_size ?? 10
+  search.set('page', String(page))
+  search.set('page_size', String(pageSize))
+  if (params) {
+    if (params.sector_id?.length) {
+      params.sector_id.forEach((id) => search.append('sector_id', String(id)))
+    }
+    if (params.ministry_id?.length) {
+      params.ministry_id.forEach((id) => search.append('ministry_id', String(id)))
+    }
+    // if (params.concession_form_id?.length) params.concession_form_id.forEach(id => search.append('concession_form_id', String(id)))  // uncomment when needed
+    if (params.year_from != null) search.set('year_from', String(params.year_from))
+    if (params.year_to != null) search.set('year_to', String(params.year_to))
+    if (params.search) search.set('search', params.search)
+  }
+  return search.toString()
+}
+
 // Function to fetch projects from backend API (optional query params from filters)
 export async function fetchProjectsFromAPI(params?: ProjectQueryParams): Promise<ProjectData[]> {
   const response = await fetchProjectsPageFromAPI(params)
@@ -86,23 +104,13 @@ export async function fetchProjectsFromAPI(params?: ProjectQueryParams): Promise
 
 // Function to fetch projects + pagination metadata from backend API
 export async function fetchProjectsPageFromAPI(params?: ProjectListQueryParams): Promise<ProjectsListResponse> {
-  const url = new URL(DATASETS_ENDPOINT)
   const page = params?.page ?? 1
   const pageSize = params?.page_size ?? 10
-  url.searchParams.set('page', String(page))
-  url.searchParams.set('page_size', String(pageSize))
-
-  if (params) {
-    if (params.sector_id?.length) params.sector_id.forEach(id => url.searchParams.append('sector_id', String(id)))
-    if (params.ministry_id?.length) params.ministry_id.forEach(id => url.searchParams.append('ministry_id', String(id)))
-    // if (params.concession_form_id?.length) params.concession_form_id.forEach(id => url.searchParams.append('concession_form_id', String(id)))  // uncomment when needed
-    if (params.year_from != null) url.searchParams.set('year_from', String(params.year_from))
-    if (params.year_to != null) url.searchParams.set('year_to', String(params.year_to))
-    if (params.search) url.searchParams.set('search', params.search)
-  }
+  const queryString = buildProjectsListQueryString(params)
+  const url = `${appConfig.apiUrl}/api/v1/projects?${queryString}`
 
   try {
-    const response = await fetch(url.toString(), {
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -177,7 +185,7 @@ export async function fetchProjectsPageFromAPI(params?: ProjectListQueryParams):
 // Function to fetch a single project by ID
 export async function fetchProjectById(id: string): Promise<ProjectData | null> {
   try {
-    const response = await fetch(`${DATASETS_ENDPOINT}/${id}`, {
+    const response = await fetch(`${appConfig.apiUrl}/api/v1/projects/${id}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -203,7 +211,7 @@ export async function fetchProjectById(id: string): Promise<ProjectData | null> 
 export async function createProject(project: ProjectData): Promise<any | null> {
   try {
     console.log('Sending project to backend:', project)
-    const response = await fetch(DATASETS_ENDPOINT, {
+    const response = await fetch(`${appConfig.apiUrl}/api/v1/projects`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -232,7 +240,7 @@ export async function createProject(project: ProjectData): Promise<any | null> {
 // Function to update a project
 export async function updateProject(id: string, project: Partial<ProjectData>): Promise<ProjectData | null> {
   try {
-    const response = await fetch(`${DATASETS_ENDPOINT}/${id}`, {
+    const response = await fetch(`${appConfig.apiUrl}/api/v1/projects/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -253,4 +261,4 @@ export async function updateProject(id: string, project: Partial<ProjectData>): 
 }
 
 // Export the API URLs for reference
-export { DATASETS_ENDPOINT, EXTERNAL_API_URL }
+export { EXTERNAL_API_URL }

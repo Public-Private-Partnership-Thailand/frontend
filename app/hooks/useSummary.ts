@@ -308,6 +308,45 @@ export const useSummary = (filters?: SummaryFilters, infoData?: {
       const raw = await response.json()
       const data: SummaryData = raw
 
+      // GET /api/v1/summary: latestProjects may use snake_case `public_authority`, `private_parties` (เอกชนคู่สัญญา)
+      if (Array.isArray((data as any).latestProjects)) {
+        data.latestProjects = ((data as any).latestProjects as unknown[]).map((item: any): ProjectData => {
+          const next = { ...item } as ProjectData
+
+          const fromPub =
+            typeof item?.public_authority === 'string' ? item.public_authority.trim() : ''
+          const existingPubName = item?.publicAuthority?.name?.trim?.() ?? ''
+          const pubName = fromPub || existingPubName
+          if (pubName) {
+            next.publicAuthority = {
+              id: item?.publicAuthority?.id ?? '',
+              name: pubName,
+            }
+          }
+
+          const rawPriv = item?.private_parties
+          let contractorNames: string[] = []
+          if (Array.isArray(rawPriv)) {
+            contractorNames = rawPriv
+              .map((x: unknown) => (typeof x === 'string' ? x.trim() : String(x).trim()))
+              .filter(Boolean)
+          } else if (typeof rawPriv === 'string' && rawPriv.trim()) {
+            contractorNames = [rawPriv.trim()]
+          }
+          if (contractorNames.length > 0) {
+            next.parties = contractorNames.map((name) => ({
+              name,
+              id: '',
+              roles: ['contractor'],
+            }))
+          } else if (!next.parties?.length) {
+            next.parties = (item?.parties as ProjectData['parties']) ?? []
+          }
+
+          return next
+        })
+      }
+
       // Normalize heatmapRisk IDs: numeric -> string codes ("C01", "F01")
       if ((raw as any)?.heatmapRisk) {
         data.heatmapRisk = normalizeHeatmapRisk((raw as any).heatmapRisk) || undefined

@@ -388,6 +388,17 @@ function MainContent({ children }: { children: React.ReactNode }) {
         </main>
       )
     }
+
+    // View project: render page immediately so only ViewProjectClient shows ViewProjectSkeleton (avoid double skeleton with generic placeholder below)
+    if (pathname?.startsWith('/view/')) {
+      return (
+        <div className="flex justify-center">
+          <main className="flex-1 max-w-7xl py-6 sm:px-6 lg:px-8 pt-24">
+            {children}
+          </main>
+        </div>
+      )
+    }
     
     // Generic skeleton for other pages
     return (
