@@ -57,6 +57,10 @@ export interface SummaryData {
     small: { count: number; investment: number }
     medium: { count: number; investment: number }
     big: { count: number; investment: number }
+    project?: Array<{
+      id: string
+      projectName: string
+    }>
   }>
   sectorCounts: Record<string, number>
   projectScope: {
@@ -291,8 +295,8 @@ export const useSummary = (filters?: SummaryFilters, infoData?: {
       //   ? `${appConfig.apiUrl}/api/v1/summary?${queryString}`
       //   : `http://localhost:8080/api/v1/summary`
 
-      console.log('Fetching summary with filters:', filters)
-      console.log('Converted to IDs - URL:', url)
+      // console.log('Fetching summary with filters:', filters)
+      // console.log('Converted to IDs - URL:', url)
 
       const response = await fetch(url, {
         method: 'GET',

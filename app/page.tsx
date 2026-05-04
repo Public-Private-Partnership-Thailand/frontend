@@ -23,8 +23,6 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/th'
 import { useInfo, type InfoData } from '@/app/hooks/useInfo'
 import { useSummary, type SummaryData, type SummaryFilters, getIconNameByGroupName } from '@/app/hooks/useSummary'
-import type { ProjectData } from '@/types/project'
-import { fetchProjectsFromAPI } from '@/lib/projectService'
 import { adYearToBe } from '@/lib/utils/dateUtils'
 
 import {
@@ -93,22 +91,6 @@ function wrapChartCategoryLabel(text: string, maxCharsPerLine: number): string |
   return lines
 }
 
-/** Same keys as `businessGroupMapping` in HomePage — used to map projects to sector cards. */
-const SECTOR_CODES_BY_GROUP: Record<string, string[]> = {
-  'transport.road': ['transport.road'],
-  'transport.rail': ['transport.rail', 'transport.urban'],
-  'transport.air': ['transport.air'],
-  'transport.water': ['transport.water'],
-  waterAndWaste: ['waterAndWaste'],
-  energy: ['energy'],
-  communications: ['communications'],
-  health: ['health'],
-  education: ['education'],
-  socialHousing: ['socialHousing'],
-  cultureSportsAndRecreation: ['cultureSportsAndRecreation'],
-  others: ['economy', 'governance'],
-}
-
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -148,28 +130,12 @@ export default function HomePage() {
     startYear: '',
     endYear: ''
   })
-  /** Full project list for sector-card hover links (GET /api/v1/projects) */
-  const [allProjectsForSectorCards, setAllProjectsForSectorCards] = useState<ProjectData[] | null>(null)
   const { t } = useLanguage()
   const router = useRouter()
 
   // Set Thai locale for dayjs
   useEffect(() => {
     dayjs.locale('th')
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    fetchProjectsFromAPI()
-      .then((data) => {
-        if (!cancelled) setAllProjectsForSectorCards(data)
-      })
-      .catch(() => {
-        if (!cancelled) setAllProjectsForSectorCards([])
-      })
-    return () => {
-      cancelled = true
-    }
   }, [])
 
   // Use React Query hooks
@@ -795,11 +761,11 @@ export default function HomePage() {
     
     // Debug: Log the scale counts
     if (typeof window !== 'undefined') {
-      console.log('Project Scale Counts:', {
-        small: projectScales.small.count,
-        medium: projectScales.medium.count,
-        big: projectScales.big.count
-      })
+      // console.log('Project Scale Counts:', {
+      //   small: projectScales.small.count,
+      //   medium: projectScales.medium.count,
+      //   big: projectScales.big.count
+      // })
     }
     
     // Filter out zero values - but ensure we're checking the actual count values
@@ -808,13 +774,13 @@ export default function HomePage() {
       .filter(item => {
         const hasValue = item.value > 0
         if (!hasValue && typeof window !== 'undefined') {
-          console.log(`Filtered out ${item.label}: value = ${item.value}`)
+          // console.log(`Filtered out ${item.label}: value = ${item.value}`)
         }
         return hasValue
       })
     
     if (typeof window !== 'undefined') {
-      console.log('Filtered Pie Chart Data:', filteredData)
+      // console.log('Filtered Pie Chart Data:', filteredData)
     }
     
     return {
@@ -1172,19 +1138,17 @@ export default function HomePage() {
   }, [summaryData?.businessGroupStats])
 
   const projectsByGroupForLinks = useMemo(() => {
-    if (!allProjectsForSectorCards?.length) return null
+    const stats = summaryData?.businessGroupStats ?? []
+    if (stats.length === 0) return null
     const map = new Map<string, { id: string; title: string }[]>()
-    for (const card of sectorCards) {
-      const codes = new Set(SECTOR_CODES_BY_GROUP[card.sector] ?? [card.sector])
-      const items = allProjectsForSectorCards
-        .filter((p) =>
-          (p.sector ?? []).some((s) => codes.has(typeof s === 'string' ? s : (s as { id?: string }).id || ''))
-        )
-        .map((p) => ({ id: p.id, title: p.title }))
-      map.set(card.sector, items)
+    for (const group of stats) {
+      const items = (group.project ?? [])
+        .filter((p) => p.id && p.projectName)
+        .map((p) => ({ id: p.id, title: p.projectName }))
+      map.set(group.groupName, items)
     }
     return map
-  }, [allProjectsForSectorCards, sectorCards])
+  }, [summaryData?.businessGroupStats])
 
   const sectorBubbleChartData = useMemo(() => {
     const maxR = Math.max(...sectorBubbleData.map((d) => d.authorityCount), 1)
