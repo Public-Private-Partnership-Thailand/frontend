@@ -71,6 +71,15 @@ export interface ProjectListQueryParams extends ProjectQueryParams {
 
 // Fallback to external JSON API URL if backend is not available
 const EXTERNAL_API_URL = 'https://publicdigitaltwin.s3.ap-southeast-1.amazonaws.com/project-ppp.json'
+const API_BASE_URL = appConfig.apiUrl.replace(/^http:\/\//i, 'https://').replace(/\/+$/, '')
+
+function buildApiUrl(path: string, useTrailingSlash = false): string {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  if (useTrailingSlash && !normalizedPath.endsWith('/')) {
+    return `${API_BASE_URL}${normalizedPath}/`
+  }
+  return `${API_BASE_URL}${normalizedPath}`
+}
 
 function buildProjectsListQueryString(params?: ProjectListQueryParams): string {
   const search = new URLSearchParams()
@@ -104,10 +113,11 @@ export async function fetchProjectsPageFromAPI(params?: ProjectListQueryParams):
   const page = params?.page ?? 1
   const pageSize = params?.page_size ?? 10
   const queryString = buildProjectsListQueryString(params)
-  console.log('Query string:', queryString)
-  console.log('App config API URL:', appConfig.apiUrl)
-  const url = `${appConfig.apiUrl}/api/v1/projects?${queryString}`
-  console.log('Fetching projects from API:', url)
+  // console.log('Query string:', queryString)
+  // console.log('App config API URL:', appConfig.apiUrl)
+  // Use canonical route (/projects/) to avoid backend 307 redirecting to http://.
+  const url = `${buildApiUrl('/api/v1/projects', true)}?${queryString}`
+  // console.log('Fetching projects from API:', url)
 
   try {
     const response = await fetch(url, {
@@ -185,7 +195,7 @@ export async function fetchProjectsPageFromAPI(params?: ProjectListQueryParams):
 // Function to fetch a single project by ID
 export async function fetchProjectById(id: string): Promise<ProjectData | null> {
   try {
-    const response = await fetch(`${appConfig.apiUrl}/api/v1/projects/${id}`, {
+    const response = await fetch(buildApiUrl(`/api/v1/projects/${id}`), {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -211,7 +221,7 @@ export async function fetchProjectById(id: string): Promise<ProjectData | null> 
 export async function createProject(project: ProjectData): Promise<any | null> {
   try {
     console.log('Sending project to backend:', project)
-    const response = await fetch(`${appConfig.apiUrl}/api/v1/projects`, {
+    const response = await fetch(buildApiUrl('/api/v1/projects', true), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -240,7 +250,7 @@ export async function createProject(project: ProjectData): Promise<any | null> {
 // Function to update a project
 export async function updateProject(id: string, project: Partial<ProjectData>): Promise<ProjectData | null> {
   try {
-    const response = await fetch(`${appConfig.apiUrl}/api/v1/projects/${id}`, {
+    const response = await fetch(buildApiUrl(`/api/v1/projects/${id}`), {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
