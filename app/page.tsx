@@ -974,7 +974,7 @@ export default function HomePage() {
         return { name, count }
       })
       .filter((x) => x.name.length > 0)
-    const sorted = [...normalized].sort((a, b) => b.count - a.count)
+    const sorted = [...normalized].sort((a, b) => b.count - a.count).slice(0, 5)
     return {
       labels: sorted.map((x) => wrapChartCategoryLabel(x.name, 24)),
       fullLabels: sorted.map((x) => x.name),
@@ -1350,7 +1350,7 @@ export default function HomePage() {
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:gap-3 items-center flex-1 min-h-0">
-                  <div className="flex items-center justify-center min-h-[4.5rem] rounded-md overflow-hidden bg-gray-50/80 p-2">
+                  <div className="flex items-center justify-center min-h-[4.5rem] rounded-md overflow-hidden p-2">
                     <img
                       src={iconPath}
                       alt=""

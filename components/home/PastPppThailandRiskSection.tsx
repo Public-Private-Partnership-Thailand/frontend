@@ -158,7 +158,7 @@ export default function PastPppThailandRiskSection({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-stretch">
         {bySector.map((row) => {
           const displayName = getBusinessGroupDisplayName(row.sectorKey)
           const icon = mapIconName(getIconNameByGroupName(row.sectorKey))
@@ -171,10 +171,10 @@ export default function PastPppThailandRiskSection({
               key={row.sectorKey}
               type="button"
               onClick={() => setSectorModal(row)}
-              className="box min-h-[143px] w-full flex flex-col items-stretch justify-start text-left p-4 rounded-xl border border-gray-200 bg-white hover:border-indigo-300 hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 group"
+              className="box h-[190px] w-full flex flex-col text-left p-4 rounded-xl border border-gray-200 bg-white hover:border-indigo-300 hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 group"
             >
-              <div className="flex w-full min-h-0 flex-1 items-start justify-start gap-3">
-                <div className="w-12 h-12 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              <div className="flex min-h-0 flex-1 gap-3">
+                <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 overflow-hidden self-start">
                   <img
                     src={iconPath}
                     alt=""
@@ -187,11 +187,13 @@ export default function PastPppThailandRiskSection({
                     }}
                   />
                 </div>
-                <div className="min-w-0 flex-1 self-start">
-                  <p className="text-sm font-semibold text-gray-900 leading-snug group-hover:text-indigo-800">
-                    {displayName}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+                <div className="min-w-0 flex-1 flex h-full min-h-0 flex-col">
+                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pr-0.5 [scrollbar-gutter:stable]">
+                    <p className="text-sm font-semibold text-gray-900 leading-snug group-hover:text-indigo-800">
+                      {displayName}
+                    </p>
+                  </div>
+                  <div className="mt-2 flex-shrink-0 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
                     <span>
                       ความเสี่ยงที่บันทึกไว้:{' '}
                       <strong className="text-gray-700 tabular-nums">{nIncidents}</strong>
@@ -201,7 +203,7 @@ export default function PastPppThailandRiskSection({
                       <strong className="text-gray-700 tabular-nums">{nProjects}</strong>
                     </span>
                   </div>
-                  <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-indigo-600">
+                  <span className="mt-2 flex-shrink-0 inline-flex items-center gap-1 text-xs font-medium text-indigo-600">
                     ดูรายการ
                     <Lucide icon="ChevronRight" className="w-3.5 h-3.5" />
                   </span>
