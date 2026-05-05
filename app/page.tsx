@@ -873,10 +873,24 @@ export default function HomePage() {
             : Number.isFinite(Number(r.count))
               ? Number(r.count)
               : 0
+        const rawName = String(r.name ?? '').trim()
+        const isEmptyPlaceholder = rawName.toLowerCase() === 'empty'
+        const isOthersContractType = rawName === 'รูปแบบอื่น ๆ'
+        const name = isEmptyPlaceholder
+          ? 'N/A'
+          : isOthersContractType
+            ? 'Others'
+            : rawName || `ประเภท ${r.id}`
+        const rawFullName = String(r.fullName ?? r.name ?? '').trim()
+        const fullName = isEmptyPlaceholder
+          ? 'N/A'
+          : isOthersContractType
+            ? 'Others'
+            : rawFullName || rawName || `ประเภท ${r.id}`
         return {
           id: r.id,
-          name: String(r.name ?? '').trim() || `ประเภท ${r.id}`,
-          fullName: String(r.fullName ?? r.name ?? '').trim() || String(r.name ?? `ประเภท ${r.id}`),
+          name,
+          fullName,
           count,
         }
       })

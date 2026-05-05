@@ -23,7 +23,7 @@ import {
   type RiskFactor,
   formatRiskCategoryLabel,
 } from '@/app/hooks/useInfo'
-import { toRiskFactorCode } from '@/lib/normalizeHeatmapRisk'
+import { toRiskFactorCode, toRiskCategoryCode } from '@/lib/normalizeHeatmapRisk'
 import { getIconNameByGroupName } from '@/app/hooks/useSummary'
 import type { RiskApiData } from '@/app/hooks/useRisk'
 import {
@@ -247,11 +247,6 @@ function MatrixRiskSourceFilterPanel({
       </div>
     </div>
   )
-}
-
-const toRiskCategoryCode = (id: number | string): string => {
-  if (typeof id === 'string') return id
-  return `C${String(id).padStart(2, '0')}`
 }
 
 function mapIconName(iconName: string): string {
@@ -840,16 +835,16 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
         const categoryId = toRiskCategoryCode(c.id)
         const label = formatRiskCategoryLabel(c)
         const color = riskCategoryColorMap.get(categoryId) ?? getColor('slate.500', CHART.pieSlice)
-        return `<li class="flex items-center gap-2 text-xs leading-5"><span class="inline-block h-3 w-3 rounded-sm border border-gray-300" style="background:${color}"></span><span>${escapeHtmlForTooltip(label)}</span></li>`
+        return `<li class="flex min-w-0 items-center gap-2 text-xs leading-5"><span class="inline-block h-3 w-3 shrink-0 rounded-sm border border-gray-300" style="background:${color}"></span><span class="min-w-0 break-words">${escapeHtmlForTooltip(label)}</span></li>`
       })
       .join('')
-    return `<div class="text-left w-[min(88vw,480px)] min-w-[260px] max-w-[480px] p-1"><p class="text-xs font-semibold mb-2">สีของกลุ่มความเสี่ยง</p><ul class="space-y-1.5 max-h-[min(72vh,620px)] overflow-y-auto overscroll-contain pr-2 py-1">${items}</ul></div>`
+    return `<div class="text-left w-[min(88vw,520px)] min-w-[320px] max-w-[520px] p-1"><p class="text-xs font-semibold mb-2">สีของกลุ่มความเสี่ยง</p><ul class="m-0 grid list-none grid-cols-2 gap-x-3 gap-y-1.5 p-0 py-1 pr-2 max-h-[min(72vh,620px)] overflow-y-auto overscroll-contain">${items}</ul></div>`
   }, [safeInfoData.riskCategory, riskCategoryColorMap])
 
   const rankColorLegendTippyOptions = useMemo(
     () => ({
       allowHTML: true,
-      maxWidth: 300,
+      maxWidth: 520,
       placement: 'right-start' as const,
       interactive: true,
       interactiveBorder: 24,
@@ -1095,7 +1090,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
       />
       <div className="mb-8">
         <div className="mb-4">
-          <h2 className="text-xl font-bold text-gray-900">Matrix ประเภทความเสี่ยง × เฟสโครงการ</h2>
+          <h2 className="text-xl font-bold text-gray-900">กลุ่มความเสี่ยงที่เกิดขึ้นในแต่ละเฟสของโครงการ</h2>
           <p className="mt-1 text-sm text-gray-500">คลิกชื่อประเภทความเสี่ยงเพื่อเปิดรายละเอียดแยกตามปัจจัยความเสี่ยงในแต่ละเฟส</p>
         </div>
         {safeInfoData.riskSource?.global?.length || safeInfoData.riskSource?.thailand?.length ? (
@@ -1130,7 +1125,10 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
             </thead>
             <tbody>
               {riskCategoryMatrixData.map((row) => {
-                const fullName = riskCategoryNameById.get(row.categoryId) ?? row.categoryId
+                const fullName =
+                  riskCategoryNameById.get(row.categoryId) ??
+                  riskCategoryNameById.get(toRiskCategoryCode(row.categoryId)) ??
+                  row.categoryId
                 const fp = riskData?.heatmapRiskPhase?.[row.categoryId] as Record<string, unknown> | undefined
                 const hasMatrixRowValue =
                   row.preConstruction > 0 ||
@@ -1405,6 +1403,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
           if (!matrixModalItem) return null
           const modalTitle =
             riskCategoryNameById.get(selectedMatrixCategoryId) ??
+            riskCategoryNameById.get(toRiskCategoryCode(selectedMatrixCategoryId)) ??
             String(selectedMatrixCategoryId)
           return (
             <div

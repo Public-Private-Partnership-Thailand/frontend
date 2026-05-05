@@ -11,9 +11,22 @@ export type HeatmapRiskApiItem = {
   }>
 }
 
+const RISK_CATEGORY_CODE_PAD = 2
+
+/** Canonical heatmap key: `C` + zero-padded numeric id (e.g. `C01`). Normalizes `"1"`, `"C1"`, `1` from API. */
 export function toRiskCategoryCode(id: number | string): string {
-  if (typeof id === 'string') return id
-  return `C${String(id).padStart(2, '0')}`
+  if (typeof id === 'number') {
+    return `C${String(id).padStart(RISK_CATEGORY_CODE_PAD, '0')}`
+  }
+  const trimmed = id.trim()
+  const m = /^C(\d+)$/i.exec(trimmed)
+  if (m) {
+    const n = parseInt(m[1], 10)
+    if (!Number.isNaN(n)) return `C${String(n).padStart(RISK_CATEGORY_CODE_PAD, '0')}`
+  }
+  const n = parseInt(trimmed, 10)
+  if (!Number.isNaN(n)) return `C${String(n).padStart(RISK_CATEGORY_CODE_PAD, '0')}`
+  return trimmed
 }
 
 const FACTOR_ID_PAD = 3
