@@ -87,24 +87,35 @@ export default function Step1EssentialInfo({ register, control, errors, setValue
   useEffect(() => {
     const formValues = getValues()
     if (formValues.sector && Array.isArray(formValues.sector) && formValues.sector.length > 0) {
-      const firstSector = formValues.sector[0]
-      const code = typeof firstSector === 'string' ? firstSector : (firstSector?.id || '')
+      // Form type: sector is string[] (business group codes). Runtime/API may briefly use { id }; normalize.
+      const firstSector = formValues.sector[0] as string | { id?: string } | undefined
+      const code =
+        typeof firstSector === 'string'
+          ? firstSector.trim()
+          : firstSector && typeof firstSector === 'object'
+            ? String(firstSector.id ?? '').trim()
+            : ''
       if (code) {
         setSelectedSectorCode(code)
       }
     }
   }, [getValues])
 
-  const matchClassificationByInfoValue = (options: Array<{ id?: number; value: string }>, saved: string) => {
+  type InfoSelectable = { id?: number; value: string }
+
+  function matchClassificationByInfoValue(options: InfoSelectable[], saved: string): InfoSelectable | undefined {
     const d = saved.trim()
     return options.find((o) => String(o.value).trim() === d)
   }
 
   // Sync Step 1 dropdowns vs /api/v1/info contractType + concessionForm after edit reset() or info load.
   useEffect(() => {
-    const classifications = Array.isArray(watchedAdditionalClassifications)
-      ? watchedAdditionalClassifications
-      : (getValues().additionalClassifications ?? [])
+    const rawClassifications =
+      watchedAdditionalClassifications !== undefined && watchedAdditionalClassifications !== null
+        ? watchedAdditionalClassifications
+        : (getValues().additionalClassifications ?? [])
+    /** Hidden input / bad API data can yield non-array; never call .find on it. */
+    const classifications = Array.isArray(rawClassifications) ? rawClassifications : []
 
     const contractClassification = classifications.find((c: any) => {
       const scheme = typeof c === 'object' && c !== null ? (c.scheme || '') : ''
@@ -559,7 +570,7 @@ export default function Step1EssentialInfo({ register, control, errors, setValue
             {/* Custom contract type input - shown when "อื่น ๆ" is selected */}
             {selectedContractType === 'อื่น ๆ' && (
               <div className="mt-3">
-                <label className="form-label">{t('form.contractType.custom') || 'ระบุรูปแบบการจัดสรรกรรมสิทธิ์'} *</label>
+                <label className="form-label">{t('form.contractType.custom') || 'ระบุรูปแบบการจัดสรรกรรมสิทธิ์'}</label>
                 <input
                   type="text"
                   value={customContractType}
