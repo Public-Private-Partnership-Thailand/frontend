@@ -10,6 +10,7 @@ import { fetchProjectById } from '@/lib/projectService'
 import { BUSINESS_GROUP_CODE_TO_DISPLAY_NAME } from '@/types/businessGroup'
 import { formatDateForDisplay } from '@/lib/utils/dateUtils'
 import { useInfo } from '@/app/hooks/useInfo'
+import { normalizeMitigationHandling } from '@/lib/normalizeMitigationHandling'
 export default function ViewProjectClient() {
   const { t } = useLanguage()
   const { isAuthenticated } = useAuth()
@@ -637,13 +638,6 @@ export default function ViewProjectClient() {
               construction:       { label: 'construction',       cls: 'bg-blue-100 text-blue-700' },
               operation:          { label: 'operation',        cls: 'bg-emerald-100 text-emerald-700' },
             }
-            const MITIGATION_META: Record<string, { label: string; icon: string; cls: string }> = {
-              planned:          { label: 'วางแผน',          icon: '○', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
-              in_progress:      { label: 'กำลังดำเนินการ',   icon: '◑', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-              done_or_selected: { label: 'ดำเนินการแล้ว',    icon: '●', cls: 'bg-green-50 text-green-700 border-green-200' },
-              rejected:         { label: 'ไม่ดำเนินการ',     icon: '✕', cls: 'bg-red-50 text-red-700 border-red-200' },
-            }
-
             const toggleRiskExpand = (index: number) => {
               setExpandedRiskIndices(prev => {
                 const next = new Set(prev)
@@ -664,10 +658,11 @@ export default function ViewProjectClient() {
                   {risks.map((risk, riskIndex) => {
                     const phaseMeta = PHASE_META[risk.phase] ?? { label: risk.phase, cls: 'bg-gray-100 text-gray-600' }
                     const isExpanded = expandedRiskIndices.has(riskIndex)
+                    const mitigationLines = normalizeMitigationHandling(risk.mitigation_handling)
                     const hasDetails = Boolean(
                       (risk.description?.length) ||
                       (risk.category_drivers?.length) ||
-                      (risk.mitigation_handling?.length) ||
+                      mitigationLines.length > 0 ||
                       (risk.impact_statement?.length)
                     )
 
@@ -777,31 +772,27 @@ export default function ViewProjectClient() {
                             </div>
                           )}
 
-                          {/* ── Mitigation / Handling ── */}
-                          {risk.mitigation_handling && risk.mitigation_handling.length > 0 && (
-                            <div className="px-4 py-4">
-                              <p className="text-[11px] font-semibold text-gray-400 tracking-widest mb-2">มาตรการรับมือ (Mitigation)</p>
-                              <div className="space-y-2">
-                                {risk.mitigation_handling.map((m, mIdx) => {
-                                  const meta = MITIGATION_META[m.status] ?? { label: m.status, icon: '·', cls: 'bg-gray-50 text-gray-600 border-gray-200' }
-                                  return (
-                                    <div key={mIdx} className="flex items-start gap-2.5">
-                                      <span className={`flex-shrink-0 mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium ${meta.cls}`}>
-                                        <span>{meta.icon}</span>
-                                        {meta.label}
-                                      </span>
-                                      <span className="text-sm text-gray-700 leading-relaxed">{m.action}</span>
-                                    </div>
-                                  )
-                                })}
-                              </div>
+                          {/* ── Risk response (mitigation_handling) ── */}
+                          {mitigationLines.length > 0 && (
+                            <div className="px-4 py-4 bg-slate-50/40">
+                              <p className="text-[11px] font-semibold text-gray-500 tracking-widest mb-2">
+                                มาตรการรับมือ (Risk Response)
+                              </p>
+                              <ul className="space-y-1.5">
+                                {mitigationLines.map((line, i) => (
+                                  <li key={i} className="flex gap-2.5 text-sm text-gray-700 leading-relaxed">
+                                    <span className="mt-2 w-1.5 h-1.5 rounded-full bg-slate-400 flex-shrink-0" />
+                                    <span>{line}</span>
+                                  </li>
+                                ))}
+                              </ul>
                             </div>
                           )}
 
                           {/* ── Impact Statement ── */}
                           {risk.impact_statement && risk.impact_statement.length > 0 && (
                             <div className="px-4 py-4 bg-amber-50/30">
-                              <p className="text-[11px] font-semibold text-amber-600/70 tracking-widest mb-2">ผลกระทบ (Impact)</p>
+                              <p className="text-[11px] font-semibold text-amber-600/70 tracking-widest mb-2">ผลกระทบ (Risk Impact)</p>
                               <ul className="space-y-1.5">
                                 {risk.impact_statement.map((line, i) => (
                                   <li key={i} className="flex gap-2.5 text-sm text-gray-700 leading-relaxed">

@@ -9,6 +9,12 @@ export type PastPppRiskProjectRow = {
   phase: string
   riskGroup: string
   riskFactor: string
+  riskGroups?: string[]
+  riskFactors?: string[]
+  riskBreakdown?: Array<{
+    riskGroup: string
+    riskFactors: string[]
+  }>
 }
 
 export type PastPppRiskIncident = {
@@ -18,6 +24,10 @@ export type PastPppRiskIncident = {
   riskFactor: string
   phase: string
   projects: PastPppRiskProjectRow[]
+  riskBreakdown?: Array<{
+    riskGroup: string
+    riskFactors: string[]
+  }>
 }
 
 export type PastPppSectorPastRisks = {

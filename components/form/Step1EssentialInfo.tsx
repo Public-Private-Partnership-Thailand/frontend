@@ -20,6 +20,8 @@ export default function Step1EssentialInfo({ register, control, errors, setValue
   const { t } = useLanguage()
   const { touchedFields, isSubmitted } = useFormState({ control })
   const publicAuthorityValue = useWatch({ control, name: 'publicAuthority' })
+  /** Re-sync when edit flow calls reset(project) — getValues identity does not change. */
+  const watchedAdditionalClassifications = useWatch({ control, name: 'additionalClassifications' })
   const [selectedSectorCode, setSelectedSectorCode] = useState<string>('')
   const [selectedContractType, setSelectedContractType] = useState<string>('')
   const [customContractType, setCustomContractType] = useState<string>('')
@@ -93,47 +95,69 @@ export default function Step1EssentialInfo({ register, control, errors, setValue
     }
   }, [getValues])
 
-  // Initialize contractType, concessionType, and relatedLaws
+  const matchClassificationByInfoValue = (options: Array<{ id?: number; value: string }>, saved: string) => {
+    const d = saved.trim()
+    return options.find((o) => String(o.value).trim() === d)
+  }
+
+  // Sync Step 1 dropdowns vs /api/v1/info contractType + concessionForm after edit reset() or info load.
   useEffect(() => {
-    const formValues = getValues()
-    
-    // Initialize contract type and concession type from additionalClassifications
-    if (formValues.additionalClassifications && Array.isArray(formValues.additionalClassifications)) {
-      // Initialize contract type
-      const contractType = formValues.additionalClassifications.find((c: any) => {
-        const scheme = typeof c === 'object' && c !== null ? (c.scheme || "") : ""
-        return scheme === 'รูปแบบการจัดสรรกรรมสิทธิ์'
-      })
-      if (contractType) {
-        const description = typeof contractType === 'object' && contractType !== null ? (contractType.description || "") : ""
-        const options = contractTypeOptions
-        if (options.some((o: { id: number; value: string }) => o.value === description)) {
-          setSelectedContractType(description)
+    const classifications = Array.isArray(watchedAdditionalClassifications)
+      ? watchedAdditionalClassifications
+      : (getValues().additionalClassifications ?? [])
+
+    const contractClassification = classifications.find((c: any) => {
+      const scheme = typeof c === 'object' && c !== null ? (c.scheme || '') : ''
+      return scheme === 'รูปแบบการจัดสรรกรรมสิทธิ์'
+    })
+    if (contractClassification && typeof contractClassification === 'object' && contractClassification !== null) {
+      const descriptionRaw = contractClassification.description
+      const description = descriptionRaw != null ? String(descriptionRaw).trim() : ''
+
+      if (contractTypeOptions.length > 0) {
+        const match = description ? matchClassificationByInfoValue(contractTypeOptions, description) : undefined
+        if (match) {
+          setSelectedContractType(match.value)
           setCustomContractType('')
-        } else {
+        } else if (description) {
           setSelectedContractType('อื่น ๆ')
           setCustomContractType(description)
-        }
-      }
-
-      // Initialize concession/compensation type
-      const concessionType = formValues.additionalClassifications.find((c: any) => {
-        const scheme = typeof c === 'object' && c !== null ? (c.scheme || "") : ""
-        return scheme === 'รูปแบบสัมปทานหรือค่าตอบแทน'
-      })
-      if (concessionType) {
-        const description = typeof concessionType === 'object' && concessionType !== null ? (concessionType.description || "") : ""
-        const options = concessionTypeOptions
-        if (options.some((o: { id: number; value: string }) => o.value === description)) {
-          setSelectedConcessionType(description)
-          setCustomConcessionType('')
         } else {
-          setSelectedConcessionType('อื่น ๆ')
-          setCustomConcessionType(description)
+          setSelectedContractType('')
+          setCustomContractType('')
         }
+      } else if (!description) {
+        setSelectedContractType('')
+        setCustomContractType('')
       }
     }
-  }, [getValues])
+
+    const concessionClassification = classifications.find((c: any) => {
+      const scheme = typeof c === 'object' && c !== null ? (c.scheme || '') : ''
+      return scheme === 'รูปแบบสัมปทานหรือค่าตอบแทน'
+    })
+    if (concessionClassification && typeof concessionClassification === 'object' && concessionClassification !== null) {
+      const descriptionRaw = concessionClassification.description
+      const description = descriptionRaw != null ? String(descriptionRaw).trim() : ''
+
+      if (concessionTypeOptions.length > 0) {
+        const match = description ? matchClassificationByInfoValue(concessionTypeOptions, description) : undefined
+        if (match) {
+          setSelectedConcessionType(match.value)
+          setCustomConcessionType('')
+        } else if (description) {
+          setSelectedConcessionType('อื่น ๆ')
+          setCustomConcessionType(description)
+        } else {
+          setSelectedConcessionType('')
+          setCustomConcessionType('')
+        }
+      } else if (!description) {
+        setSelectedConcessionType('')
+        setCustomConcessionType('')
+      }
+    }
+  }, [watchedAdditionalClassifications, contractTypeOptions, concessionTypeOptions, getValues])
 
   // One หน่วยงาน = name + ministries + contractors. Default 1 item when create.
   type AuthorityItem = { name: string; ministries: string[]; contractors: string[] }
@@ -527,6 +551,9 @@ export default function Step1EssentialInfo({ register, control, errors, setValue
                   {option.value}
                 </option>
               ))}
+              {!contractTypeOptions.some((o) => o.value === 'อื่น ๆ') ? (
+                <option value="อื่น ๆ">อื่น ๆ</option>
+              ) : null}
             </select>
             
             {/* Custom contract type input - shown when "อื่น ๆ" is selected */}
@@ -573,6 +600,9 @@ export default function Step1EssentialInfo({ register, control, errors, setValue
                   {option.value}
                 </option>
               ))}
+              {!concessionTypeOptions.some((o) => o.value === 'อื่น ๆ') ? (
+                <option value="อื่น ๆ">อื่น ๆ</option>
+              ) : null}
             </select>
             
             {/* Custom concession type input - shown when "อื่น ๆ" is selected */}

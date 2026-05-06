@@ -248,7 +248,7 @@ export default function CreateProjectPage() {
         phase: risk.phase,
         description: (risk.description ?? []).map((s) => s.trim()).filter(Boolean),
         category_drivers: risk.category_drivers ?? [],
-        mitigation_handling: risk.mitigation_handling ?? [],
+        mitigation_handling: (risk.mitigation_handling ?? []).map((s) => s.trim()).filter(Boolean),
         impact_statement: (risk.impact_statement ?? []).map((s) => s.trim()).filter(Boolean),
       }))
 

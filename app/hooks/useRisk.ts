@@ -76,8 +76,15 @@ export type RiskSectorWithProjectProjectRow = {
   riskImpact: string
   riskResponse: string
   phase: string
+  risks?: RiskSectorWithProjectProjectRiskRow[]
+  // Backward compatibility for old API shape.
+  riskCategoryId?: number
+  riskFactorId?: number
+}
+
+export type RiskSectorWithProjectProjectRiskRow = {
   riskCategoryId: number
-  riskFactorId: number
+  riskFactorId: number[]
 }
 
 export type RiskSectorWithProjectItem = {
@@ -185,14 +192,41 @@ export const useRisk = (
                 typeof (p as RiskSectorWithProjectProjectRow).problem === 'string' &&
                 typeof (p as RiskSectorWithProjectProjectRow).riskImpact === 'string' &&
                 typeof (p as RiskSectorWithProjectProjectRow).riskResponse === 'string' &&
-                typeof (p as RiskSectorWithProjectProjectRow).phase === 'string' &&
-                typeof (p as RiskSectorWithProjectProjectRow).riskCategoryId === 'number' &&
-                typeof (p as RiskSectorWithProjectProjectRow).riskFactorId === 'number'
+                typeof (p as RiskSectorWithProjectProjectRow).phase === 'string'
             )
+            const normalizedProjects = projects.map((p) => {
+              const risksFromNewShape = Array.isArray(p.risks)
+                ? p.risks
+                    .filter(
+                      (r): r is RiskSectorWithProjectProjectRiskRow =>
+                        r != null &&
+                        typeof r === 'object' &&
+                        typeof (r as RiskSectorWithProjectProjectRiskRow).riskCategoryId === 'number' &&
+                        Array.isArray((r as RiskSectorWithProjectProjectRiskRow).riskFactorId)
+                    )
+                    .map((r) => ({
+                      riskCategoryId: r.riskCategoryId,
+                      riskFactorId: r.riskFactorId.filter(
+                        (id): id is number => typeof id === 'number' && Number.isFinite(id)
+                      ),
+                    }))
+                    .filter((r) => r.riskFactorId.length > 0)
+                : []
+
+              const risksFromOldShape =
+                typeof p.riskCategoryId === 'number' && typeof p.riskFactorId === 'number'
+                  ? [{ riskCategoryId: p.riskCategoryId, riskFactorId: [p.riskFactorId] }]
+                  : []
+
+              return {
+                ...p,
+                risks: risksFromNewShape.length > 0 ? risksFromNewShape : risksFromOldShape,
+              }
+            })
             return {
               sector,
               riskCount,
-              projects,
+              projects: normalizedProjects,
             }
           })
           .filter((x) => x.sector.length > 0)

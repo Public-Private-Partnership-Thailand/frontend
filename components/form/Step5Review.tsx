@@ -3,6 +3,7 @@ import { ProjectFormData, ProjectData } from '@/types/project'
 import { useLanguage } from '@/lib/LanguageContext'
 import { BUSINESS_GROUP_CODE_TO_DISPLAY_NAME } from '@/types/businessGroup'
 import { RISK_PHASE_OPTIONS } from '@/lib/riskConstants'
+import { normalizeMitigationHandling } from '@/lib/normalizeMitigationHandling'
 import { useEffect } from 'react'
 
 interface Step5ReviewProps {
@@ -54,9 +55,8 @@ export default function Step5Review({ control, mode = 'create', originalProject 
   const getBusinessGroupDisplayName = () => {
     if (!formData.sector || !Array.isArray(formData.sector)) return 'N/A'
     
-    // Find the first sector code that matches a business group code
-    for (const sectorItem of formData.sector) {
-      const sectorCode = typeof sectorItem === 'string' ? sectorItem : (sectorItem?.id || '')
+    // Form `sector` is typed as string[] (business group codes). Each entry is already the code string.
+    for (const sectorCode of formData.sector) {
       if (sectorCode && BUSINESS_GROUP_CODE_TO_DISPLAY_NAME[sectorCode as keyof typeof BUSINESS_GROUP_CODE_TO_DISPLAY_NAME]) {
         return BUSINESS_GROUP_CODE_TO_DISPLAY_NAME[sectorCode as keyof typeof BUSINESS_GROUP_CODE_TO_DISPLAY_NAME]
       }
@@ -387,12 +387,30 @@ export default function Step5Review({ control, mode = 'create', originalProject 
             {formData.risks.map((risk, riskIndex) => {
               const originalRisks = originalProject?.risks ?? []
               const originalRisk = originalRisks[riskIndex]
-              const formatCategoryDrivers = (arr: Array<{ category_name?: string; risk_category_id?: string; driven_by_risk_factors?: Array<{ factor_name?: string; risk_factor_id?: string }> }> | undefined) => {
+              /** Matches `Risk` / form watch: IDs are numeric; form state may omit fields. */
+              const formatCategoryDrivers = (
+                arr:
+                  | Array<{
+                      category_name?: string
+                      risk_category_id?: number
+                      risk_category_code?: string
+                      driven_by_risk_factors?: Array<{
+                        factor_name?: string
+                        risk_factor_id?: number
+                      }>
+                    }>
+                  | undefined
+              ) => {
                 if (!arr?.length) return '—'
                 return arr
                   .map((cd) => {
-                    const label = cd.category_name || cd.risk_category_id || '—'
-                    const factors = (cd.driven_by_risk_factors ?? []).map((f) => f.factor_name || f.risk_factor_id || '').filter(Boolean)
+                    const label =
+                      cd.category_name ||
+                      (cd.risk_category_id != null ? String(cd.risk_category_id) : '') ||
+                      '—'
+                    const factors = (cd.driven_by_risk_factors ?? [])
+                      .map((f) => f.factor_name || (f.risk_factor_id != null ? String(f.risk_factor_id) : ''))
+                      .filter(Boolean)
                     return factors.length ? `${label}: ${factors.join(', ')}` : label
                   })
                   .join('\n')
@@ -401,9 +419,11 @@ export default function Step5Review({ control, mode = 'create', originalProject 
               const descAfter = (risk.description ?? []).filter(Boolean).join('\n') || '—'
               const impactBefore = (originalRisk?.impact_statement ?? []).filter(Boolean).join('\n') || '—'
               const impactAfter = (risk.impact_statement ?? []).filter(Boolean).join('\n') || '—'
-              const mitigationBefore = (originalRisk?.mitigation_handling ?? []).map((m: { action?: string; status?: string }) => `${m.action ?? ''} (${m.status ?? ''})`).join('\n') || '—'
-              const mitigationAfter = (risk.mitigation_handling ?? []).map((m: { action?: string; status?: string }) => `${m.action ?? ''} (${m.status ?? ''})`).join('\n') || '—'
-              const categoryDriversBefore = formatCategoryDrivers(originalRisk?.category_drivers as typeof risk.category_drivers)
+              const mitigationBefore =
+                normalizeMitigationHandling(originalRisk?.mitigation_handling).join('\n') || '—'
+              const mitigationAfter =
+                normalizeMitigationHandling(risk.mitigation_handling).join('\n') || '—'
+              const categoryDriversBefore = formatCategoryDrivers(originalRisk?.category_drivers)
               const categoryDriversAfter = formatCategoryDrivers(risk.category_drivers)
               const phaseLabelAfter = RISK_PHASE_OPTIONS.find((p) => p.value === risk.phase)?.label ?? (risk.phase || '—')
               const phaseLabelBefore = originalRisk ? (RISK_PHASE_OPTIONS.find((p) => p.value === originalRisk.phase)?.label ?? (originalRisk.phase || '—')) : '—'
@@ -438,7 +458,7 @@ export default function Step5Review({ control, mode = 'create', originalProject 
                     ) : null}
                     {((risk.category_drivers?.length ?? 0) > 0 || (originalRisk?.category_drivers?.length ?? 0) > 0) ? (
                       <div className={categoryDriversChanged ? 'rounded-md p-2 bg-yellow-50 border border-yellow-200' : ''}>
-                        <dt className="text-sm font-medium text-gray-500">Risk Category Drivers</dt>
+                        <dt className="text-sm font-medium text-gray-500">กลุ่มปัญหาความเสี่ยง (Risk Category Drivers)</dt>
                         <dd className="mt-1">
                           {renderDiffValue(categoryDriversBefore, categoryDriversAfter, { preserveNewlines: true })}
                         </dd>
@@ -446,7 +466,7 @@ export default function Step5Review({ control, mode = 'create', originalProject 
                     ) : null}
                     {((risk.mitigation_handling?.length ?? 0) > 0 || (originalRisk?.mitigation_handling?.length ?? 0) > 0) ? (
                       <div className={mitigationChanged ? 'rounded-md p-2 bg-yellow-50 border border-yellow-200' : ''}>
-                        <dt className="text-sm font-medium text-gray-500">Mitigation / Handling</dt>
+                        <dt className="text-sm font-medium text-gray-500">มาตรการรับมือ (Risk Response)</dt>
                         <dd className="mt-1">
                           {renderDiffValue(mitigationBefore, mitigationAfter, { preserveNewlines: true })}
                         </dd>
@@ -454,7 +474,7 @@ export default function Step5Review({ control, mode = 'create', originalProject 
                     ) : null}
                     {((risk.impact_statement?.length ?? 0) > 0 || (originalRisk?.impact_statement?.length ?? 0) > 0) ? (
                       <div className={impactChanged ? 'rounded-md p-2 bg-yellow-50 border border-yellow-200' : ''}>
-                        <dt className="text-sm font-medium text-gray-500">ผลกระทบ (Impact Statement)</dt>
+                        <dt className="text-sm font-medium text-gray-500">ผลกระทบ (Risk Impact)</dt>
                         <dd className="mt-1">
                           {renderDiffValue(impactBefore, impactAfter, { preserveNewlines: true })}
                         </dd>

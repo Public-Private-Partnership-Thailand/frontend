@@ -714,11 +714,15 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
   )
 
   const savedProjectCount = useMemo(
-    () =>
-      (riskData?.riskSectorWithProject ?? []).reduce((sum, row) => {
-        const projectCount = Array.isArray(row.projects) ? row.projects.length : 0
-        return sum + projectCount
-      }, 0),
+    () => {
+      const ids = new Set<string>()
+      for (const row of riskData?.riskSectorWithProject ?? []) {
+        for (const p of Array.isArray(row.projects) ? row.projects : []) {
+          if (typeof p.projectId === 'string' && p.projectId.length > 0) ids.add(p.projectId)
+        }
+      }
+      return ids.size
+    },
     [riskData?.riskSectorWithProject]
   )
   const riskCategoryCount = safeInfoData.riskCategory?.length ?? 0

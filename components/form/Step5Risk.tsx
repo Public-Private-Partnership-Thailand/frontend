@@ -3,7 +3,7 @@
 import { UseFormRegister, Control, Controller, FieldErrors, useFieldArray, UseFormSetValue, useWatch } from 'react-hook-form'
 import { ProjectFormData, RiskCategoryDriver, RiskFactorItem } from '@/types/project'
 import { useState, useRef, useEffect } from 'react'
-import { RISK_PHASE_OPTIONS, MITIGATION_STATUS_OPTIONS } from '@/lib/riskConstants'
+import { RISK_PHASE_OPTIONS } from '@/lib/riskConstants'
 import { useInfo, RiskCategory, RiskFactor } from '@/app/hooks/useInfo'
 
 /** Floating info tooltip triggered on hover */
@@ -48,6 +48,15 @@ interface Step5RiskProps {
   control: Control<ProjectFormData>
   errors: FieldErrors<ProjectFormData>
   setValue: UseFormSetValue<ProjectFormData>
+}
+
+function toTextareaValue(value: unknown): string {
+  return Array.isArray(value) ? value.join('\n') : ''
+}
+
+function fromTextareaValue(value: string): string[] {
+  if (!value.trim()) return []
+  return value.split('\n')
 }
 
 /** Searchable multi-select for risk factors — stores { risk_factor_id, factor_name } objects */
@@ -368,8 +377,8 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
                       name={`risks.${riskIndex}.description` as const}
                       render={({ field }) => (
                         <textarea
-                          value={(field.value as string[]).join('\n')}
-                          onChange={(e) => field.onChange(e.target.value.split('\n'))}
+                          value={toTextareaValue(field.value)}
+                          onChange={(e) => field.onChange(fromTextareaValue(e.target.value))}
                           onBlur={field.onBlur}
                           rows={4}
                           className="form-input w-full"
@@ -391,17 +400,31 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
                   riskFactors={riskFactors}
                 />
 
-                {/* mitigation_handling */}
-                <MitigationBlock
-                  riskIndex={riskIndex}
-                  register={register}
-                  control={control}
-                  errors={errors}
-                />
+                {/* mitigation_handling — stored as string[] (one line per array item), same as impact */}
+                <div>
+                  <label className="form-label">มาตรการรับมือ (Risk Response)</label>
+                  <p className="text-xs text-gray-400 mb-1">แต่ละบรรทัดจะถูกบันทึกเป็นรายการแยก</p>
+                  <Controller
+                    control={control}
+                    name={`risks.${riskIndex}.mitigation_handling` as const}
+                    render={({ field }) => (
+                      <textarea
+                        value={toTextareaValue(field.value)}
+                        onChange={(e) => field.onChange(fromTextareaValue(e.target.value))}
+                        onBlur={field.onBlur}
+                        rows={3}
+                        className="form-input w-full"
+                        placeholder={
+                          'บรรทัดที่ 1: มาตรการรับมือแรก\nบรรทัดที่ 2: มาตรการถัดไป'
+                        }
+                      />
+                    )}
+                  />
+                </div>
 
                 {/* impact_statement */}
                 <div>
-                  <label className="form-label">ผลกระทบ (Impact Statement)</label>
+                  <label className="form-label">ผลกระทบ (Risk Impact)</label>
                   <p className="text-xs text-gray-400 mb-1">
                     แต่ละบรรทัดจะถูกบันทึกเป็นรายการแยก
                   </p>
@@ -410,8 +433,8 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
                     name={`risks.${riskIndex}.impact_statement` as const}
                     render={({ field }) => (
                       <textarea
-                        value={(field.value as string[]).join('\n')}
-                        onChange={(e) => field.onChange(e.target.value.split('\n'))}
+                        value={toTextareaValue(field.value)}
+                        onChange={(e) => field.onChange(fromTextareaValue(e.target.value))}
                         onBlur={field.onBlur}
                         rows={3}
                         className="form-input w-full"
@@ -469,7 +492,7 @@ function RiskCategoryDriversBlock({
   return (
     <div>
       <div className="flex justify-between items-center mb-2">
-        <label className="form-label mb-0">Risk Category Drivers</label>
+        <label className="form-label mb-0">กลุ่มปัญหาความเสี่ยง (Risk Category Drivers)</label>
         <button
           type="button"
           onClick={() =>
@@ -599,84 +622,6 @@ function RiskCategoryDriversBlock({
                   }}
                   riskFactors={riskFactors}
                 />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function MitigationBlock({
-  riskIndex,
-  register,
-  control,
-  errors,
-}: {
-  riskIndex: number
-  register: UseFormRegister<ProjectFormData>
-  control: Control<ProjectFormData>
-  errors: FieldErrors<ProjectFormData>
-}) {
-  const {
-    fields: mitigationFields,
-    append: appendMitigation,
-    remove: removeMitigation,
-  } = useFieldArray({
-    control,
-    name: `risks.${riskIndex}.mitigation_handling` as 'risks.0.mitigation_handling',
-  })
-
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-2">
-        <label className="form-label mb-0">Mitigation / Handling</label>
-        <button
-          type="button"
-          onClick={() => appendMitigation({ action: '', status: 'planned' })}
-          className="btn-secondary text-xs py-1 px-2"
-        >
-          + เพิ่มมาตรการ
-        </button>
-      </div>
-      {mitigationFields.length === 0 && (
-        <p className="text-xs text-gray-400 italic">ยังไม่มีมาตรการรับมือ</p>
-      )}
-      <div className="space-y-3">
-        {mitigationFields.map((mField, mIndex) => (
-          <div key={mField.id} className="pl-4 border-l-2 border-gray-200 space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">มาตรการ #{mIndex + 1}</span>
-              <button
-                type="button"
-                onClick={() => removeMitigation(mIndex)}
-                className="text-red-600 hover:text-red-800 text-xs"
-              >
-                ลบ
-              </button>
-            </div>
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="md:w-2/3">
-                <label className="block text-xs font-medium text-gray-600 mb-1">มาตรการรับมือ (Action)</label>
-                <input
-                  {...register(`risks.${riskIndex}.mitigation_handling.${mIndex}.action` as const)}
-                  className="form-input w-full text-sm"
-                  placeholder="รายละเอียดมาตรการ"
-                />
-              </div>
-              <div className="md:w-1/3">
-                <label className="block text-xs font-medium text-gray-600 mb-1">สถานะ (Status)</label>
-                <select
-                  {...register(`risks.${riskIndex}.mitigation_handling.${mIndex}.status` as const)}
-                  className="form-input w-full text-sm"
-                >
-                  {MITIGATION_STATUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
           </div>

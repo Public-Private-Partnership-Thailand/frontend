@@ -227,10 +227,10 @@ export interface RiskCategoryDriver {
   driven_by_risk_factors: RiskFactorItem[];
 }
 
-/** Single mitigation / handling action */
+/** @deprecated Legacy API shape; form uses `mitigation_handling: string[]` */
 export interface RiskMitigationItem {
   action: string;
-  status: string; // 'planned' | 'in_progress' | 'done_or_selected' | 'rejected'
+  status: string;
 }
 
 /** Single risk item */
@@ -240,7 +240,8 @@ export interface Risk {
   phase: string;
   description: string[];
   category_drivers: RiskCategoryDriver[];
-  mitigation_handling: RiskMitigationItem[];
+  /** One entry per line of risk response (same pattern as impact_statement). */
+  mitigation_handling: string[];
   impact_statement: string[];
 }
 

@@ -12,6 +12,7 @@ import {
 import type {
   RiskSectorWithProjectItem,
   RiskSectorWithProjectProjectRow,
+  RiskSectorWithProjectProjectRiskRow,
 } from '@/app/hooks/useRisk'
 import { getBusinessGroupDisplayName } from '@/types/businessGroup'
 import {
@@ -64,13 +65,44 @@ function normalizePhase(phase: string): string {
   return phase
 }
 
+function removeRiskFactorCodePrefix(label: string): string {
+  return label.replace(/^\s*F\d+\s*:\s*/i, '').trim()
+}
+
 function mapProjectRowFromApi(
   p: RiskSectorWithProjectProjectRow,
   riskCategoryMap: Map<number, string>,
   riskFactorMap: Map<number, string>
 ): PastPppRiskProjectRow {
-  const riskGroup = riskCategoryMap.get(p.riskCategoryId) ?? `หมวดความเสี่ยง #${p.riskCategoryId}`
-  const riskFactor = riskFactorMap.get(p.riskFactorId) ?? `ปัจจัยความเสี่ยง #${p.riskFactorId}`
+  const normalizedRisks: RiskSectorWithProjectProjectRiskRow[] = []
+  if (Array.isArray(p.risks) && p.risks.length > 0) {
+    normalizedRisks.push(...p.risks)
+  } else if (typeof p.riskCategoryId === 'number' && typeof p.riskFactorId === 'number') {
+    normalizedRisks.push({ riskCategoryId: p.riskCategoryId, riskFactorId: [p.riskFactorId] })
+  }
+
+  const riskBreakdownMap = new Map<string, Set<string>>()
+  for (const risk of normalizedRisks) {
+    const group = riskCategoryMap.get(risk.riskCategoryId) ?? `หมวดความเสี่ยง #${risk.riskCategoryId}`
+    if (!riskBreakdownMap.has(group)) {
+      riskBreakdownMap.set(group, new Set())
+    }
+    const factorSet = riskBreakdownMap.get(group)!
+    for (const id of risk.riskFactorId) {
+      const rawFactor = riskFactorMap.get(id) ?? `ปัจจัยความเสี่ยง #${id}`
+      factorSet.add(removeRiskFactorCodePrefix(rawFactor))
+    }
+  }
+
+  const riskBreakdown = Array.from(riskBreakdownMap.entries()).map(([riskGroup, factors]) => ({
+    riskGroup,
+    riskFactors: Array.from(factors),
+  }))
+  const riskGroups = riskBreakdown.map((x) => x.riskGroup)
+  const riskFactors = Array.from(new Set(riskBreakdown.flatMap((x) => x.riskFactors)))
+
+  const riskGroup = riskGroups.join(' / ')
+  const riskFactor = riskFactors.join(' / ')
   return {
     projectId: p.projectId,
     projectName: p.projectName,
@@ -80,6 +112,9 @@ function mapProjectRowFromApi(
     phase: normalizePhase(p.phase),
     riskGroup,
     riskFactor,
+    riskGroups,
+    riskFactors,
+    riskBreakdown,
   }
 }
 
@@ -95,28 +130,65 @@ function mapApiToSectorPastRisks(
     riskFactorList.map((f) => [f.id, formatRiskFactorLabel(f)])
   )
 
-  const projectsBySector = new Map<string, RiskSectorWithProjectProjectRow[]>()
-  for (const row of riskSectorWithProject ?? []) {
-    if (!Array.isArray(row.projects)) continue
-    projectsBySector.set(row.sector, row.projects)
-  }
-
   return (riskSectorWithProject ?? [])
     .filter((row) => typeof row.sector === 'string' && row.sector.trim().length > 0)
     .map((row) => {
-    const sectorKey = row.sector
-    const projects = projectsBySector.get(sectorKey) ?? []
-    const incidents: PastPppRiskIncident[] = projects.map((p, idx) => {
-      const mapped = mapProjectRowFromApi(p, riskCategoryMap, riskFactorMap)
-      return {
-        id: `${sectorKey}-${p.projectId || idx + 1}-${idx + 1}`,
+      const sectorKey = row.sector
+      const projects = Array.isArray(row.projects) ? row.projects : []
+      const dedupProjectMap = new Map<string, PastPppRiskProjectRow>()
+
+      for (const p of projects) {
+        const mapped = mapProjectRowFromApi(p, riskCategoryMap, riskFactorMap)
+        const key = [
+          mapped.projectId,
+          mapped.projectName,
+          mapped.problem,
+          mapped.riskImpact,
+          mapped.riskResponse,
+          mapped.phase,
+        ].join('|')
+        const existing = dedupProjectMap.get(key)
+        if (!existing) {
+          dedupProjectMap.set(key, mapped)
+          continue
+        }
+        const mergedRiskGroups = Array.from(
+          new Set([...(existing.riskGroups ?? []), ...(mapped.riskGroups ?? [])])
+        )
+        const mergedRiskFactors = Array.from(
+          new Set([...(existing.riskFactors ?? []), ...(mapped.riskFactors ?? [])])
+        )
+        const mergedBreakdownMap = new Map<string, Set<string>>()
+        for (const row of [...(existing.riskBreakdown ?? []), ...(mapped.riskBreakdown ?? [])]) {
+          if (!mergedBreakdownMap.has(row.riskGroup)) {
+            mergedBreakdownMap.set(row.riskGroup, new Set())
+          }
+          const set = mergedBreakdownMap.get(row.riskGroup)!
+          for (const factor of row.riskFactors) set.add(factor)
+        }
+        const mergedRiskBreakdown = Array.from(mergedBreakdownMap.entries()).map(([riskGroup, factors]) => ({
+          riskGroup,
+          riskFactors: Array.from(factors),
+        }))
+        dedupProjectMap.set(key, {
+          ...existing,
+          riskGroups: mergedRiskGroups,
+          riskFactors: mergedRiskFactors,
+          riskGroup: mergedRiskGroups.join(' / '),
+          riskFactor: mergedRiskFactors.join(' / '),
+          riskBreakdown: mergedRiskBreakdown,
+        })
+      }
+
+      const incidents: PastPppRiskIncident[] = Array.from(dedupProjectMap.values()).map((mapped, idx) => ({
+        id: `${sectorKey}-${mapped.projectId || idx + 1}-${idx + 1}`,
         summaryProblem: mapped.problem,
         riskGroup: mapped.riskGroup,
         riskFactor: mapped.riskFactor,
         phase: mapped.phase,
         projects: [mapped],
-      }
-    })
+        riskBreakdown: mapped.riskBreakdown,
+      }))
 
       return {
         sectorKey,
@@ -252,17 +324,44 @@ export default function PastPppThailandRiskSection({
                       key={inc.id}
                       className="rounded-lg border border-gray-200 bg-slate-50/50 p-4 hover:border-indigo-200 transition-colors"
                     >
-                      <p className="text-sm font-medium text-gray-900">{inc.summaryProblem}</p>
-                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
-                        <span className="rounded bg-white px-2 py-0.5 border border-gray-200">
-                          กลุ่ม: {inc.riskGroup}
-                        </span>
-                        <span className="rounded bg-white px-2 py-0.5 border border-gray-200">
-                          ปัจจัย: {inc.riskFactor}
-                        </span>
-                        <span className="rounded bg-white px-2 py-0.5 border border-gray-200">
-                          เฟส: {phaseLabelTh(inc.phase)}
-                        </span>
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <p className="text-sm font-medium text-gray-900">{inc.summaryProblem}</p>
+                        <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+                          <span className="rounded bg-white px-2 py-0.5 border border-gray-200">
+                            จำนวนปัจจัยเสี่ยง:{' '}
+                            {(inc.riskBreakdown && inc.riskBreakdown.length > 0
+                              ? inc.riskBreakdown.reduce((sum, row) => sum + row.riskFactors.length, 0)
+                              : inc.riskFactor
+                                ? 1
+                                : 0)}
+                          </span>
+                          <span className="rounded bg-white px-2 py-0.5 border border-gray-200">
+                            เฟส: {phaseLabelTh(inc.phase)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-2 space-y-2 text-xs text-gray-700">
+                        {(inc.riskBreakdown && inc.riskBreakdown.length > 0
+                          ? inc.riskBreakdown
+                          : [{ riskGroup: inc.riskGroup, riskFactors: [inc.riskFactor] }]
+                        ).map((row, idx) => (
+                          <div
+                            key={`${inc.id}-incident-breakdown-${idx}`}
+                            className="rounded-md border border-gray-200 bg-white px-2.5 py-2"
+                          >
+                            <div className="font-semibold text-gray-700">{row.riskGroup}</div>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              {row.riskFactors.map((factor, factorIdx) => (
+                                <span
+                                  key={`${inc.id}-incident-breakdown-factor-${idx}-${factorIdx}`}
+                                  className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-gray-700"
+                                >
+                                  {factor}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                       <button
                         type="button"
@@ -325,8 +424,8 @@ export default function PastPppThailandRiskSection({
                       <th className="py-2 pr-3 min-w-[9rem]">Risk impact</th>
                       <th className="py-2 pr-3 min-w-[9rem]">Risk response</th>
                       <th className="py-2 pr-3 w-28">Phase</th>
-                      <th className="py-2 pr-3 min-w-[9rem]">กลุ่มความเสี่ยง</th>
-                      <th className="py-2 pr-2 min-w-[9rem]">ปัจจัยเสี่ยง</th>
+                      <th className="py-2 pr-3 min-w-[11rem]">กลุ่มความเสี่ยง</th>
+                      <th className="py-2 pr-2 min-w-[8rem]">จำนวนปัจจัยเสี่ยง</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -339,8 +438,37 @@ export default function PastPppThailandRiskSection({
                         <td className="py-3 pr-3 text-gray-700">{p.riskImpact}</td>
                         <td className="py-3 pr-3 text-gray-700">{p.riskResponse}</td>
                         <td className="py-3 pr-3 text-gray-700 whitespace-nowrap">{phaseLabelTh(p.phase)}</td>
-                        <td className="py-3 pr-3 text-gray-700">{p.riskGroup}</td>
-                        <td className="py-3 pr-2 text-gray-700">{p.riskFactor}</td>
+                        <td className="py-3 pr-3 text-gray-700 align-top">
+                          <div className="space-y-2">
+                            {(p.riskBreakdown && p.riskBreakdown.length > 0
+                              ? p.riskBreakdown
+                              : [{ riskGroup: p.riskGroup, riskFactors: [p.riskFactor] }]
+                            ).map((groupRow, idx) => (
+                              <div key={`${p.projectId}-risk-breakdown-${idx}`} className="rounded-md border border-slate-200 bg-slate-50 p-2">
+                                <div className="text-xs font-semibold text-slate-700">{groupRow.riskGroup}</div>
+                                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                  {groupRow.riskFactors.map((factor, factorIdx) => (
+                                    <span
+                                      key={`${p.projectId}-risk-breakdown-factor-${idx}-${factorIdx}`}
+                                      className="inline-flex rounded bg-white border border-slate-200 px-2 py-0.5 text-xs text-slate-700"
+                                    >
+                                      {factor}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="py-3 pr-2 text-gray-700 align-top">
+                          <div className="text-xs text-gray-600">
+                            {(p.riskBreakdown && p.riskBreakdown.length > 0 ? p.riskBreakdown : []).reduce(
+                              (sum, row) => sum + row.riskFactors.length,
+                              0
+                            ) || (p.riskFactors?.length ?? (p.riskFactor ? 1 : 0))}{' '}
+                            ปัจจัย
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

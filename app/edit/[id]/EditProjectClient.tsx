@@ -7,6 +7,7 @@ import { ProjectFormData, ProjectData } from '@/types/project'
 import { useLanguage } from '@/lib/LanguageContext'
 import { fetchProjectById, updateProject } from '@/lib/projectService'
 import { isValidBusinessGroupCode } from '@/types/businessGroup'
+import { normalizeMitigationHandling } from '@/lib/normalizeMitigationHandling'
 import Step1EssentialInfo from '@/components/form/Step1EssentialInfo'
 import Step2AdditionalDetails from '@/components/form/Step2AdditionalDetails'
 import Step3BudgetInfo from '@/components/form/Step3BudgetInfo'
@@ -77,7 +78,10 @@ function projectToFormValues(project: ProjectData): any {
     parties: project.parties ?? [],
     documents: project.documents ?? [],
     additionalClassifications: project.additionalClassifications ?? [],
-    risks: project.risks ?? [],
+    risks: (project.risks ?? []).map((risk) => ({
+      ...risk,
+      mitigation_handling: normalizeMitigationHandling(risk.mitigation_handling),
+    })),
     policyAlignment: project.policyAlignment ?? undefined,
   }
 }
@@ -274,7 +278,7 @@ export default function EditProjectClient() {
         phase: risk.phase,
         description: (risk.description ?? []).map((s) => s.trim()).filter(Boolean),
         category_drivers: risk.category_drivers ?? [],
-        mitigation_handling: risk.mitigation_handling ?? [],
+        mitigation_handling: (risk.mitigation_handling ?? []).map((s) => s.trim()).filter(Boolean),
         impact_statement: (risk.impact_statement ?? []).map((s) => s.trim()).filter(Boolean),
       }))
 
