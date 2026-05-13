@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import Lucide from '@/components/Base/Lucide'
 import { getIconNameByGroupName } from '@/app/hooks/useSummary'
@@ -69,6 +70,20 @@ function removeRiskFactorCodePrefix(label: string): string {
   return label.replace(/^\s*F\d+\s*:\s*/i, '').trim()
 }
 
+function countRiskFactorsForIncident(inc: PastPppRiskIncident): number {
+  if (inc.riskBreakdown && inc.riskBreakdown.length > 0) {
+    return inc.riskBreakdown.reduce((sum, row) => sum + row.riskFactors.length, 0)
+  }
+  return inc.riskFactor ? 1 : 0
+}
+
+function countRiskGroupsForIncident(inc: PastPppRiskIncident): number {
+  if (inc.riskBreakdown && inc.riskBreakdown.length > 0) {
+    return inc.riskBreakdown.length
+  }
+  return inc.riskGroup && String(inc.riskGroup).trim() ? 1 : 0
+}
+
 function mapProjectRowFromApi(
   p: RiskSectorWithProjectProjectRow,
   riskCategoryMap: Map<number, string>,
@@ -135,60 +150,20 @@ function mapApiToSectorPastRisks(
     .map((row) => {
       const sectorKey = row.sector
       const projects = Array.isArray(row.projects) ? row.projects : []
-      const dedupProjectMap = new Map<string, PastPppRiskProjectRow>()
 
-      for (const p of projects) {
+      // One API `projects[]` row = one incident (matches `riskCount`; no merge by problem+impact+response).
+      const incidents: PastPppRiskIncident[] = projects.map((p, idx) => {
         const mapped = mapProjectRowFromApi(p, riskCategoryMap, riskFactorMap)
-        const key = [
-          mapped.projectId,
-          mapped.projectName,
-          mapped.problem,
-          mapped.riskImpact,
-          mapped.riskResponse,
-          mapped.phase,
-        ].join('|')
-        const existing = dedupProjectMap.get(key)
-        if (!existing) {
-          dedupProjectMap.set(key, mapped)
-          continue
+        return {
+          id: `${sectorKey}-${mapped.projectId}-${idx}`,
+          summaryProblem: mapped.problem,
+          riskGroup: mapped.riskGroup,
+          riskFactor: mapped.riskFactor,
+          phase: mapped.phase,
+          projects: [mapped],
+          riskBreakdown: mapped.riskBreakdown,
         }
-        const mergedRiskGroups = Array.from(
-          new Set([...(existing.riskGroups ?? []), ...(mapped.riskGroups ?? [])])
-        )
-        const mergedRiskFactors = Array.from(
-          new Set([...(existing.riskFactors ?? []), ...(mapped.riskFactors ?? [])])
-        )
-        const mergedBreakdownMap = new Map<string, Set<string>>()
-        for (const row of [...(existing.riskBreakdown ?? []), ...(mapped.riskBreakdown ?? [])]) {
-          if (!mergedBreakdownMap.has(row.riskGroup)) {
-            mergedBreakdownMap.set(row.riskGroup, new Set())
-          }
-          const set = mergedBreakdownMap.get(row.riskGroup)!
-          for (const factor of row.riskFactors) set.add(factor)
-        }
-        const mergedRiskBreakdown = Array.from(mergedBreakdownMap.entries()).map(([riskGroup, factors]) => ({
-          riskGroup,
-          riskFactors: Array.from(factors),
-        }))
-        dedupProjectMap.set(key, {
-          ...existing,
-          riskGroups: mergedRiskGroups,
-          riskFactors: mergedRiskFactors,
-          riskGroup: mergedRiskGroups.join(' / '),
-          riskFactor: mergedRiskFactors.join(' / '),
-          riskBreakdown: mergedRiskBreakdown,
-        })
-      }
-
-      const incidents: PastPppRiskIncident[] = Array.from(dedupProjectMap.values()).map((mapped, idx) => ({
-        id: `${sectorKey}-${mapped.projectId || idx + 1}-${idx + 1}`,
-        summaryProblem: mapped.problem,
-        riskGroup: mapped.riskGroup,
-        riskFactor: mapped.riskFactor,
-        phase: mapped.phase,
-        projects: [mapped],
-        riskBreakdown: mapped.riskBreakdown,
-      }))
+      })
 
       return {
         sectorKey,
@@ -220,6 +195,19 @@ export default function PastPppThailandRiskSection({
     sectorLabel: string
     incident: PastPppRiskIncident
   } | null>(null)
+
+  const uniqueProjectsInSectorModal = useMemo(() => {
+    if (!sectorModal) return []
+    const map = new Map<string, { projectId: string; projectName: string }>()
+    for (const inc of sectorModal.incidents) {
+      for (const p of inc.projects) {
+        const id = p.projectId?.trim()
+        if (!id || map.has(id)) continue
+        map.set(id, { projectId: id, projectName: p.projectName?.trim() || 'N/A' })
+      }
+    }
+    return Array.from(map.values())
+  }, [sectorModal])
 
   return (
     <div className="mb-8">
@@ -296,7 +284,7 @@ export default function PastPppThailandRiskSection({
           onClick={() => setSectorModal(null)}
         >
           <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+            className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-gray-200 bg-white px-5 py-4">
@@ -318,67 +306,75 @@ export default function PastPppThailandRiskSection({
               {sectorModal.incidents.length === 0 ? (
                 <p className="text-sm text-gray-500 py-8 text-center">ยังไม่มีข้อมูลตัวอย่างในกลุ่มกิจการนี้</p>
               ) : (
-                <ul className="space-y-3">
-                  {sectorModal.incidents.map((inc) => (
-                    <li
-                      key={inc.id}
-                      className="rounded-lg border border-gray-200 bg-slate-50/50 p-4 hover:border-indigo-200 transition-colors"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <p className="text-sm font-medium text-gray-900">{inc.summaryProblem}</p>
-                        <div className="flex flex-wrap gap-2 text-xs text-gray-600">
-                          <span className="rounded bg-white px-2 py-0.5 border border-gray-200">
-                            จำนวนปัจจัยเสี่ยง:{' '}
-                            {(inc.riskBreakdown && inc.riskBreakdown.length > 0
-                              ? inc.riskBreakdown.reduce((sum, row) => sum + row.riskFactors.length, 0)
-                              : inc.riskFactor
-                                ? 1
-                                : 0)}
-                          </span>
-                          <span className="rounded bg-white px-2 py-0.5 border border-gray-200">
-                            เฟส: {phaseLabelTh(inc.phase)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="mt-2 space-y-2 text-xs text-gray-700">
-                        {(inc.riskBreakdown && inc.riskBreakdown.length > 0
-                          ? inc.riskBreakdown
-                          : [{ riskGroup: inc.riskGroup, riskFactors: [inc.riskFactor] }]
-                        ).map((row, idx) => (
-                          <div
-                            key={`${inc.id}-incident-breakdown-${idx}`}
-                            className="rounded-md border border-gray-200 bg-white px-2.5 py-2"
-                          >
-                            <div className="font-semibold text-gray-700">{row.riskGroup}</div>
-                            <div className="mt-1.5 flex flex-wrap gap-1.5">
-                              {row.riskFactors.map((factor, factorIdx) => (
-                                <span
-                                  key={`${inc.id}-incident-breakdown-factor-${idx}-${factorIdx}`}
-                                  className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-gray-700"
-                                >
-                                  {factor}
-                                </span>
-                              ))}
-                            </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b border-gray-200 pb-2">
+                      ความเสี่ยงที่บันทึกไว้ ({riskCountBySector.get(sectorModal.sectorKey) ?? sectorModal.incidents.length})
+                    </h3>
+                    <ul className="space-y-3">
+                      {sectorModal.incidents.map((inc) => (
+                        <li
+                          key={inc.id}
+                          className="rounded-lg border border-gray-200 bg-slate-50/50 p-4 hover:border-indigo-200 transition-colors"
+                        >
+                          <p className="text-sm font-medium text-gray-900">{inc.summaryProblem}</p>
+                          <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                            <span className="rounded bg-white px-2 py-0.5 border border-gray-200">
+                              จำนวนกลุ่มความเสี่ยง: {countRiskGroupsForIncident(inc)}
+                            </span>
+                            <span className="rounded bg-white px-2 py-0.5 border border-gray-200">
+                              จำนวนปัจจัยเสี่ยง: {countRiskFactorsForIncident(inc)}
+                            </span>
+                            <span className="rounded bg-white px-2 py-0.5 border border-gray-200">
+                              เฟส: {phaseLabelTh(inc.phase)}
+                            </span>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setProjectsModal({
+                                sectorLabel: getBusinessGroupDisplayName(sectorModal.sectorKey),
+                                incident: inc,
+                              })
+                            }
+                            className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1"
+                          >
+                            ดูรายละเอียดโครงการ
+                            <Lucide icon="ChevronRight" className="w-4 h-4" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b border-gray-200 pb-2">
+                      โครงการที่พบความเสี่ยง ({uniqueProjectsInSectorModal.length})
+                    </h3>
+                    {uniqueProjectsInSectorModal.length === 0 ? (
+                      <p className="text-sm text-gray-500 py-4">ไม่มีรายการโครงการ</p>
+                    ) : (
+                      <ul className="space-y-3">
+                        {uniqueProjectsInSectorModal.map((proj) => (
+                          <li
+                            key={proj.projectId}
+                            className="rounded-lg border border-gray-200 bg-white p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                          >
+                            <p className="text-sm font-medium text-gray-900 min-w-0 flex-1">{proj.projectName}</p>
+                            <Link
+                              href={`/view/${proj.projectId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 text-sm font-medium text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1"
+                            >
+                              ดูรายละเอียดโครงการ
+                              <Lucide icon="ChevronRight" className="w-4 h-4" />
+                            </Link>
+                          </li>
                         ))}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setProjectsModal({
-                            sectorLabel: getBusinessGroupDisplayName(sectorModal.sectorKey),
-                            incident: inc,
-                          })
-                        }
-                        className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1"
-                      >
-                        ดูรายละเอียดโครงการ ({inc.projects.length})
-                        <Lucide icon="ChevronRight" className="w-4 h-4" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                      </ul>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>

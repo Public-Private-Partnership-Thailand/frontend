@@ -10,6 +10,7 @@ export interface ApiProjectItem {
   private_parties?: string[]
   sector?: string[]
   concession?: string[] | null
+  contract_type?: string[] | null
   start_date?: string
 }
 
@@ -17,13 +18,20 @@ function isNewApiProject(item: any): item is ApiProjectItem {
   return item && typeof item.public_authority === 'string'
 }
 
+function contractTypeListToDisplayId(types: string[] | null | undefined): string | undefined {
+  const parts = (types ?? []).map((s) => String(s).trim()).filter(Boolean)
+  if (parts.length === 0) return undefined
+  return parts.join(', ')
+}
+
 function mapApiProjectToProjectData(item: ApiProjectItem): ProjectData {
   const ministryList = item.ministry ?? []
   const ministryClassifications = ministryList.map(m => ({ scheme: 'TH-MINISTRY' as const, id: '', description: m }))
+  const contractTypeDisplay = contractTypeListToDisplayId(item.contract_type)
   return {
     id: item.id,
-    identifiers: item.concession && item.concession.length > 0
-      ? [{ scheme: 'TH-PPP-TYPE', id: item.concession[0] }]
+    identifiers: contractTypeDisplay
+      ? [{ scheme: 'TH-PPP-TYPE', id: contractTypeDisplay }]
       : undefined,
     updated: '',
     title: item.title ?? '',
