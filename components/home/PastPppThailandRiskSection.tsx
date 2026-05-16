@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Lucide from '@/components/Base/Lucide'
 import { getIconNameByGroupName } from '@/app/hooks/useSummary'
 import {
@@ -82,6 +82,74 @@ function countRiskGroupsForIncident(inc: PastPppRiskIncident): number {
     return inc.riskBreakdown.length
   }
   return inc.riskGroup && String(inc.riskGroup).trim() ? 1 : 0
+}
+
+type SectorModalProjectItem = {
+  projectId: string
+  projectName: string
+  riskGroupCount: number
+  riskFactorCount: number
+}
+
+function aggregateProjectRiskStats(rows: PastPppRiskProjectRow[]): {
+  riskGroupCount: number
+  riskFactorCount: number
+} {
+  const groups = new Set<string>()
+  const factors = new Set<string>()
+  for (const p of rows) {
+    if (p.riskBreakdown && p.riskBreakdown.length > 0) {
+      for (const row of p.riskBreakdown) {
+        const g = String(row.riskGroup ?? '').trim()
+        if (g) groups.add(g)
+        for (const f of row.riskFactors ?? []) {
+          const t = String(f ?? '').trim()
+          if (t) factors.add(t)
+        }
+      }
+    } else {
+      const g = String(p.riskGroup ?? '').trim()
+      if (g) groups.add(g)
+      const f = String(p.riskFactor ?? '').trim()
+      if (f) factors.add(f)
+      for (const gf of p.riskGroups ?? []) {
+        const t = String(gf).trim()
+        if (t) groups.add(t)
+      }
+      for (const ff of p.riskFactors ?? []) {
+        const t = String(ff).trim()
+        if (t) factors.add(t)
+      }
+    }
+  }
+  return { riskGroupCount: groups.size, riskFactorCount: factors.size }
+}
+
+function buildProjectsInSectorModal(sector: PastPppSectorPastRisks): SectorModalProjectItem[] {
+  const byProject = new Map<string, { projectName: string; rows: PastPppRiskProjectRow[] }>()
+
+  for (const inc of sector.incidents) {
+    for (const p of inc.projects) {
+      const id = p.projectId?.trim()
+      if (!id) continue
+      const existing = byProject.get(id) ?? {
+        projectName: p.projectName?.trim() || 'N/A',
+        rows: [],
+      }
+      existing.rows.push(p)
+      byProject.set(id, existing)
+    }
+  }
+
+  return Array.from(byProject.entries()).map(([projectId, { projectName, rows }]) => {
+    const stats = aggregateProjectRiskStats(rows)
+    return {
+      projectId,
+      projectName,
+      riskGroupCount: stats.riskGroupCount,
+      riskFactorCount: stats.riskFactorCount,
+    }
+  })
 }
 
 function mapProjectRowFromApi(
@@ -191,23 +259,24 @@ export default function PastPppThailandRiskSection({
     return m
   }, [riskSectorWithProject])
   const [sectorModal, setSectorModal] = useState<PastPppSectorPastRisks | null>(null)
+  const [sectorModalExpanded, setSectorModalExpanded] = useState({
+    projects: false,
+    incidents: false,
+  })
   const [projectsModal, setProjectsModal] = useState<{
     sectorLabel: string
     incident: PastPppRiskIncident
   } | null>(null)
-
-  const uniqueProjectsInSectorModal = useMemo(() => {
-    if (!sectorModal) return []
-    const map = new Map<string, { projectId: string; projectName: string }>()
-    for (const inc of sectorModal.incidents) {
-      for (const p of inc.projects) {
-        const id = p.projectId?.trim()
-        if (!id || map.has(id)) continue
-        map.set(id, { projectId: id, projectName: p.projectName?.trim() || 'N/A' })
-      }
+  useEffect(() => {
+    if (sectorModal) {
+      setSectorModalExpanded({ projects: false, incidents: false })
     }
-    return Array.from(map.values())
   }, [sectorModal])
+
+  const projectsInSectorModal = useMemo(
+    () => (sectorModal ? buildProjectsInSectorModal(sectorModal) : []),
+    [sectorModal],
+  )
 
   return (
     <div className="mb-8">
@@ -284,10 +353,10 @@ export default function PastPppThailandRiskSection({
           onClick={() => setSectorModal(null)}
         >
           <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[85vh] flex flex-col overflow-hidden"
+            className="bg-white rounded-xl shadow-xl w-full max-w-[600px] max-h-[700px] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-gray-200 bg-white px-5 py-4">
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-gray-200 bg-white px-5 py-4 shrink-0">
               <div>
                 <h2 id="past-ppp-sector-title" className="text-lg font-semibold text-gray-900">
                   {getBusinessGroupDisplayName(sectorModal.sectorKey)}
@@ -306,72 +375,116 @@ export default function PastPppThailandRiskSection({
               {sectorModal.incidents.length === 0 ? (
                 <p className="text-sm text-gray-500 py-8 text-center">ยังไม่มีข้อมูลตัวอย่างในกลุ่มกิจการนี้</p>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b border-gray-200 pb-2">
-                      ความเสี่ยงที่บันทึกไว้ ({riskCountBySector.get(sectorModal.sectorKey) ?? sectorModal.incidents.length})
-                    </h3>
-                    <ul className="space-y-3">
-                      {sectorModal.incidents.map((inc) => (
-                        <li
-                          key={inc.id}
-                          className="rounded-lg border border-gray-200 bg-slate-50/50 p-4 hover:border-indigo-200 transition-colors"
-                        >
-                          <p className="text-sm font-medium text-gray-900">{inc.summaryProblem}</p>
-                          <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
-                            <span className="rounded bg-white px-2 py-0.5 border border-gray-200">
-                              จำนวนกลุ่มความเสี่ยง: {countRiskGroupsForIncident(inc)}
-                            </span>
-                            <span className="rounded bg-white px-2 py-0.5 border border-gray-200">
-                              จำนวนปัจจัยเสี่ยง: {countRiskFactorsForIncident(inc)}
-                            </span>
-                            <span className="rounded bg-white px-2 py-0.5 border border-gray-200">
-                              เฟส: {phaseLabelTh(inc.phase)}
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setProjectsModal({
-                                sectorLabel: getBusinessGroupDisplayName(sectorModal.sectorKey),
-                                incident: inc,
-                              })
-                            }
-                            className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1"
-                          >
-                            ดูรายละเอียดโครงการ
-                            <Lucide icon="ChevronRight" className="w-4 h-4" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-gray-200 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSectorModalExpanded((s) => ({ ...s, projects: !s.projects }))
+                      }
+                      className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left bg-white hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+                      aria-expanded={sectorModalExpanded.projects}
+                    >
+                      <h3 className="text-sm font-semibold text-gray-900">
+                        โครงการที่พบความเสี่ยง ({projectsInSectorModal.length})
+                      </h3>
+                      <Lucide
+                        icon={sectorModalExpanded.projects ? 'ChevronUp' : 'ChevronDown'}
+                        className="w-5 h-5 text-gray-500 shrink-0"
+                      />
+                    </button>
+                    {sectorModalExpanded.projects && (
+                      <div className="border-t border-gray-200 px-4 py-3 bg-slate-50/40">
+                        {projectsInSectorModal.length === 0 ? (
+                          <p className="text-sm text-gray-500 py-2">ไม่มีรายการโครงการ</p>
+                        ) : (
+                          <ul className="space-y-3">
+                            {projectsInSectorModal.map((proj) => (
+                              <li
+                                key={proj.projectId}
+                                className="rounded-lg border border-gray-200 bg-white p-4"
+                              >
+                                <p className="text-sm font-medium text-gray-900">{proj.projectName}</p>
+                                <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                                  <span className="rounded bg-slate-50 px-2 py-0.5 border border-gray-200">
+                                    จำนวนกลุ่มความเสี่ยง: {proj.riskGroupCount}
+                                  </span>
+                                  <span className="rounded bg-slate-50 px-2 py-0.5 border border-gray-200">
+                                    จำนวนปัจจัยเสี่ยง: {proj.riskFactorCount}
+                                  </span>
+                                </div>
+                                <Link
+                                  href={`/view/${proj.projectId}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                                >
+                                  ดูรายละเอียดโครงการ
+                                  <Lucide icon="ChevronRight" className="w-4 h-4" />
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b border-gray-200 pb-2">
-                      โครงการที่พบความเสี่ยง ({uniqueProjectsInSectorModal.length})
-                    </h3>
-                    {uniqueProjectsInSectorModal.length === 0 ? (
-                      <p className="text-sm text-gray-500 py-4">ไม่มีรายการโครงการ</p>
-                    ) : (
-                      <ul className="space-y-3">
-                        {uniqueProjectsInSectorModal.map((proj) => (
-                          <li
-                            key={proj.projectId}
-                            className="rounded-lg border border-gray-200 bg-white p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-                          >
-                            <p className="text-sm font-medium text-gray-900 min-w-0 flex-1">{proj.projectName}</p>
-                            <Link
-                              href={`/view/${proj.projectId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="shrink-0 text-sm font-medium text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1"
+
+                  <div className="rounded-lg border border-gray-200 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSectorModalExpanded((s) => ({ ...s, incidents: !s.incidents }))
+                      }
+                      className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left bg-white hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+                      aria-expanded={sectorModalExpanded.incidents}
+                    >
+                      <h3 className="text-sm font-semibold text-gray-900">
+                        ความเสี่ยงที่บันทึกไว้ (
+                        {riskCountBySector.get(sectorModal.sectorKey) ?? sectorModal.incidents.length})
+                      </h3>
+                      <Lucide
+                        icon={sectorModalExpanded.incidents ? 'ChevronUp' : 'ChevronDown'}
+                        className="w-5 h-5 text-gray-500 shrink-0"
+                      />
+                    </button>
+                    {sectorModalExpanded.incidents && (
+                      <div className="border-t border-gray-200 px-4 py-3 bg-slate-50/40">
+                        <ul className="space-y-3">
+                          {sectorModal.incidents.map((inc) => (
+                            <li
+                              key={inc.id}
+                              className="rounded-lg border border-gray-200 bg-white p-4 hover:border-indigo-200 transition-colors"
                             >
-                              ดูรายละเอียดโครงการ
-                              <Lucide icon="ChevronRight" className="w-4 h-4" />
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
+                              <p className="text-sm font-medium text-gray-900">{inc.summaryProblem}</p>
+                              <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                                <span className="rounded bg-slate-50 px-2 py-0.5 border border-gray-200">
+                                  จำนวนกลุ่มความเสี่ยง: {countRiskGroupsForIncident(inc)}
+                                </span>
+                                <span className="rounded bg-slate-50 px-2 py-0.5 border border-gray-200">
+                                  จำนวนปัจจัยเสี่ยง: {countRiskFactorsForIncident(inc)}
+                                </span>
+                                <span className="rounded bg-slate-50 px-2 py-0.5 border border-gray-200">
+                                  เฟส: {phaseLabelTh(inc.phase)}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setProjectsModal({
+                                    sectorLabel: getBusinessGroupDisplayName(sectorModal.sectorKey),
+                                    incident: inc,
+                                  })
+                                }
+                                className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1"
+                              >
+                                ดูรายละเอียดความเสี่ยง
+                                <Lucide icon="ChevronRight" className="w-4 h-4" />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -397,9 +510,9 @@ export default function PastPppThailandRiskSection({
             <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-gray-200 bg-white px-5 py-4">
               <div>
                 <h2 id="past-ppp-projects-title" className="text-lg font-semibold text-gray-900">
-                  โครงการ — {projectsModal.sectorLabel}
+                  กลุ่มกิจการ — {projectsModal.sectorLabel}
                 </h2>
-                <p className="mt-1 text-sm text-gray-600 line-clamp-2">{projectsModal.incident.summaryProblem}</p>
+                {/* <p className="mt-1 text-sm text-gray-600 line-clamp-2">{projectsModal.incident.summaryProblem}</p> */}
               </div>
               <button
                 type="button"
@@ -414,14 +527,13 @@ export default function PastPppThailandRiskSection({
               <div className="min-w-[720px]">
                 <table className="w-full text-sm border-collapse">
                   <thead>
-                    <tr className="border-b border-gray-200 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <tr className="border-b border-gray-200 text-left text-xs font-semibold text-gray-500">
                       <th className="py-2 pr-3 pl-2 sticky left-0 bg-white min-w-[10rem]">โครงการ</th>
                       <th className="py-2 pr-3 min-w-[11rem]">ปัญหาที่เกิดขึ้น</th>
-                      <th className="py-2 pr-3 min-w-[9rem]">Risk impact</th>
-                      <th className="py-2 pr-3 min-w-[9rem]">Risk response</th>
-                      <th className="py-2 pr-3 w-28">Phase</th>
-                      <th className="py-2 pr-3 min-w-[11rem]">กลุ่มความเสี่ยง</th>
-                      <th className="py-2 pr-2 min-w-[8rem]">จำนวนปัจจัยเสี่ยง</th>
+                      <th className="py-2 pr-3 min-w-[9rem]">Risk Impact</th>
+                      <th className="py-2 pr-3 min-w-[9rem]">Risk Response</th>
+                      <th className="py-2 pr-3 w-28">เฟส</th>
+                      <th className="py-2 pr-3 min-w-[11rem]">กลุ่มความเสี่ยงและปัจจัยเสี่ยง</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -454,15 +566,6 @@ export default function PastPppThailandRiskSection({
                                 </div>
                               </div>
                             ))}
-                          </div>
-                        </td>
-                        <td className="py-3 pr-2 text-gray-700 align-top">
-                          <div className="text-xs text-gray-600">
-                            {(p.riskBreakdown && p.riskBreakdown.length > 0 ? p.riskBreakdown : []).reduce(
-                              (sum, row) => sum + row.riskFactors.length,
-                              0
-                            ) || (p.riskFactors?.length ?? (p.riskFactor ? 1 : 0))}{' '}
-                            ปัจจัย
                           </div>
                         </td>
                       </tr>

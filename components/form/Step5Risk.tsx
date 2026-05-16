@@ -4,7 +4,52 @@ import { UseFormRegister, Control, Controller, FieldErrors, useFieldArray, UseFo
 import { ProjectFormData, RiskCategoryDriver, RiskFactorItem } from '@/types/project'
 import { useState, useRef, useEffect } from 'react'
 import { RISK_PHASE_OPTIONS } from '@/lib/riskConstants'
+import {
+  resolveRiskCategoryNumericId,
+  riskCategoryDriverNeedsNumericIdSync,
+} from '@/lib/normalizeRiskCategoryDrivers'
+import { formatRiskPhaseLabels } from '@/lib/riskPhasesForm'
 import { useInfo, RiskCategory, RiskFactor } from '@/app/hooks/useInfo'
+
+function PhaseMultiSelect({
+  selectedPhases,
+  onChange,
+  error,
+}: {
+  selectedPhases: string[]
+  onChange: (phases: string[]) => void
+  error?: string
+}) {
+  const togglePhase = (value: string) => {
+    if (selectedPhases.includes(value)) {
+      onChange(selectedPhases.filter((p) => p !== value))
+    } else {
+      onChange([...selectedPhases, value])
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-3">
+        {RISK_PHASE_OPTIONS.map((opt) => (
+          <label
+            key={opt.value}
+            className="inline-flex items-center gap-2 cursor-pointer text-sm text-gray-700"
+          >
+            <input
+              type="checkbox"
+              checked={selectedPhases.includes(opt.value)}
+              onChange={() => togglePhase(opt.value)}
+              className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+            />
+            {opt.label}
+          </label>
+        ))}
+      </div>
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+    </div>
+  )
+}
 
 /** Floating info tooltip triggered on hover */
 function InfoTooltip({ lines }: { lines: string[] }) {
@@ -101,6 +146,7 @@ function RiskFactorSelect({
       onChange(selectedFactors.filter((f) => f.risk_factor_id !== factorId))
     } else {
       onChange([...selectedFactors, { risk_factor_id: factorId, factor_name: factorName }])
+      setSearch('')
     }
   }
 
@@ -197,7 +243,7 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
       onClick={() =>
         appendRisk({
           title: '',
-          phase: '',
+          phases: [],
           description: [],
           category_drivers: [{ risk_category_id: 0, risk_category_code: '', category_name: '', driven_by_risk_factors: [] }],
           mitigation_handling: [],
@@ -240,8 +286,7 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
           const isCollapsed = collapsedIds.includes(riskField.id)
           const currentRisk =
             Array.isArray(risksValues) && risksValues[riskIndex] ? risksValues[riskIndex] : {}
-          const phaseLabel =
-            RISK_PHASE_OPTIONS.find((opt) => opt.value === (currentRisk as any)?.phase)?.label || ''
+          const phaseLabel = formatRiskPhaseLabels((currentRisk as any)?.phases)
           const descriptionLines: string[] = Array.isArray((currentRisk as any)?.description)
             ? ((currentRisk as any).description as string[])
             : []
@@ -343,29 +388,24 @@ export default function Step5Risk({ register, control, errors, setValue }: Step5
                       )}
                     </div>
 
-                    {/* phase */}
+                    {/* phases (saved as one API risk row per selected phase) */}
                     <div>
                       <label className="form-label">เฟส (Phase) *</label>
-                      <select
-                        {...register(`risks.${riskIndex}.phase` as const, {
-                          required: 'กรุณาเลือก Phase',
-                        })}
-                        className={`form-input w-full ${
-                          errors.risks?.[riskIndex]?.phase ? 'border-red-500' : ''
-                        }`}
-                      >
-                        <option value="">-- เลือก Phase --</option>
-                        {RISK_PHASE_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                      {errors.risks?.[riskIndex]?.phase && (
-                        <p className="mt-1 text-sm text-red-600">
-                          {errors.risks[riskIndex]?.phase?.message}
-                        </p>
-                      )}
+                      <Controller
+                        control={control}
+                        name={`risks.${riskIndex}.phases` as const}
+                        rules={{
+                          validate: (value) =>
+                            (Array.isArray(value) && value.length > 0) || 'กรุณาเลือก Phase อย่างน้อย 1 รายการ',
+                        }}
+                        render={({ field }) => (
+                          <PhaseMultiSelect
+                            selectedPhases={Array.isArray(field.value) ? field.value : []}
+                            onChange={field.onChange}
+                            error={errors.risks?.[riskIndex]?.phases?.message as string | undefined}
+                          />
+                        )}
+                      />
                     </div>
                   </div>
 
@@ -489,6 +529,27 @@ function RiskCategoryDriversBlock({
     name: `risks.${riskIndex}.category_drivers` as 'risks.0.category_drivers',
   })
 
+  /** API often sends `risk_category_id` as a code string; dropdown options use numeric ids from `/info`. */
+  useEffect(() => {
+    if (!riskCategories.length || !Array.isArray(drivers)) return
+    drivers.forEach((driver, driverIndex) => {
+      if (!driver) return
+      const resolved = resolveRiskCategoryNumericId(driver, riskCategories)
+      if (!riskCategoryDriverNeedsNumericIdSync(driver as RiskCategoryDriver, resolved)) return
+      const cat = riskCategories.find((c) => c.id === resolved)
+      setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.risk_category_id` as const, resolved, {
+        shouldValidate: true,
+        shouldDirty: false,
+      })
+      setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.risk_category_code` as const, cat?.code ?? '', {
+        shouldDirty: false,
+      })
+      setValue(`risks.${riskIndex}.category_drivers.${driverIndex}.category_name` as const, cat?.value ?? '', {
+        shouldDirty: false,
+      })
+    })
+  }, [riskCategories, drivers, riskIndex, setValue])
+
   return (
     <div>
       <div className="flex justify-between items-center mb-2">
@@ -530,8 +591,23 @@ function RiskCategoryDriversBlock({
                   <label className="block text-xs font-medium text-gray-600">Risk Category</label>
                   <InfoTooltip
                     lines={(() => {
-                      const selId = Array.isArray(drivers) ? drivers[driverIndex]?.risk_category_id : undefined
-                      const cat = typeof selId === 'number' ? riskCategories.find((c) => c.id === selId) : undefined
+                      const d = Array.isArray(drivers) ? drivers[driverIndex] : undefined
+                      const selId = d?.risk_category_id as unknown
+                      let cat: RiskCategory | undefined
+                      if (typeof selId === 'number') {
+                        cat = riskCategories.find((c) => c.id === selId)
+                      } else if (typeof selId === 'string' && /^\d+$/.test(selId.trim())) {
+                        cat = riskCategories.find((c) => c.id === Number(selId.trim()))
+                      }
+                      if (!cat && d) {
+                        const code = String(d.risk_category_code ?? '').trim().toUpperCase()
+                        if (code) {
+                          cat = riskCategories.find((c) => c.code.toUpperCase() === code)
+                        }
+                        if (!cat && typeof selId === 'string') {
+                          cat = riskCategories.find((c) => c.code.toUpperCase() === selId.trim().toUpperCase())
+                        }
+                      }
                       return cat ? [`${cat.code}: ${cat.value}`, cat.description_th] : []
                     })()}
                   />

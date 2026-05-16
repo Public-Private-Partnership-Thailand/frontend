@@ -315,6 +315,11 @@ export interface ProjectData {
   risks?: Risk[];
 }
 
-export interface ProjectFormData extends Omit<ProjectData, 'id' | 'updated'> {
-  // Form-specific fields can be added here if needed
+/** Step 5 form row: multiple phases collapse/expand to API `Risk[]` on save. */
+export interface RiskFormEntry extends Omit<Risk, 'phase'> {
+  phases: string[];
+}
+
+export interface ProjectFormData extends Omit<ProjectData, 'id' | 'updated' | 'risks'> {
+  risks?: RiskFormEntry[];
 }

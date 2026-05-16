@@ -8,6 +8,7 @@ import Tippy from '@/components/Base/Tippy'
 import dayjs from 'dayjs'
 import 'dayjs/locale/th'
 import { formatDateForLitepicker, parseLitepickerDateToISO, formatToISO8601, APP_TIMEZONE } from '@/lib/utils/dateUtils'
+import { resolveDurationTotalDays, totalDaysToYmd, ymdToTotalDays } from '@/lib/durationForm'
 
 interface Step2AdditionalDetailsProps {
   register: UseFormRegister<ProjectFormData>
@@ -112,6 +113,8 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
   const completeEndDateFromPickerRef = useRef(false)
   const maintEndDateFromPickerRef = useRef(false)
   const decommEndDateFromPickerRef = useRef(false)
+  /** Skip Y/M/D → endDate sync while loading form data (prevents drift on step back). */
+  const isHydratingFromFormRef = useRef(true)
   
   // Update refs when state changes
   useEffect(() => {
@@ -138,42 +141,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
     decommDurationDayRef.current = decommDurationDay
   }, [durationYear, durationMonth, durationDay, identDurationYear, identDurationMonth, identDurationDay, prepDurationYear, prepDurationMonth, prepDurationDay, implDurationYear, implDurationMonth, implDurationDay, completeDurationYear, completeDurationMonth, completeDurationDay, maintDurationYear, maintDurationMonth, maintDurationDay, decommDurationYear, decommDurationMonth, decommDurationDay])
 
-  // Calculate total days from year, month, day
-  const calculateTotalDays = (year: string, month: string, day: string): number => {
-    const y = parseInt(year) || 0
-    const m = parseInt(month) || 0
-    const d = parseInt(day) || 0
-    return (y * 365) + (m * 30) + d
-  }
-
-  // Initialize duration from existing period data
-  useEffect(() => {
-    const formValues = getValues()
-    let totalDays = 0
-    
-    if (formValues.period?.startDate && formValues.period?.endDate) {
-      const start = parseDateString(formValues.period.startDate)
-      const end = parseDateString(formValues.period.endDate)
-      if (start && end && !isNaN(start.getTime()) && !isNaN(end.getTime())) {
-        const diffTime = end.getTime() - start.getTime()
-        totalDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-      }
-    } else if (formValues.period?.durationInDays) {
-      totalDays = formValues.period.durationInDays
-    }
-    
-    if (totalDays > 0) {
-      // Convert days to years, months, and days
-      const years = Math.floor(totalDays / 365)
-      const remainingDaysAfterYears = totalDays % 365
-      const months = Math.floor(remainingDaysAfterYears / 30)
-      const days = remainingDaysAfterYears % 30
-      
-      setDurationYear(String(years))
-      setDurationMonth(String(months))
-      setDurationDay(String(days))
-    }
-  }, [getValues])
+  const calculateTotalDays = ymdToTotalDays
 
   // Compute endDate ISO from startDate + days (so schema gets both when user enters duration)
   const computeEndDateFromStartAndDays = (startDateIso: string | undefined, days: number): string => {
@@ -185,6 +153,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
 
   // Update durationInDays when duration changes (skip if endDate was just set from picker). When user enters duration, set endDate = startDate + duration so schema has both.
   useEffect(() => {
+    if (isHydratingFromFormRef.current) return
     if (periodEndDateFromPickerRef.current) return
     const totalDays = calculateTotalDays(durationYear, durationMonth, durationDay)
     const startDate = getValues().period?.startDate
@@ -204,6 +173,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
 
   // Update identificationPeriod durationInDays when duration changes; set endDate = startDate + duration
   useEffect(() => {
+    if (isHydratingFromFormRef.current) return
     if (identEndDateFromPickerRef.current) return
     const totalDays = calculateTotalDays(identDurationYear, identDurationMonth, identDurationDay)
     const startDate = getValues().identificationPeriod?.startDate
@@ -220,6 +190,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
 
   // Update preparationPeriod durationInDays when duration changes; set endDate = startDate + duration
   useEffect(() => {
+    if (isHydratingFromFormRef.current) return
     if (prepEndDateFromPickerRef.current) return
     const totalDays = calculateTotalDays(prepDurationYear, prepDurationMonth, prepDurationDay)
     const startDate = getValues().preparationPeriod?.startDate
@@ -236,6 +207,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
 
   // Update implementationPeriod durationInDays when duration changes; set endDate = startDate + duration
   useEffect(() => {
+    if (isHydratingFromFormRef.current) return
     if (implEndDateFromPickerRef.current) return
     const totalDays = calculateTotalDays(implDurationYear, implDurationMonth, implDurationDay)
     const startDate = getValues().implementationPeriod?.startDate
@@ -252,6 +224,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
 
   // Update completionPeriod durationInDays when duration changes; set endDate = startDate + duration
   useEffect(() => {
+    if (isHydratingFromFormRef.current) return
     if (completeEndDateFromPickerRef.current) return
     const totalDays = calculateTotalDays(completeDurationYear, completeDurationMonth, completeDurationDay)
     const startDate = getValues().completionPeriod?.startDate
@@ -268,6 +241,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
 
   // Update maintenancePeriod durationInDays when duration changes; set endDate = startDate + duration
   useEffect(() => {
+    if (isHydratingFromFormRef.current) return
     if (maintEndDateFromPickerRef.current) return
     const totalDays = calculateTotalDays(maintDurationYear, maintDurationMonth, maintDurationDay)
     const startDate = getValues().maintenancePeriod?.startDate
@@ -284,6 +258,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
 
   // Update decommissioningPeriod durationInDays when duration changes; set endDate = startDate + duration
   useEffect(() => {
+    if (isHydratingFromFormRef.current) return
     if (decommEndDateFromPickerRef.current) return
     const totalDays = calculateTotalDays(decommDurationYear, decommDurationMonth, decommDurationDay)
     const startDate = getValues().decommissioningPeriod?.startDate
@@ -300,6 +275,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
 
   // When start date changes, recalc end date from start + duration so the three fields stay in sync
   useEffect(() => {
+    if (isHydratingFromFormRef.current) return
     periodEndDateFromPickerRef.current = false
     const totalDays = calculateTotalDays(durationYear, durationMonth, durationDay)
     if (startDateValue && totalDays > 0) {
@@ -312,6 +288,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
     }
   }, [startDateValue])
   useEffect(() => {
+    if (isHydratingFromFormRef.current) return
     identEndDateFromPickerRef.current = false
     const totalDays = calculateTotalDays(identDurationYear, identDurationMonth, identDurationDay)
     if (identificationStartDateValue && totalDays > 0) {
@@ -324,6 +301,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
     }
   }, [identificationStartDateValue])
   useEffect(() => {
+    if (isHydratingFromFormRef.current) return
     prepEndDateFromPickerRef.current = false
     const totalDays = calculateTotalDays(prepDurationYear, prepDurationMonth, prepDurationDay)
     if (preparationStartDateValue && totalDays > 0) {
@@ -336,6 +314,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
     }
   }, [preparationStartDateValue])
   useEffect(() => {
+    if (isHydratingFromFormRef.current) return
     implEndDateFromPickerRef.current = false
     const totalDays = calculateTotalDays(implDurationYear, implDurationMonth, implDurationDay)
     if (implementationStartDateValue && totalDays > 0) {
@@ -348,6 +327,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
     }
   }, [implementationStartDateValue])
   useEffect(() => {
+    if (isHydratingFromFormRef.current) return
     completeEndDateFromPickerRef.current = false
     const totalDays = calculateTotalDays(completeDurationYear, completeDurationMonth, completeDurationDay)
     if (completionStartDateValue && totalDays > 0) {
@@ -360,6 +340,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
     }
   }, [completionStartDateValue])
   useEffect(() => {
+    if (isHydratingFromFormRef.current) return
     maintEndDateFromPickerRef.current = false
     const totalDays = calculateTotalDays(maintDurationYear, maintDurationMonth, maintDurationDay)
     if (maintenanceStartDateValue && totalDays > 0) {
@@ -372,6 +353,7 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
     }
   }, [maintenanceStartDateValue])
   useEffect(() => {
+    if (isHydratingFromFormRef.current) return
     decommEndDateFromPickerRef.current = false
     const totalDays = calculateTotalDays(decommDurationYear, decommDurationMonth, decommDurationDay)
     if (decommissioningStartDateValue && totalDays > 0) {
@@ -419,10 +401,32 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
   const [decommissioningStartDateDisplay, setDecommissioningStartDateDisplay] = useState<string>('')
   const [decommissioningEndDateDisplay, setDecommissioningEndDateDisplay] = useState<string>('')
 
+  // Helper to set duration state from total days (for syncing when endDate is picked)
+  const setDurationStateFromDays = (totalDays: number, setYear: (v: string) => void, setMonth: (v: string) => void, setDay: (v: string) => void) => {
+    if (totalDays <= 0) return
+    const { years, months, days } = totalDaysToYmd(totalDays)
+    setYear(String(years))
+    setMonth(String(months))
+    setDay(String(days))
+  }
+
+  const hydrateDurationFromPeriod = (
+    period: { startDate?: string; endDate?: string; durationInDays?: number | null } | undefined,
+    setYear: (v: string) => void,
+    setMonth: (v: string) => void,
+    setDay: (v: string) => void
+  ) => {
+    const totalDays = resolveDurationTotalDays(period, parseDateString)
+    if (totalDays > 0) {
+      setDurationStateFromDays(totalDays, setYear, setMonth, setDay)
+    }
+  }
+
   // Initialize display values from form values (e.g. when editing and form is reset with project data)
   useEffect(() => {
+    isHydratingFromFormRef.current = true
     const formValues = getValues()
-    
+
     // Period (contract signing)
     if (formValues.period?.startDate) {
       setContractSigningDateDisplay(formatDateForLitepicker(formValues.period.startDate))
@@ -430,7 +434,8 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
     if (formValues.period?.endDate) {
       setProjectEndDateDisplay(formatDateForLitepicker(formValues.period.endDate))
     }
-    
+    hydrateDurationFromPeriod(formValues.period, setDurationYear, setDurationMonth, setDurationDay)
+
     // Identification period
     if (formValues.identificationPeriod?.startDate) {
       setIdentificationStartDateDisplay(formatDateForLitepicker(formValues.identificationPeriod.startDate))
@@ -438,17 +443,13 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
     if (formValues.identificationPeriod?.endDate) {
       setIdentificationEndDateDisplay(formatDateForLitepicker(formValues.identificationPeriod.endDate))
     }
-    if (formValues.identificationPeriod?.durationInDays) {
-      const totalDays = formValues.identificationPeriod.durationInDays
-      const years = Math.floor(totalDays / 365)
-      const remainingDaysAfterYears = totalDays % 365
-      const months = Math.floor(remainingDaysAfterYears / 30)
-      const days = remainingDaysAfterYears % 30
-      setIdentDurationYear(String(years))
-      setIdentDurationMonth(String(months))
-      setIdentDurationDay(String(days))
-    }
-    
+    hydrateDurationFromPeriod(
+      formValues.identificationPeriod,
+      setIdentDurationYear,
+      setIdentDurationMonth,
+      setIdentDurationDay
+    )
+
     // Preparation period
     if (formValues.preparationPeriod?.startDate) {
       setPreparationStartDateDisplay(formatDateForLitepicker(formValues.preparationPeriod.startDate))
@@ -456,17 +457,13 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
     if (formValues.preparationPeriod?.endDate) {
       setPreparationEndDateDisplay(formatDateForLitepicker(formValues.preparationPeriod.endDate))
     }
-    if (formValues.preparationPeriod?.durationInDays) {
-      const totalDays = formValues.preparationPeriod.durationInDays
-      const years = Math.floor(totalDays / 365)
-      const remainingDaysAfterYears = totalDays % 365
-      const months = Math.floor(remainingDaysAfterYears / 30)
-      const days = remainingDaysAfterYears % 30
-      setPrepDurationYear(String(years))
-      setPrepDurationMonth(String(months))
-      setPrepDurationDay(String(days))
-    }
-    
+    hydrateDurationFromPeriod(
+      formValues.preparationPeriod,
+      setPrepDurationYear,
+      setPrepDurationMonth,
+      setPrepDurationDay
+    )
+
     // Implementation period
     if (formValues.implementationPeriod?.startDate) {
       setImplementationStartDateDisplay(formatDateForLitepicker(formValues.implementationPeriod.startDate))
@@ -474,17 +471,13 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
     if (formValues.implementationPeriod?.endDate) {
       setImplementationEndDateDisplay(formatDateForLitepicker(formValues.implementationPeriod.endDate))
     }
-    if (formValues.implementationPeriod?.durationInDays) {
-      const totalDays = formValues.implementationPeriod.durationInDays
-      const years = Math.floor(totalDays / 365)
-      const remainingDaysAfterYears = totalDays % 365
-      const months = Math.floor(remainingDaysAfterYears / 30)
-      const days = remainingDaysAfterYears % 30
-      setImplDurationYear(String(years))
-      setImplDurationMonth(String(months))
-      setImplDurationDay(String(days))
-    }
-    
+    hydrateDurationFromPeriod(
+      formValues.implementationPeriod,
+      setImplDurationYear,
+      setImplDurationMonth,
+      setImplDurationDay
+    )
+
     // Completion period
     if (formValues.completionPeriod?.startDate) {
       setCompletionStartDateDisplay(formatDateForLitepicker(formValues.completionPeriod.startDate))
@@ -492,17 +485,13 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
     if (formValues.completionPeriod?.endDate) {
       setCompletionEndDateDisplay(formatDateForLitepicker(formValues.completionPeriod.endDate))
     }
-    if (formValues.completionPeriod?.durationInDays) {
-      const totalDays = formValues.completionPeriod.durationInDays
-      const years = Math.floor(totalDays / 365)
-      const remainingDaysAfterYears = totalDays % 365
-      const months = Math.floor(remainingDaysAfterYears / 30)
-      const days = remainingDaysAfterYears % 30
-      setCompleteDurationYear(String(years))
-      setCompleteDurationMonth(String(months))
-      setCompleteDurationDay(String(days))
-    }
-    
+    hydrateDurationFromPeriod(
+      formValues.completionPeriod,
+      setCompleteDurationYear,
+      setCompleteDurationMonth,
+      setCompleteDurationDay
+    )
+
     // Maintenance period
     if (formValues.maintenancePeriod?.startDate) {
       setMaintenanceStartDateDisplay(formatDateForLitepicker(formValues.maintenancePeriod.startDate))
@@ -510,17 +499,13 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
     if (formValues.maintenancePeriod?.endDate) {
       setMaintenanceEndDateDisplay(formatDateForLitepicker(formValues.maintenancePeriod.endDate))
     }
-    if (formValues.maintenancePeriod?.durationInDays) {
-      const totalDays = formValues.maintenancePeriod.durationInDays
-      const years = Math.floor(totalDays / 365)
-      const remainingDaysAfterYears = totalDays % 365
-      const months = Math.floor(remainingDaysAfterYears / 30)
-      const days = remainingDaysAfterYears % 30
-      setMaintDurationYear(String(years))
-      setMaintDurationMonth(String(months))
-      setMaintDurationDay(String(days))
-    }
-    
+    hydrateDurationFromPeriod(
+      formValues.maintenancePeriod,
+      setMaintDurationYear,
+      setMaintDurationMonth,
+      setMaintDurationDay
+    )
+
     // Decommissioning period
     if (formValues.decommissioningPeriod?.startDate) {
       setDecommissioningStartDateDisplay(formatDateForLitepicker(formValues.decommissioningPeriod.startDate))
@@ -528,29 +513,17 @@ export default function Step2AdditionalDetails({ register, control, errors, setV
     if (formValues.decommissioningPeriod?.endDate) {
       setDecommissioningEndDateDisplay(formatDateForLitepicker(formValues.decommissioningPeriod.endDate))
     }
-    if (formValues.decommissioningPeriod?.durationInDays) {
-      const totalDays = formValues.decommissioningPeriod.durationInDays
-      const years = Math.floor(totalDays / 365)
-      const remainingDaysAfterYears = totalDays % 365
-      const months = Math.floor(remainingDaysAfterYears / 30)
-      const days = remainingDaysAfterYears % 30
-      setDecommDurationYear(String(years))
-      setDecommDurationMonth(String(months))
-      setDecommDurationDay(String(days))
-    }
-  }, [getValues]) // eslint-disable-line react-hooks/exhaustive-deps -- only run once on mount
+    hydrateDurationFromPeriod(
+      formValues.decommissioningPeriod,
+      setDecommDurationYear,
+      setDecommDurationMonth,
+      setDecommDurationDay
+    )
 
-  // Helper to set duration state from total days (for syncing when endDate is picked)
-  const setDurationStateFromDays = (totalDays: number, setYear: (v: string) => void, setMonth: (v: string) => void, setDay: (v: string) => void) => {
-    if (totalDays <= 0) return
-    const years = Math.floor(totalDays / 365)
-    const remainingDaysAfterYears = totalDays % 365
-    const months = Math.floor(remainingDaysAfterYears / 30)
-    const days = remainingDaysAfterYears % 30
-    setYear(String(years))
-    setMonth(String(months))
-    setDay(String(days))
-  }
+    queueMicrotask(() => {
+      isHydratingFromFormRef.current = false
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- hydrate once per Step 2 mount
 
   return (
     <div className="space-y-6">

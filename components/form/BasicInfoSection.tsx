@@ -9,13 +9,12 @@ interface BasicInfoSectionProps {
 
 export default function BasicInfoSection({ register, errors }: BasicInfoSectionProps) {
   const { t } = useLanguage()
-  
+
   return (
     <div className="card">
       <h2 className="text-xl font-semibold text-gray-900 mb-6">{t('form.basicInfo.title')}</h2>
-      
+
       <div className="space-y-6">
-        {/* Project Title */}
         <div>
           <label className="form-label">{t('form.basicInfo.projectTitle')} *</label>
           <input
@@ -28,7 +27,6 @@ export default function BasicInfoSection({ register, errors }: BasicInfoSectionP
           )}
         </div>
 
-        {/* Description */}
         <div>
           <label className="form-label">{t('form.basicInfo.description')} *</label>
           <textarea
@@ -42,12 +40,11 @@ export default function BasicInfoSection({ register, errors }: BasicInfoSectionP
           )}
         </div>
 
-        {/* Grid for Status, Type, Purpose */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
           <div>
             <label className="form-label">{t('form.basicInfo.status')} *</label>
-            <select 
-              {...register('status', { required: t('common.required') })} 
+            <select
+              {...register('status', { required: t('common.required') })}
               className="form-input"
             >
               <option value="">{t('form.basicInfo.selectStatus')}</option>
@@ -84,28 +81,6 @@ export default function BasicInfoSection({ register, errors }: BasicInfoSectionP
               <p className="mt-1 text-sm text-red-600">{errors.purpose.message}</p>
             )}
           </div>
-        </div>
-
-        {/* Ministry */}
-        <div>
-          <label className="form-label">{t('dashboard.ministry')} *</label>
-          <select 
-            {...register('ministry', { required: t('common.required') })} 
-            className="form-input"
-          >
-            <option value="">{t('common.select')}</option>
-            <option value="transport">{t('dashboard.ministry')} - Transport</option>
-            <option value="energy">{t('dashboard.ministry')} - Energy</option>
-            <option value="interior">{t('dashboard.ministry')} - Interior</option>
-            <option value="education">{t('dashboard.ministry')} - Education</option>
-            <option value="health">{t('dashboard.ministry')} - Health</option>
-            <option value="finance">{t('dashboard.ministry')} - Finance</option>
-            <option value="digital">{t('dashboard.ministry')} - Digital</option>
-            <option value="other">{t('dashboard.ministry')} - Other</option>
-          </select>
-          {errors.ministry && (
-            <p className="mt-1 text-sm text-red-600">{errors.ministry.message}</p>
-          )}
         </div>
       </div>
 

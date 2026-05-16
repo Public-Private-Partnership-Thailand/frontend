@@ -14,6 +14,8 @@ import Step4LegalAndReference from '@/components/form/Step4LegalAndReference'
 import Step5Risk from '@/components/form/Step5Risk'
 import Step5Review from '@/components/form/Step5Review'
 import { useInfo } from '@/app/hooks/useInfo'
+import { serializeCategoryDriversForApi } from '@/lib/normalizeRiskCategoryDrivers'
+import { expandRisksForApi } from '@/lib/riskPhasesForm'
 import dayjs from 'dayjs'
 
 export default function CreateProjectPage() {
@@ -242,15 +244,18 @@ export default function CreateProjectPage() {
       // Dates are already in ISO 8601 format from the form steps
       // No conversion needed - they're stored directly as ISO 8601
 
-      const risks = (data.risks ?? []).map((risk, idx) => ({
-        risk_id: `RISK-${String(idx + 1).padStart(3, '0')}`,
-        title: risk.title,
-        phase: risk.phase,
-        description: (risk.description ?? []).map((s) => s.trim()).filter(Boolean),
-        category_drivers: risk.category_drivers ?? [],
-        mitigation_handling: (risk.mitigation_handling ?? []).map((s) => s.trim()).filter(Boolean),
-        impact_statement: (risk.impact_statement ?? []).map((s) => s.trim()).filter(Boolean),
-      }))
+      const risks = (data.risks ?? []).flatMap((entry, entryIdx) => {
+        const riskId = entry.risk_id ?? `RISK-${String(entryIdx + 1).padStart(3, '0')}`
+        return expandRisksForApi([{ ...entry, risk_id: riskId }]).map((risk) => ({
+          risk_id: String(risk.risk_id),
+          title: risk.title,
+          phase: risk.phase,
+          description: (risk.description ?? []).map((s) => s.trim()).filter(Boolean),
+          category_drivers: serializeCategoryDriversForApi(risk.category_drivers),
+          mitigation_handling: (risk.mitigation_handling ?? []).map((s) => s.trim()).filter(Boolean),
+          impact_statement: (risk.impact_statement ?? []).map((s) => s.trim()).filter(Boolean),
+        }))
+      })
 
       // Build the project data according to schema
       const projectData: any = {

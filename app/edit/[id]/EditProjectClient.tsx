@@ -8,6 +8,8 @@ import { useLanguage } from '@/lib/LanguageContext'
 import { fetchProjectById, updateProject } from '@/lib/projectService'
 import { isValidBusinessGroupCode } from '@/types/businessGroup'
 import { normalizeMitigationHandling } from '@/lib/normalizeMitigationHandling'
+import { serializeCategoryDriversForApi } from '@/lib/normalizeRiskCategoryDrivers'
+import { collapseRisksForForm, expandRisksForApi } from '@/lib/riskPhasesForm'
 import Step1EssentialInfo from '@/components/form/Step1EssentialInfo'
 import Step2AdditionalDetails from '@/components/form/Step2AdditionalDetails'
 import Step3BudgetInfo from '@/components/form/Step3BudgetInfo'
@@ -78,7 +80,7 @@ function projectToFormValues(project: ProjectData): any {
     parties: project.parties ?? [],
     documents: project.documents ?? [],
     additionalClassifications: project.additionalClassifications ?? [],
-    risks: (project.risks ?? []).map((risk) => ({
+    risks: collapseRisksForForm(project.risks ?? []).map((risk) => ({
       ...risk,
       mitigation_handling: normalizeMitigationHandling(risk.mitigation_handling),
     })),
@@ -272,15 +274,18 @@ export default function EditProjectClient() {
             : null
       const parties = publicAuthorityParty ? [publicAuthorityParty, ...contractorParties, ...otherParties] : [...contractorParties, ...otherParties]
 
-      const risks = (data.risks ?? []).map((risk, idx) => ({
-        risk_id: `RISK-${String(idx + 1).padStart(3, '0')}`,
-        title: risk.title,
-        phase: risk.phase,
-        description: (risk.description ?? []).map((s) => s.trim()).filter(Boolean),
-        category_drivers: risk.category_drivers ?? [],
-        mitigation_handling: (risk.mitigation_handling ?? []).map((s) => s.trim()).filter(Boolean),
-        impact_statement: (risk.impact_statement ?? []).map((s) => s.trim()).filter(Boolean),
-      }))
+      const risks = (data.risks ?? []).flatMap((entry, entryIdx) => {
+        const riskId = entry.risk_id ?? `RISK-${String(entryIdx + 1).padStart(3, '0')}`
+        return expandRisksForApi([{ ...entry, risk_id: riskId }]).map((risk) => ({
+          risk_id: String(risk.risk_id),
+          title: risk.title,
+          phase: risk.phase,
+          description: (risk.description ?? []).map((s) => s.trim()).filter(Boolean),
+          category_drivers: serializeCategoryDriversForApi(risk.category_drivers),
+          mitigation_handling: (risk.mitigation_handling ?? []).map((s) => s.trim()).filter(Boolean),
+          impact_statement: (risk.impact_statement ?? []).map((s) => s.trim()).filter(Boolean),
+        }))
+      })
 
       const projectData = {
         ...data,

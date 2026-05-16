@@ -22,6 +22,7 @@ export default function Step1EssentialInfo({ register, control, errors, setValue
   const publicAuthorityValue = useWatch({ control, name: 'publicAuthority' })
   /** Re-sync when edit flow calls reset(project) — getValues identity does not change. */
   const watchedAdditionalClassifications = useWatch({ control, name: 'additionalClassifications' })
+  const watchedType = useWatch({ control, name: 'type' })
   const [selectedSectorCode, setSelectedSectorCode] = useState<string>('')
   const [selectedContractType, setSelectedContractType] = useState<string>('')
   const [customContractType, setCustomContractType] = useState<string>('')
@@ -43,11 +44,20 @@ export default function Step1EssentialInfo({ register, control, errors, setValue
     return infoData.concessionForm.map(c => ({ id: c.id, value: c.value }))
   }, [infoData])
 
-  // Project type options from API
-  const projectTypeOptions = useMemo(() => {
-    if (!infoData?.projectType) return [] // Fallback
-    return infoData.projectType.map(p => p.value)
+  // Project type options from API (include saved value so edit load works before /info returns)
+  const projectTypeInfoOptions = useMemo(() => {
+    if (!infoData?.projectType) return []
+    return infoData.projectType.map((p) => ({ id: p.id, value: p.value }))
   }, [infoData])
+
+  const projectTypeOptions = useMemo(() => {
+    const base = projectTypeInfoOptions.map((p) => p.value)
+    const saved = String(watchedType ?? '').trim()
+    if (saved && !base.some((v) => String(v).trim() === saved)) {
+      return [saved, ...base]
+    }
+    return base
+  }, [projectTypeInfoOptions, watchedType])
 
   // Sector (กลุ่มกิจการ) options from API; display Thai label from businessGroup map, store code as value
   const sectorOptions = useMemo(() => {
@@ -107,6 +117,17 @@ export default function Step1EssentialInfo({ register, control, errors, setValue
     const d = saved.trim()
     return options.find((o) => String(o.value).trim() === d)
   }
+
+  // Re-apply project type after /api/v1/info loads (native <select> shows blank if options were empty on reset).
+  useEffect(() => {
+    if (projectTypeOptions.length === 0) return
+    const saved = String(getValues().type ?? '').trim()
+    if (!saved) return
+    const match = matchClassificationByInfoValue(projectTypeInfoOptions, saved)
+    const next = match?.value ?? saved
+    if (!projectTypeOptions.some((v) => String(v).trim() === String(next).trim())) return
+    setValue('type', next, { shouldDirty: false })
+  }, [projectTypeOptions, projectTypeInfoOptions, watchedType, getValues, setValue])
 
   // Sync Step 1 dropdowns vs /api/v1/info contractType + concessionForm after edit reset() or info load.
   useEffect(() => {
