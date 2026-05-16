@@ -10,10 +10,11 @@ import {
   type RiskCategory,
   type RiskFactor,
 } from '@/app/hooks/useInfo'
-import type {
-  RiskSectorWithProjectItem,
-  RiskSectorWithProjectProjectRow,
-  RiskSectorWithProjectProjectRiskRow,
+import {
+  normalizeRiskTextField,
+  type RiskSectorWithProjectItem,
+  type RiskSectorWithProjectProjectRow,
+  type RiskSectorWithProjectProjectRiskRow,
 } from '@/app/hooks/useRisk'
 import { getBusinessGroupDisplayName } from '@/types/businessGroup'
 import {
@@ -190,8 +191,8 @@ function mapProjectRowFromApi(
     projectId: p.projectId,
     projectName: p.projectName,
     problem: p.problem,
-    riskImpact: p.riskImpact,
-    riskResponse: p.riskResponse,
+    riskImpact: normalizeRiskTextField(p.riskImpact),
+    riskResponse: normalizeRiskTextField(p.riskResponse),
     phase: normalizePhase(p.phase),
     riskGroup,
     riskFactor,

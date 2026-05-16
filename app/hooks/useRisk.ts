@@ -69,6 +69,13 @@ export type RiskApiData = {
   riskSectorWithProject?: RiskSectorWithProjectItem[]
 }
 
+/** Display text for optional API fields; null and blank become "N/A". */
+export function normalizeRiskTextField(value: unknown): string {
+  if (value == null) return 'N/A'
+  const s = String(value).trim()
+  return s.length > 0 ? s : 'N/A'
+}
+
 export type RiskSectorWithProjectProjectRow = {
   projectId: string
   projectName: string
@@ -190,8 +197,6 @@ export const useRisk = (
                 typeof (p as RiskSectorWithProjectProjectRow).projectId === 'string' &&
                 typeof (p as RiskSectorWithProjectProjectRow).projectName === 'string' &&
                 typeof (p as RiskSectorWithProjectProjectRow).problem === 'string' &&
-                typeof (p as RiskSectorWithProjectProjectRow).riskImpact === 'string' &&
-                typeof (p as RiskSectorWithProjectProjectRow).riskResponse === 'string' &&
                 typeof (p as RiskSectorWithProjectProjectRow).phase === 'string'
             )
             const normalizedProjects = projects.map((p) => {
@@ -220,6 +225,8 @@ export const useRisk = (
 
               return {
                 ...p,
+                riskImpact: normalizeRiskTextField(p.riskImpact),
+                riskResponse: normalizeRiskTextField(p.riskResponse),
                 risks: risksFromNewShape.length > 0 ? risksFromNewShape : risksFromOldShape,
               }
             })
