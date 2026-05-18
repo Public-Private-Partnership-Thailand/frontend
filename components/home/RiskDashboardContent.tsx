@@ -764,14 +764,17 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
         color: string
       }
 
-      const factorCounts = new Map<string, number>()
-      const factorByCategoryCounts = new Map<string, Map<string, number>>()
+      const factorProjectIds = new Map<string, Set<string>>()
+      const factorCategoryProjectIds = new Map<string, Map<string, Set<string>>>()
 
       for (const sectorRow of sectors) {
         const projects = Array.isArray(sectorRow.projects) ? sectorRow.projects : []
         for (const project of projects) {
           const projectPhase = normalizeRiskPhaseKey(project.phase)
           if (projectPhase !== phase) continue
+
+          const projectId = typeof project.projectId === 'string' ? project.projectId.trim() : ''
+          if (!projectId) continue
 
           const normalizedRisks: RiskSectorWithProjectProjectRiskRow[] = []
           if (Array.isArray(project.risks) && project.risks.length > 0) {
@@ -790,26 +793,34 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
             const categoryId = toRiskCategoryCode(risk.riskCategoryId)
             for (const factorIdRaw of risk.riskFactorId) {
               const factorId = toRiskFactorCode(factorIdRaw)
-              factorCounts.set(factorId, (factorCounts.get(factorId) ?? 0) + 1)
-              if (!factorByCategoryCounts.has(factorId)) {
-                factorByCategoryCounts.set(factorId, new Map())
+              if (!factorProjectIds.has(factorId)) {
+                factorProjectIds.set(factorId, new Set())
               }
-              const byCategory = factorByCategoryCounts.get(factorId)!
-              byCategory.set(categoryId, (byCategory.get(categoryId) ?? 0) + 1)
+              factorProjectIds.get(factorId)!.add(projectId)
+
+              if (!factorCategoryProjectIds.has(factorId)) {
+                factorCategoryProjectIds.set(factorId, new Map())
+              }
+              const byCategory = factorCategoryProjectIds.get(factorId)!
+              if (!byCategory.has(categoryId)) {
+                byCategory.set(categoryId, new Set())
+              }
+              byCategory.get(categoryId)!.add(projectId)
             }
           }
         }
       }
 
-      const rows: AggRow[] = Array.from(factorCounts.entries()).map(([factorId, count]) => {
+      const rows: AggRow[] = Array.from(factorProjectIds.entries()).map(([factorId, projectIds]) => {
+        const count = projectIds.size
         const factorInfo = riskFactorByCode.get(factorId)
         const label = factorInfo
           ? (factorInfo.value ?? factorInfo.name ?? '').trim() || factorId
           : factorId
-        const byCategory = factorByCategoryCounts.get(factorId) ?? new Map<string, number>()
-        const sortedCategoryCounts = Array.from(byCategory.entries()).sort(
-          (a, b) => b[1] - a[1] || a[0].localeCompare(b[0], undefined, { numeric: true })
-        )
+        const byCategory = factorCategoryProjectIds.get(factorId) ?? new Map<string, Set<string>>()
+        const sortedCategoryCounts = Array.from(byCategory.entries())
+          .map(([categoryId, ids]) => [categoryId, ids.size] as const)
+          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], undefined, { numeric: true }))
         const dominantCategoryId = sortedCategoryCounts[0]?.[0] ?? 'unknown'
         const dominantCategoryLabel =
           riskCategoryNameById.get(dominantCategoryId) ?? dominantCategoryId
@@ -976,7 +987,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
                           labels: visibleRows.map((r) => `#${r.rank}`),
                           datasets: [
                             {
-                              label: 'จำนวนครั้งที่เกิดขึ้นจริง',
+                              label: 'จำนวนโครงการที่พบปัจจัยเสี่ยง',
                               data: visibleRows.map((r) => r.count),
                               backgroundColor: visibleRows.map((r) => r.color),
                               borderColor: visibleRows.map((r) => r.color),
@@ -1028,7 +1039,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
                                 label: (ctx) => {
                                   const row = visibleRows[ctx.dataIndex]
                                   if (!row) return ''
-                                  return `จำนวนครั้ง: ${row.count}`
+                                  return `จำนวนโครงการ: ${row.count}`
                                 },
                                 afterLabel: (ctx) => {
                                   const row = visibleRows[ctx.dataIndex]
