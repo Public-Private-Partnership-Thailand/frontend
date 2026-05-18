@@ -25,7 +25,11 @@ import {
 } from '@/app/hooks/useInfo'
 import { toRiskFactorCode, toRiskCategoryCode } from '@/lib/normalizeHeatmapRisk'
 import { getIconNameByGroupName } from '@/app/hooks/useSummary'
-import type { RiskApiData } from '@/app/hooks/useRisk'
+import {
+  normalizeRiskPhaseKey,
+  type RiskApiData,
+  type RiskSectorWithProjectProjectRiskRow,
+} from '@/app/hooks/useRisk'
 import {
   aggregateSourceIdsForPhase,
   buildMatrixPhaseCellTooltip,
@@ -747,10 +751,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
   }, [safeInfoData.riskCategory])
 
   const riskFactorRankByPhase = useMemo(() => {
-    const h = riskData?.heatmapRiskPhase
-    const noSourceSelected = matrixSourceFilterMode.kind === 'none_selected'
-    const activeSourceKeys =
-      matrixSourceFilterMode.kind === 'partial' ? matrixSourceFilterMode.keys : null
+    const sectors = riskData?.riskSectorWithProject ?? []
 
     return MATRIX_PHASE_KEYS.map((phase) => {
       type AggRow = {
@@ -763,28 +764,40 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
         color: string
       }
 
-      if (!h || typeof h !== 'object' || noSourceSelected) {
-        return { phase, title: MATRIX_PHASE_TITLES[phase], rows: [] as AggRow[] }
-      }
-
-      // Count each category × factor matrix occurrence in a phase.
       const factorCounts = new Map<string, number>()
       const factorByCategoryCounts = new Map<string, Map<string, number>>()
 
-      for (const [categoryIdRaw, factorPhases] of Object.entries(h)) {
-        const categoryId = toRiskCategoryCode(categoryIdRaw)
-        if (!factorPhases || typeof factorPhases !== 'object') continue
-        for (const [factorIdRaw, raw] of Object.entries(factorPhases as Record<string, unknown>)) {
-          const n = normalizeHeatmapFactorPhaseEntry(raw)
-          if (activeSourceKeys && !factorMatchesRiskSourceFilter(n, activeSourceKeys)) continue
-          if (!n.phases.includes(phase)) continue
-          const factorId = toRiskFactorCode(factorIdRaw)
-          factorCounts.set(factorId, (factorCounts.get(factorId) ?? 0) + 1)
-          if (!factorByCategoryCounts.has(factorId)) {
-            factorByCategoryCounts.set(factorId, new Map())
+      for (const sectorRow of sectors) {
+        const projects = Array.isArray(sectorRow.projects) ? sectorRow.projects : []
+        for (const project of projects) {
+          const projectPhase = normalizeRiskPhaseKey(project.phase)
+          if (projectPhase !== phase) continue
+
+          const normalizedRisks: RiskSectorWithProjectProjectRiskRow[] = []
+          if (Array.isArray(project.risks) && project.risks.length > 0) {
+            normalizedRisks.push(...project.risks)
+          } else if (
+            typeof project.riskCategoryId === 'number' &&
+            typeof project.riskFactorId === 'number'
+          ) {
+            normalizedRisks.push({
+              riskCategoryId: project.riskCategoryId,
+              riskFactorId: [project.riskFactorId],
+            })
           }
-          const byCategory = factorByCategoryCounts.get(factorId)!
-          byCategory.set(categoryId, (byCategory.get(categoryId) ?? 0) + 1)
+
+          for (const risk of normalizedRisks) {
+            const categoryId = toRiskCategoryCode(risk.riskCategoryId)
+            for (const factorIdRaw of risk.riskFactorId) {
+              const factorId = toRiskFactorCode(factorIdRaw)
+              factorCounts.set(factorId, (factorCounts.get(factorId) ?? 0) + 1)
+              if (!factorByCategoryCounts.has(factorId)) {
+                factorByCategoryCounts.set(factorId, new Map())
+              }
+              const byCategory = factorByCategoryCounts.get(factorId)!
+              byCategory.set(categoryId, (byCategory.get(categoryId) ?? 0) + 1)
+            }
+          }
         }
       }
 
@@ -827,7 +840,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
         rows: rows.slice(0, RISK_FACTOR_RANK_TOP_MAX),
       }
     })
-  }, [riskData?.heatmapRiskPhase, matrixSourceFilterMode, riskCategoryNameById, riskFactorByCode, riskCategoryColorMap])
+  }, [riskData?.riskSectorWithProject, riskCategoryNameById, riskFactorByCode, riskCategoryColorMap])
 
   const rankColorLegendTooltip = useMemo(() => {
     const categories = [...(safeInfoData.riskCategory ?? [])].sort((a, b) => a.id - b.id)

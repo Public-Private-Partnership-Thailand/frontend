@@ -50,7 +50,7 @@ export type CountProjectGroupByPhaseAndRiskCategoryRow = {
   riskCategoryList: CountProjectGroupByRiskCategoryRow[]
 }
 
-function normalizeRiskPhaseKey(raw: string): RiskPhaseApiKey | null {
+export function normalizeRiskPhaseKey(raw: string): RiskPhaseApiKey | null {
   const s = raw.trim().toLowerCase().replace(/\s+/g, '-')
   if (s === 'pre-construction' || s === 'preconstruction') return 'pre-construction'
   if (s === 'construction') return 'construction'
