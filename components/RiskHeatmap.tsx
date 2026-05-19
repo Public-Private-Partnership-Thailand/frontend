@@ -12,10 +12,11 @@ import {
 } from '@/app/hooks/useInfo'
 import { toRiskFactorCode } from '@/lib/normalizeHeatmapRisk'
 import {
+  buildMatrixFactorPhaseCellTooltipHtml,
   buildThailandOtpTooltipHtml,
-  formatRiskSourcePlainText,
   riskSourceFilterKey,
   THAILAND_RISK_SOURCE_OTP_ID,
+  THAILAND_RISK_SOURCE_SECTOR_PROJECT_ID,
   type RiskSourceMaps,
   type ThailandOtpProjectRef,
 } from '@/lib/heatmapRiskPhaseUtils'
@@ -71,10 +72,23 @@ interface RiskHeatmapProps {
   riskSourceMaps?: RiskSourceMaps
 }
 
+function mergeThailandProjectRefs(
+  a: ThailandOtpProjectRef[] | undefined,
+  b: ThailandOtpProjectRef[] | undefined
+): ThailandOtpProjectRef[] | undefined {
+  const byId = new Map<string, ThailandOtpProjectRef>()
+  for (const p of [...(a ?? []), ...(b ?? [])]) {
+    if (p.projectId) byId.set(p.projectId, p)
+  }
+  const merged = Array.from(byId.values())
+  return merged.length > 0 ? merged : undefined
+}
+
 function SourceBadgesRow({
   globalIds,
   thailandIds,
   thailandOtpProjects,
+  thailandSectorProjects,
   maps,
   /** When set (partial matrix filter), badges whose key is not in this set are faded. */
   activeSourceFilterKeys,
@@ -83,10 +97,13 @@ function SourceBadgesRow({
   thailandIds: number[]
   /** Present when Thailand source OTP (id 2) lists concrete projects — hover shows links to `/view/:id` */
   thailandOtpProjects?: ThailandOtpProjectRef[]
+  /** Present when Thailand source id 6 — projects from `riskSectorWithProject` */
+  thailandSectorProjects?: ThailandOtpProjectRef[]
   maps: RiskSourceMaps
   activeSourceFilterKeys?: ReadonlySet<string> | null
 }) {
-  if (!globalIds.length && !thailandIds.length) return null
+  const displayThailandIds = thailandIds.filter((id) => maps.thailand.has(id))
+  if (!globalIds.length && !displayThailandIds.length) return null
   const shortLabel = (s: string) => (s.length > 16 ? `${s.slice(0, 16)}…` : s)
 
   const isKeyActive = (kind: 'global' | 'thailand', id: number) => {
@@ -118,18 +135,25 @@ function SourceBadgesRow({
           </Tippy>
         )
       })}
-      {thailandIds.map((id) => {
+      {displayThailandIds.map((id) => {
         const name = maps.thailand.get(id) ?? `#${id}`
         const active = isKeyActive('thailand', id)
-        const otp =
-          id === THAILAND_RISK_SOURCE_OTP_ID && thailandOtpProjects && thailandOtpProjects.length > 0
-            ? thailandOtpProjects
-            : undefined
+        const projectListTooltip =
+          id === THAILAND_RISK_SOURCE_SECTOR_PROJECT_ID &&
+          thailandSectorProjects &&
+          thailandSectorProjects.length > 0
+            ? thailandSectorProjects
+            : id === THAILAND_RISK_SOURCE_OTP_ID &&
+                maps.thailand.has(THAILAND_RISK_SOURCE_OTP_ID) &&
+                thailandOtpProjects &&
+                thailandOtpProjects.length > 0
+              ? thailandOtpProjects
+              : undefined
         const thaiChipClass = active
           ? 'border-emerald-200/80 bg-emerald-50 text-emerald-900'
           : 'border-gray-200 bg-gray-100 text-gray-400 opacity-50'
-        if (otp) {
-          const html = buildThailandOtpTooltipHtml(otp, `ไทย: ${name}`)
+        if (projectListTooltip) {
+          const html = buildThailandOtpTooltipHtml(projectListTooltip, `ไทย: ${name}`)
           return (
             <Tippy
               key={`t-${id}`}
@@ -211,7 +235,12 @@ export function HeatMapTable({
   )
   const sourceByFactorId = new Map<
     string,
-    { global: number[]; thailand: number[]; thailandOtpProjects?: ThailandOtpProjectRef[] }
+    {
+      global: number[]
+      thailand: number[]
+      thailandOtpProjects?: ThailandOtpProjectRef[]
+      thailandSectorProjects?: ThailandOtpProjectRef[]
+    }
   >()
   phases.forEach((phase) => {
     phase.riskFactors?.forEach((rf) => {
@@ -219,7 +248,9 @@ export function HeatMapTable({
       const g = rf.sourceGlobal ?? []
       const th = rf.sourceThailand ?? []
       const otp = rf.thailandOtpProjects
-      const hasAny = g.length > 0 || th.length > 0 || (otp?.length ?? 0) > 0
+      const sector = rf.thailandSectorProjects
+      const hasAny =
+        g.length > 0 || th.length > 0 || (otp?.length ?? 0) > 0 || (sector?.length ?? 0) > 0
       if (!hasAny) return
 
       const prev = sourceByFactorId.get(id)
@@ -228,16 +259,16 @@ export function HeatMapTable({
           global: [...g],
           thailand: [...th],
           thailandOtpProjects: otp?.length ? [...otp] : undefined,
+          thailandSectorProjects: sector?.length ? [...sector] : undefined,
         })
         return
       }
-      const prevOtpLen = prev.thailandOtpProjects?.length ?? 0
-      if ((otp?.length ?? 0) > prevOtpLen) {
-        sourceByFactorId.set(id, {
-          ...prev,
-          thailandOtpProjects: otp?.length ? [...otp] : prev.thailandOtpProjects,
-        })
-      }
+      sourceByFactorId.set(id, {
+        global: Array.from(new Set([...prev.global, ...g])),
+        thailand: Array.from(new Set([...prev.thailand, ...th])),
+        thailandOtpProjects: mergeThailandProjectRefs(prev.thailandOtpProjects, otp),
+        thailandSectorProjects: mergeThailandProjectRefs(prev.thailandSectorProjects, sector),
+      })
     })
   })
   const valueByKey = new Map<string, number>()
@@ -314,11 +345,15 @@ export function HeatMapTable({
                 <div className="font-medium text-gray-900 leading-snug">{factorName}</div>
                 {riskSourceMaps &&
                   src &&
-                  (src.global.length > 0 || src.thailand.length > 0 || (src.thailandOtpProjects?.length ?? 0) > 0) && (
+                  (src.global.length > 0 ||
+                    src.thailand.length > 0 ||
+                    (src.thailandOtpProjects?.length ?? 0) > 0 ||
+                    (src.thailandSectorProjects?.length ?? 0) > 0) && (
                     <SourceBadgesRow
                       globalIds={src.global}
                       thailandIds={src.thailand}
                       thailandOtpProjects={src.thailandOtpProjects}
+                      thailandSectorProjects={src.thailandSectorProjects}
                       maps={riskSourceMaps}
                       activeSourceFilterKeys={activeSourceFilterKeys}
                     />
@@ -328,34 +363,28 @@ export function HeatMapTable({
                 const value = valueByKey.get(`${p.phase}:${factorId}`) ?? 0
                 const present = value > 0
                 const rfForCell = p.riskFactors?.find((r) => normalizeFactorId(r.id) === factorId)
-                let cellTip = `${factorName} · ${getPhaseLabel(p.phase)}`
-                if (present) {
-                  cellTip += `\nการอ้างอิง (จำนวนแหล่งรวม): ${value}`
-                  if (
-                    riskSourceMaps &&
-                    rfForCell &&
-                    (rfForCell.sourceGlobal?.length || rfForCell.sourceThailand?.length)
-                  ) {
-                    const srcTxt = formatRiskSourcePlainText(
-                      rfForCell.sourceGlobal ?? [],
-                      rfForCell.sourceThailand ?? [],
-                      riskSourceMaps
-                    )
-                    if (srcTxt) cellTip += `\n\n${srcTxt}`
-                  }
-                  if (rfForCell?.thailandOtpProjects?.length) {
-                    cellTip += `\n\nโครงการ (แหล่งไทย OTP):\n${rfForCell.thailandOtpProjects.map((p) => p.title).join('\n')}`
-                  }
-                } else {
-                  cellTip += ': ไม่มี'
-                }
+                const phaseLabel = getPhaseLabel(p.phase)
+                const cellTipHtml =
+                  present && riskSourceMaps && rfForCell
+                    ? buildMatrixFactorPhaseCellTooltipHtml(riskSourceMaps, {
+                        globalIds: rfForCell.sourceGlobal,
+                        thailandIds: rfForCell.sourceThailand,
+                        sectorProjects: rfForCell.thailandSectorProjects,
+                      })
+                    : ''
+                const cellTip =
+                  cellTipHtml ||
+                  (present
+                    ? `${factorName} · ${phaseLabel}`
+                    : `${factorName} · ${phaseLabel}: ไม่มี`)
+                const cellTippyOptions = cellTipHtml ? THAILAND_OTP_TIPPY_OPTIONS : undefined
                 return (
                   <td
                     key={p.phase}
                     className="border border-gray-300 p-0 align-middle bg-white"
                     style={{ width: fullCellPx, height: fullCellPx }}
                   >
-                    <Tippy content={cellTip}>
+                    <Tippy content={cellTip} options={cellTippyOptions}>
                       <div className="w-full h-full flex items-center justify-center text-xs">
                         <PhaseMatrixRiskMark present={present} />
                       </div>

@@ -18,6 +18,8 @@ export interface HeatmapPhaseRiskFactor {
   sourceGlobal?: number[]
   sourceThailand?: number[]
   thailandOtpProjects?: Array<{ projectId: string; title: string }>
+  /** Thailand source id 6 — projects from `riskSectorWithProject` */
+  thailandSectorProjects?: Array<{ projectId: string; title: string }>
 }
 
 export interface HeatmapPhase {

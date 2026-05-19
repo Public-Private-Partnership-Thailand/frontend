@@ -34,14 +34,17 @@ import {
   aggregateSourceIdsForPhase,
   buildMatrixPhaseCellTooltip,
   factorMatchesRiskSourceFilter,
+  factorPhaseSliceMatchesRiskSourceFilter,
+  getMatrixFactorPhaseSlice,
   normalizeHeatmapFactorPhaseEntry,
   riskSourceFilterKey,
-  THAILAND_RISK_SOURCE_OTP_ID,
+  filterKnownThailandSourceIds,
   type RiskSourceMaps,
 } from '@/lib/heatmapRiskPhaseUtils'
 import PastPppThailandRiskSection from '@/components/home/PastPppThailandRiskSection'
 import RiskSourceReferencesSection from '@/components/home/RiskSourceReferencesSection'
 import { hexColorForRiskCategoryId } from '@/lib/riskCategoryColors'
+import { buildMatrixHeatmapRiskPhase } from '@/lib/matrixRiskPhaseData'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ChartDataLabels)
 
@@ -424,6 +427,11 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
     return { global, thailand }
   }, [safeInfoData.riskSource])
 
+  const knownThailandSourceIds = useMemo(
+    () => new Set(safeInfoData.riskSource?.thailand?.map((s) => s.id) ?? []),
+    [safeInfoData.riskSource?.thailand]
+  )
+
   const matrixSourceFilterSet = useMemo(() => new Set(matrixSourceFilterKeys), [matrixSourceFilterKeys])
 
   const allMatrixSourceKeys = useMemo(() => {
@@ -474,9 +482,14 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
       return { global: [] as number[], thailand: [] as number[] }
     }
     if (matrixSourceFilterMode.kind === 'all_selected') {
-      return aggregateSourceIdsForPhase(factorPhases, phase, null)
+      return aggregateSourceIdsForPhase(factorPhases, phase, null, knownThailandSourceIds)
     }
-    return aggregateSourceIdsForPhase(factorPhases, phase, matrixSourceFilterMode.keys)
+    return aggregateSourceIdsForPhase(
+      factorPhases,
+      phase,
+      matrixSourceFilterMode.keys,
+      knownThailandSourceIds
+    )
   }
 
   useEffect(() => {
@@ -501,6 +514,15 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
     }
   }
 
+  const matrixHeatmapRiskPhase = useMemo(
+    () =>
+      buildMatrixHeatmapRiskPhase(
+        riskData?.heatmapRiskPhase,
+        riskData?.riskSectorWithProject
+      ),
+    [riskData?.heatmapRiskPhase, riskData?.riskSectorWithProject]
+  )
+
   const riskCategoryNameById = useMemo(() => {
     const map = new Map<string, string>()
     safeInfoData.riskCategory?.forEach((c) => {
@@ -517,7 +539,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
   const riskHeatmapForMatrix = useMemo(() => {
     const riskCategory: RiskCategory[] = safeInfoData.riskCategory ?? []
     const riskFactor: RiskFactor[] = safeInfoData.riskFactor ?? []
-    const heatmapRiskPhase = riskData?.heatmapRiskPhase ?? {}
+    const heatmapRiskPhase = matrixHeatmapRiskPhase
     const categoryById = new Map<string, RiskCategory>()
     riskCategory.forEach((c, i) => {
       categoryById.set(toRiskCategoryCode(c.id), c)
@@ -545,22 +567,22 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
               .map(([factorId, raw]) => {
                 const n = normalizeHeatmapFactorPhaseEntry(raw)
                 if (!n.phases.includes(phase)) return null
-                if (
-                  partialKeys &&
-                  !factorMatchesRiskSourceFilter(n, partialKeys)
-                ) {
+                const slice = getMatrixFactorPhaseSlice(n, phase)
+                if (partialKeys && !factorPhaseSliceMatchesRiskSourceFilter(slice, partialKeys)) {
                   return null
                 }
-                const effectiveThailand = [...n.sourceThailand]
-                if (n.thailandOtp.length > 0 && !effectiveThailand.includes(THAILAND_RISK_SOURCE_OTP_ID)) {
-                  effectiveThailand.push(THAILAND_RISK_SOURCE_OTP_ID)
-                }
-                effectiveThailand.sort((a, b) => a - b)
-                const value = Math.max(1, n.sourceGlobal.length + effectiveThailand.length)
+                const effectiveThailand = filterKnownThailandSourceIds(
+                  slice.sourceThailand,
+                  knownThailandSourceIds
+                ).sort((a, b) => a - b)
+                const value = Math.max(1, slice.sourceGlobal.length + effectiveThailand.length)
                 const rf: HeatmapPhaseRiskFactor = { id: factorId, value }
-                if (n.sourceGlobal.length) rf.sourceGlobal = n.sourceGlobal
+                if (slice.sourceGlobal.length) rf.sourceGlobal = slice.sourceGlobal
                 if (effectiveThailand.length) rf.sourceThailand = effectiveThailand
-                if (n.thailandOtp.length) rf.thailandOtpProjects = n.thailandOtp
+                if (slice.thailandOtp.length) rf.thailandOtpProjects = slice.thailandOtp
+                if (slice.thailandSectorProjects.length) {
+                  rf.thailandSectorProjects = slice.thailandSectorProjects
+                }
                 return rf
               })
               .filter((x): x is NonNullable<typeof x> => x != null),
@@ -575,18 +597,19 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
         for (const entry of Object.values(cat)) {
           const n = normalizeHeatmapFactorPhaseEntry(entry)
           if (partialKeys && !factorMatchesRiskSourceFilter(n, partialKeys)) continue
-          const effTh = [...n.sourceThailand]
-          if (n.thailandOtp.length > 0 && !effTh.includes(THAILAND_RISK_SOURCE_OTP_ID)) {
-            effTh.push(THAILAND_RISK_SOURCE_OTP_ID)
+          for (const phase of n.phases) {
+            const slice = getMatrixFactorPhaseSlice(n, phase)
+            const effTh = filterKnownThailandSourceIds(slice.sourceThailand, knownThailandSourceIds)
+            maxValue = Math.max(maxValue, 1, slice.sourceGlobal.length + effTh.length)
           }
-          maxValue = Math.max(maxValue, 1, n.sourceGlobal.length + effTh.length)
         }
       }
     }
 
     return { categoryById, factorById, maxValue, getHeatmapItemByCategoryId }
   }, [
-    riskData?.heatmapRiskPhase,
+    matrixHeatmapRiskPhase,
+    knownThailandSourceIds,
     safeInfoData.riskCategory,
     safeInfoData.riskFactor,
     matrixSourceFilterMode,
@@ -882,7 +905,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
   )
 
   const riskCategoryMatrixData = useMemo(() => {
-    const h = riskData?.heatmapRiskPhase
+    const h = matrixHeatmapRiskPhase
     if (!h || typeof h !== 'object') return []
     const showNone = matrixSourceFilterMode.kind === 'none_selected'
     const partialKeys =
@@ -899,14 +922,25 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
         let operation = 0
         for (const entry of entries) {
           const n = normalizeHeatmapFactorPhaseEntry(entry)
-          if (partialKeys && !factorMatchesRiskSourceFilter(n, partialKeys)) continue
-          if (n.phases.includes('pre-construction')) preConstruction++
-          if (n.phases.includes('construction')) construction++
-          if (n.phases.includes('operation')) operation++
+          const phasesToCount: Array<'pre-construction' | 'construction' | 'operation'> = [
+            'pre-construction',
+            'construction',
+            'operation',
+          ]
+          for (const phase of phasesToCount) {
+            if (!n.phases.includes(phase)) continue
+            const slice = getMatrixFactorPhaseSlice(n, phase)
+            if (partialKeys && !factorPhaseSliceMatchesRiskSourceFilter(slice, partialKeys)) {
+              continue
+            }
+            if (phase === 'pre-construction') preConstruction++
+            else if (phase === 'construction') construction++
+            else operation++
+          }
         }
         return { categoryId, preConstruction, construction, operation }
       })
-  }, [riskData?.heatmapRiskPhase, matrixSourceFilterMode])
+  }, [matrixHeatmapRiskPhase, matrixSourceFilterMode])
 
   return (
     <div className="contents">
@@ -1157,7 +1191,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
                   riskCategoryNameById.get(row.categoryId) ??
                   riskCategoryNameById.get(toRiskCategoryCode(row.categoryId)) ??
                   row.categoryId
-                const fp = riskData?.heatmapRiskPhase?.[row.categoryId] as Record<string, unknown> | undefined
+                const fp = matrixHeatmapRiskPhase[row.categoryId] as Record<string, unknown> | undefined
                 const hasMatrixRowValue =
                   row.preConstruction > 0 ||
                   row.construction > 0 ||
@@ -1193,7 +1227,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
                   <tr key={row.categoryId}>
                     <td className="border border-gray-300 px-3 py-2 text-gray-800 bg-white">
                       {hasMatrixRowValue ? (
-                        <Tippy content="คลิกเพื่อเปิด heat map ปัจจัยความเสี่ยง">
+                        <Tippy content="คลิกเพื่อเปิดรายละเอียดปัจจัยความเสี่ยงแยกตามเฟสโครงการ">
                           <button
                             type="button"
                             onClick={() => setSelectedMatrixCategoryId(row.categoryId)}
