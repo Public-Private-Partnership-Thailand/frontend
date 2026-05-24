@@ -45,9 +45,9 @@ function mapIconName(iconName: string): string {
 
 function phaseLabelTh(phase: string): string {
   const m: Record<string, string> = {
-    'pre-construction': 'ก่อนก่อสร้าง',
-    construction: 'ก่อสร้าง',
-    operation: 'ดำเนินการ',
+    'pre-construction': 'Pre-constuction',
+    construction: 'Construction',
+    operation: 'Operation',
   }
   return m[phase] ?? phase
 }
@@ -360,7 +360,7 @@ export default function PastPppThailandRiskSection({
             <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-gray-200 bg-white px-5 py-4 shrink-0">
               <div>
                 <h2 id="past-ppp-sector-title" className="text-lg font-semibold text-gray-900">
-                  {getBusinessGroupDisplayName(sectorModal.sectorKey)}
+                  {"กลุ่มกิจการ — " + getBusinessGroupDisplayName(sectorModal.sectorKey)}
                 </h2>
               </div>
               <button
