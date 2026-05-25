@@ -4,8 +4,9 @@ export type PastPppRiskProjectRow = {
   projectId: string
   projectName: string
   problem: string
-  riskImpact: string
-  riskResponse: string
+  description?: string | string[]
+  riskImpact: string | string[]
+  riskResponse: string | string[]
   phase: string
   riskGroup: string
   riskFactor: string

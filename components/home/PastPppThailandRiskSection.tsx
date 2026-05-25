@@ -23,6 +23,9 @@ import {
   type PastPppRiskProjectRow,
   type PastPppSectorPastRisks,
 } from '@/lib/pastPppThailandRiskMock'
+import { fetchProjectById } from '@/lib/projectService'
+import { normalizeMitigationHandling } from '@/lib/normalizeMitigationHandling'
+import type { Risk } from '@/types/project'
 
 function mapIconName(iconName: string): string {
   const iconMap: Record<string, string> = {
@@ -50,6 +53,101 @@ function phaseLabelTh(phase: string): string {
     operation: 'Operation',
   }
   return m[phase] ?? phase
+}
+
+function normalizeTextLines(value: unknown): string[] {
+  if (value == null) return []
+  if (Array.isArray(value)) {
+    return value.map((s) => String(s).trim()).filter(Boolean)
+  }
+  const s = String(value).trim()
+  return s.length > 0 ? [s] : []
+}
+
+function hasMeaningfulTextLines(value: unknown): boolean {
+  const lines = normalizeTextLines(value)
+  return lines.length > 0 && !(lines.length === 1 && lines[0] === 'N/A')
+}
+
+function RiskDetailText({ value }: { value: string | string[] | undefined }) {
+  const lines = normalizeTextLines(value)
+  if (lines.length === 0) return <span className="text-gray-400">N/A</span>
+  if (lines.length === 1) return <span>{lines[0]}</span>
+  return (
+    <ul className="space-y-1.5 list-none m-0 p-0">
+      {lines.map((line, i) => (
+        <li key={i} className="flex gap-2 text-gray-700 leading-relaxed">
+          <span className="mt-2 w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />
+          <span>{line}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function mapProjectRiskToModalRow(
+  projectId: string,
+  projectName: string,
+  risk: Risk,
+  riskCategoryMap: Map<number, string>,
+): PastPppRiskProjectRow {
+  const riskBreakdown = (risk.category_drivers ?? []).map((driver) => {
+    const group =
+      riskCategoryMap.get(driver.risk_category_id) ??
+      (driver.category_name?.trim() || `หมวดความเสี่ยง #${driver.risk_category_id}`)
+    const riskFactors = (driver.driven_by_risk_factors ?? [])
+      .map((f) => removeRiskFactorCodePrefix(f.factor_name?.trim() || ''))
+      .filter(Boolean)
+    return { riskGroup: group, riskFactors }
+  })
+  const riskGroups = riskBreakdown.map((x) => x.riskGroup)
+  const riskFactors = Array.from(new Set(riskBreakdown.flatMap((x) => x.riskFactors)))
+  const descriptionLines = normalizeTextLines(risk.description)
+  const impactLines = normalizeTextLines(risk.impact_statement)
+  const responseLines = normalizeMitigationHandling(risk.mitigation_handling)
+
+  return {
+    projectId,
+    projectName,
+    problem: risk.title?.trim() || 'N/A',
+    description: descriptionLines.length > 0 ? descriptionLines : 'N/A',
+    riskImpact: impactLines.length > 0 ? impactLines : 'N/A',
+    riskResponse: responseLines.length > 0 ? responseLines : 'N/A',
+    phase: normalizePhase(risk.phase),
+    riskGroup: riskGroups.join(' / ') || 'N/A',
+    riskFactor: riskFactors.join(' / ') || 'N/A',
+    riskGroups,
+    riskFactors,
+    riskBreakdown,
+  }
+}
+
+async function fetchRiskDetailRowsForIncident(
+  incident: PastPppRiskIncident,
+  riskCategoryList: RiskCategory[],
+): Promise<PastPppRiskProjectRow[]> {
+  const projectRef = incident.projects[0]
+  if (!projectRef?.projectId?.trim()) return []
+
+  const project = await fetchProjectById(projectRef.projectId.trim())
+  if (!project) return []
+
+  const projectName = project.title?.trim() || projectRef.projectName?.trim() || 'N/A'
+  const riskCategoryMap = new Map<number, string>(
+    riskCategoryList.map((c) => [c.id, formatRiskCategoryLabel(c)]),
+  )
+
+  const allRisks = project.risks ?? []
+  const summary = incident.summaryProblem?.trim()
+  const matched =
+    summary.length > 0
+      ? allRisks.filter((r) => (r.title ?? '').trim() === summary)
+      : []
+  const risksToShow = matched.length > 0 ? matched : allRisks
+
+  return risksToShow.map((risk) =>
+    mapProjectRiskToModalRow(projectRef.projectId, projectName, risk, riskCategoryMap),
+  )
 }
 
 type PastPppThailandRiskSectionProps = {
@@ -267,12 +365,40 @@ export default function PastPppThailandRiskSection({
   const [projectsModal, setProjectsModal] = useState<{
     sectorLabel: string
     incident: PastPppRiskIncident
+    rows: PastPppRiskProjectRow[] | null
+    loadError: string | null
+    openedAt: number
   } | null>(null)
   useEffect(() => {
     if (sectorModal) {
       setSectorModalExpanded({ projects: false, incidents: false })
     }
   }, [sectorModal])
+
+  useEffect(() => {
+    if (!projectsModal) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const rows = await fetchRiskDetailRowsForIncident(
+          projectsModal.incident,
+          riskCategoryList,
+        )
+        if (cancelled) return
+        setProjectsModal((prev) =>
+          prev ? { ...prev, rows, loadError: rows.length === 0 ? 'ไม่พบข้อมูลความเสี่ยงของโครงการ' : null } : null,
+        )
+      } catch {
+        if (cancelled) return
+        setProjectsModal((prev) =>
+          prev ? { ...prev, rows: [], loadError: 'ไม่สามารถโหลดข้อมูลโครงการได้' } : null,
+        )
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [projectsModal?.openedAt, riskCategoryList])
 
   const projectsInSectorModal = useMemo(
     () => (sectorModal ? buildProjectsInSectorModal(sectorModal) : []),
@@ -475,6 +601,9 @@ export default function PastPppThailandRiskSection({
                                   setProjectsModal({
                                     sectorLabel: getBusinessGroupDisplayName(sectorModal.sectorKey),
                                     incident: inc,
+                                    rows: null,
+                                    loadError: null,
+                                    openedAt: Date.now(),
                                   })
                                 }
                                 className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1"
@@ -525,55 +654,88 @@ export default function PastPppThailandRiskSection({
               </button>
             </div>
             <div className="overflow-auto flex-1 px-2 sm:px-4 py-4">
-              <div className="min-w-[720px]">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="border-b border-gray-200 text-left text-xs font-semibold text-gray-500">
-                      <th className="py-2 pr-3 pl-2 sticky left-0 bg-white min-w-[10rem]">โครงการ</th>
-                      <th className="py-2 pr-3 min-w-[11rem]">ปัญหาที่เกิดขึ้น</th>
-                      <th className="py-2 pr-3 min-w-[9rem]">Risk Impact</th>
-                      <th className="py-2 pr-3 min-w-[9rem]">Risk Response</th>
-                      <th className="py-2 pr-3 w-28">เฟส</th>
-                      <th className="py-2 pr-3 min-w-[11rem]">กลุ่มความเสี่ยงและปัจจัยเสี่ยง</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {projectsModal.incident.projects.map((p: PastPppRiskProjectRow) => (
-                      <tr key={p.projectId} className="border-b border-gray-100 align-top hover:bg-slate-50/80">
-                        <td className="py-3 pr-3 pl-2 font-medium text-gray-900 sticky left-0 bg-white">
-                          {p.projectName}
-                        </td>
-                        <td className="py-3 pr-3 text-gray-700">{p.problem}</td>
-                        <td className="py-3 pr-3 text-gray-700">{p.riskImpact}</td>
-                        <td className="py-3 pr-3 text-gray-700">{p.riskResponse}</td>
-                        <td className="py-3 pr-3 text-gray-700 whitespace-nowrap">{phaseLabelTh(p.phase)}</td>
-                        <td className="py-3 pr-3 text-gray-700 align-top">
-                          <div className="space-y-2">
-                            {(p.riskBreakdown && p.riskBreakdown.length > 0
-                              ? p.riskBreakdown
-                              : [{ riskGroup: p.riskGroup, riskFactors: [p.riskFactor] }]
-                            ).map((groupRow, idx) => (
-                              <div key={`${p.projectId}-risk-breakdown-${idx}`} className="rounded-md border border-slate-200 bg-slate-50 p-2">
-                                <div className="text-xs font-semibold text-slate-700">{groupRow.riskGroup}</div>
-                                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                  {groupRow.riskFactors.map((factor, factorIdx) => (
-                                    <span
-                                      key={`${p.projectId}-risk-breakdown-factor-${idx}-${factorIdx}`}
-                                      className="inline-flex rounded bg-white border border-slate-200 px-2 py-0.5 text-xs text-slate-700"
-                                    >
-                                      {factor}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </td>
+              {projectsModal.rows === null ? (
+                <p className="text-sm text-gray-500 py-12 text-center">กำลังโหลดข้อมูลความเสี่ยง...</p>
+              ) : projectsModal.loadError ? (
+                <p className="text-sm text-gray-500 py-12 text-center">{projectsModal.loadError}</p>
+              ) : (
+                <div className="min-w-[720px]">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b border-gray-200 text-left text-xs font-semibold text-gray-500">
+                        <th className="py-2 pr-3 pl-2 sticky left-0 bg-white min-w-[10rem]">โครงการ</th>
+                        <th className="py-2 pr-3 min-w-[11rem]">ปัญหาที่เกิดขึ้น</th>
+                        <th className="py-2 pr-3 min-w-[9rem]">Risk Impact</th>
+                        <th className="py-2 pr-3 min-w-[9rem]">Risk Response</th>
+                        <th className="py-2 pr-3 w-28">เฟส</th>
+                        <th className="py-2 pr-3 min-w-[11rem]">กลุ่มความเสี่ยงและปัจจัยเสี่ยง</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {projectsModal.rows.map((p, rowIdx) => (
+                        <tr
+                          key={`${p.projectId}-${rowIdx}`}
+                          className="border-b border-gray-100 align-top"
+                        >
+                          <td className="py-3 pr-3 pl-2 font-medium text-gray-900 sticky left-0 bg-white">
+                            <Link
+                              href={`/view/${p.projectId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline text-indigo-700 hover:text-indigo-900"
+                            >
+                              {p.projectName}
+                            </Link>
+                          </td>
+                          <td className="py-3 pr-3 text-gray-700">
+                            <p className="font-medium text-gray-900">{p.problem}</p>
+                            {hasMeaningfulTextLines(p.description) && (
+                              <div className="mt-2 pt-2 border-t border-gray-100">
+                                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+                                  รายละเอียด
+                                </p>
+                                <RiskDetailText value={p.description} />
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 pr-3 text-gray-700">
+                            <RiskDetailText value={p.riskImpact} />
+                          </td>
+                          <td className="py-3 pr-3 text-gray-700">
+                            <RiskDetailText value={p.riskResponse} />
+                          </td>
+                          <td className="py-3 pr-3 text-gray-700 whitespace-nowrap">{phaseLabelTh(p.phase)}</td>
+                          <td className="py-3 pr-3 text-gray-700 align-top">
+                            <div className="space-y-2">
+                              {(p.riskBreakdown && p.riskBreakdown.length > 0
+                                ? p.riskBreakdown
+                                : [{ riskGroup: p.riskGroup, riskFactors: [p.riskFactor] }]
+                              ).map((groupRow, idx) => (
+                                <div
+                                  key={`${p.projectId}-risk-breakdown-${rowIdx}-${idx}`}
+                                  className="rounded-md border border-slate-200 bg-slate-50 p-2"
+                                >
+                                  <div className="text-xs font-semibold text-slate-700">{groupRow.riskGroup}</div>
+                                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                    {groupRow.riskFactors.map((factor, factorIdx) => (
+                                      <span
+                                        key={`${p.projectId}-risk-breakdown-factor-${rowIdx}-${idx}-${factorIdx}`}
+                                        className="inline-flex rounded bg-white border border-slate-200 px-2 py-0.5 text-xs text-slate-700"
+                                      >
+                                        {factor}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </div>
