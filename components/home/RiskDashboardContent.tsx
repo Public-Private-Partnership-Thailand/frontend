@@ -1153,7 +1153,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
       <div className="mb-8">
         <div className="mb-4">
           <h2 className="text-xl font-bold text-gray-900">กลุ่มความเสี่ยงที่เกิดขึ้นในแต่ละเฟสของโครงการ</h2>
-          <p className="mt-1 text-sm text-gray-500">คลิกชื่อประเภทความเสี่ยงเพื่อเปิดรายละเอียดแยกตามปัจจัยความเสี่ยงในแต่ละเฟส</p>
+          <p className="mt-1 text-sm text-gray-500">คลิกกลุ่มความเสี่ยงเพื่อเปิดรายละเอียดแยกตามปัจจัยความเสี่ยงในแต่ละเฟส</p>
         </div>
         {safeInfoData.riskSource?.global?.length || safeInfoData.riskSource?.thailand?.length ? (
           <MatrixRiskSourceFilterPanel
@@ -1172,7 +1172,7 @@ export default function RiskDashboardContent({ infoData, riskData }: RiskDashboa
             <thead>
               <tr>
                 <th className="border border-gray-300 bg-gray-50 px-3 py-2 text-left font-medium text-gray-700">
-                  ประเภทความเสี่ยง
+                  กลุ่มความเสี่ยง
                 </th>
                 <th className="border border-gray-300 bg-gray-50 px-3 py-2 text-center font-medium text-gray-700">
                   Pre-construction
